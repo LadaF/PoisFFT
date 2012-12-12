@@ -38,4 +38,10 @@
       else
         stop
       endif
-      
+
+#undef xwork
+#undef datatype
+#undef dataf
+#undef colons
+#undef dims
+#undef PoisFFT_SolverXD

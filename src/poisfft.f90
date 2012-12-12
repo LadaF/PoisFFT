@@ -1,7 +1,9 @@
 module PoisFFT
   use iso_c_binding
   !$ use omp_lib
+  use Precisions
   use FFT
+  
   implicit none
 
   integer, parameter :: PoisFFT_Periodic = 0
@@ -17,10 +19,23 @@ module PoisFFT
     module procedure PoisFFT_Solver2D_DeallocateData
     module procedure PoisFFT_Solver3D_DeallocateData
   end interface DeallocateData
+
+
+  interface Init
+    module procedure PoisFFT_Solver1D_Init
+    module procedure PoisFFT_Solver2D_Init
+    module procedure PoisFFT_Solver3D_Init
+  end interface Init
+  
+  interface Execute
+    module procedure PoisFFT_Solver1D_Execute
+    module procedure PoisFFT_Solver2D_Execute
+    module procedure PoisFFT_Solver3D_Execute
+  end interface Execute
   
   contains
 
-    subroutine poisFFT_Solver3D_Execute(D,Phi,RHS)
+    subroutine PoisFFT_Solver3D_Execute(D,Phi,RHS)
       type(PoisFFT_Solver3D), intent(inout) :: D
       real(RP), intent(out) :: Phi(:,:,:)
       real(RP), intent(in)  :: RHS(:,:,:)
@@ -33,7 +48,7 @@ module PoisFFT
 
 
       if (all(D%BCs==PoisFFT_Periodic)) then
-write(*,*) "FullPeriodic",D%BCs      
+
         call PoisFFT_Solver3D_FullPeriodic(D,&
                  Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
                      ngPhi(2)+1:ngPhi(2)+D%ny,&
@@ -42,8 +57,28 @@ write(*,*) "FullPeriodic",D%BCs
                      ngRHS(2)+1:ngRHS(2)+D%ny,&
                      ngRHS(3)+1:ngRHS(3)+D%nz))
                      
+      else if (all(D%BCs==PoisFFT_DirichletStag)) then
+
+        call PoisFFT_Solver3D_FullDirichletStag(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny,&
+                     ngPhi(3)+1:ngPhi(3)+D%nz),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny,&
+                     ngRHS(3)+1:ngRHS(3)+D%nz))
+
+      else if (all(D%BCs==PoisFFT_NeumannStag)) then
+
+        call PoisFFT_Solver3D_FullNeumannStag(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny,&
+                     ngPhi(3)+1:ngPhi(3)+D%nz),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny,&
+                     ngRHS(3)+1:ngRHS(3)+D%nz))
+
       else if (all(D%BCs(1:4)==PoisFFT_Periodic).and.all(D%BCs(5:6)==PoisFFT_NeumannStag)) then
-write(*,*) "PPNs",D%BCs
+
         call PoisFFT_Solver3D_PPNs(D,&
                  Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
                      ngPhi(2)+1:ngPhi(2)+D%ny,&
@@ -54,16 +89,17 @@ write(*,*) "PPNs",D%BCs
 
        endif
 
-    end subroutine poisFFT_Solver3D_Execute
+    end subroutine PoisFFT_Solver3D_Execute
 
 
     
-    function PoisFFT_Solver3D_New(nx,ny,nz,dx,dy,dz,BCs) result(D)
+    function PoisFFT_Solver3D_New(nx,ny,nz,dx,dy,dz,BCs,nthreads) result(D)
       type(PoisFFT_Solver3D) :: D
 
       integer, intent(in)   :: nx, ny, nz
       real(RP), intent(in)  :: dx, dy, dz
       integer, dimension(6) :: bcs
+      integer, optional     :: nthreads
 
       D%dx = dx
       D%dy = dy
@@ -76,9 +112,15 @@ write(*,*) "PPNs",D%BCs
       D%cnt = D%nx * D%ny * D%nz
 
       D%BCs = BCs
-write(*,*) "BCs",D%BCs
+
+      if (present(nthreads)) then
+        D%nthreads = nthreads
+      else
+        D%nthreads = 1
+      endif
+
       !create fftw plans and allocate working array
-      call poisfft_3d_init(D)
+      call Init(D)
     end function PoisFFT_Solver3D_New
 
 
@@ -137,8 +179,8 @@ write(*,*) "BCs",D%BCs
     subroutine PoisFFT_Solver1D_DeallocateData(D)
       type(PoisFFT_Solver1D), intent(inout) :: D
 
-      call Destroy(D%fplan)
-      call Destroy(D%bplan)
+      call Destroy(D%forward)
+      call Destroy(D%backward)
 
       if (associated(D%rwork)) call data_deallocate(D%rwork)
       if (associated(D%cwork)) call data_deallocate(D%cwork)
@@ -150,8 +192,8 @@ write(*,*) "BCs",D%BCs
     subroutine PoisFFT_Solver2D_DeallocateData(D)
       type(PoisFFT_Solver2D), intent(inout) :: D
 
-      call Destroy(D%fplan)
-      call Destroy(D%bplan)
+      call Destroy(D%forward)
+      call Destroy(D%backward)
 
       if (associated(D%rwork)) call data_deallocate(D%rwork)
       if (associated(D%cwork)) call data_deallocate(D%cwork)
@@ -164,8 +206,8 @@ write(*,*) "BCs",D%BCs
       type(PoisFFT_Solver3D), intent(inout) :: D
       integer :: i
 
-      call Destroy(D%fplan)
-      call Destroy(D%bplan)
+      call Destroy(D%forward)
+      call Destroy(D%backward)
 
       if (associated(D%rwork)) call data_deallocate(D%rwork)
       if (associated(D%cwork)) call data_deallocate(D%cwork)
@@ -173,19 +215,19 @@ write(*,*) "BCs",D%BCs
       if (allocated(D%Solvers1D)) then
         do i=1,size(D%Solvers1D)
           call DeallocateData(D%Solvers1D(i))
-        enddo
+        end do
       endif
 
       if (allocated(D%Solvers2D)) then
         do i=1,size(D%Solvers2D)
           call DeallocateData(D%Solvers2D(i))
-        enddo
+        end do
       endif
 
       if (allocated(D%Solvers2D)) then
         do i=1,size(D%Solvers2D)
           call DeallocateData(D%Solvers2D(i))
-        enddo
+        end do
       endif
     endsubroutine PoisFFT_Solver3D_DeallocateData
 
@@ -197,6 +239,7 @@ write(*,*) "BCs",D%BCs
       real(RP), intent(in)  :: RHS(:,:,:)
       real(RP) :: dx2, dy2, dz2
       real(RP) :: dkx, dky, dkz
+      real(RP) :: denomx(D%nx), denomy(D%ny), denomz(D%nz)
       integer i,j,k
 
       dx2 = 1._RP/D%dx**2
@@ -207,24 +250,185 @@ write(*,*) "BCs",D%BCs
       dky = 2._RP*pi/(D%ny)
       dkz = 2._RP*pi/(D%nz)
 
-      ! Forward FFT of RHS
-      forall(i=1:D%nx,j=1:D%ny,k=1:D%nz)&
-        D%cwork(i,j,k) = cmplx(RHS(i,j,k),0._RP)
 
+      !$omp parallel private(i,j,k)
+      
+      !$omp workshare
+      D%cwork = cmplx(RHS,0._RP,CP)
+      !$omp end workshare
 
-      call Execute(D%fplan, D%cwork)
+      
+      !$omp end parallel
+      call Execute(D%forward, D%cwork)
+      !$omp parallel private(i,j,k)
+      
+      !$omp workshare
+      forall(i=1:D%nx)  denomx(i) = (cos((i-1)*dkx)-1.0_RP) * dx2 * 2
 
+      forall(j=1:D%ny)  denomy(j) = (cos((j-1)*dky)-1.0_RP) * dy2 * 2
+
+      forall(k=1:D%nz)  denomz(k) = (cos((k-1)*dkz)-1.0_RP) * dz2 * 2
+      !$omp end workshare
+
+      !$omp single
       D%cwork(1,1,1) = 0
-      forall(i=1:D%nx,j=1:D%ny,k=1:D%nz, i/=1.or.j/=1.or.k/=1) &
-        D%cwork(i,j,k) = D%cwork(i,j,k) / (2.0_RP * ((cos((i-1)*dkx)-1.0_RP)*dx2+&
-                                                   (cos((j-1)*dky)-1.0_RP)*dy2+&
-                                                   (cos((k-1)*dkz)-1.0_RP)*dz2))
+      !$omp end single
+      
+      !$omp do
+      do k=1,D%nz
+        do j=1,D%ny
+          do i=1,D%nx
+            if (i==1.and.j==1.and.k==1.) cycle
+            D%cwork(i,j,k) = D%cwork(i,j,k) / (denomx(i) + denomy(j) + denomz(k))
+          end do
+        end do
+      end do
+      !$omp end do
+      
+      
+      !$omp end parallel
+      call Execute(D%backward, D%cwork)
+      !$omp parallel
+      
+      !$omp workshare
+       Phi = real(D%cwork,RP) / (D%nx*D%ny*D%nz)
+      !$omp end workshare
 
-      call Execute(D%bplan, D%cwork)
-
-      Phi = real(D%cwork,RP)/(D%nx*D%ny*D%nz)
+      !$omp end parallel
 
     end subroutine PoisFFT_Solver3D_FullPeriodic
+
+
+
+
+    subroutine PoisFFT_Solver3D_FullDirichletStag(D, Phi, RHS)
+      type(PoisFFT_Solver3D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      real(RP) :: dx2, dy2, dz2
+      real(RP) :: dkx_h, dky_h, dkz_h !half of ussual dkx
+      real(RP) :: denomx(D%nx), denomy(D%ny), denomz(D%nz)
+      integer i,j,k
+
+      dx2 = 1._RP/D%dx**2
+      dy2 = 1._RP/D%dy**2
+      dz2 = 1._RP/D%dz**2
+
+      dkx_h = pi/(D%nx)
+      dky_h = pi/(D%ny)
+      dkz_h = pi/(D%nz)
+
+      !$omp parallel private(i,j,k)
+      
+      !$omp workshare
+      D%rwork = RHS
+      !$omp end workshare
+
+
+      !$omp end parallel
+      call Execute(D%forward, D%rwork)
+      !$omp parallel private(i,j,k)
+
+      
+      !$omp workshare
+      forall(i=1:D%nx)  denomx(i) = (cos(i*dkx_h)-1.0_RP) * dx2 * 2
+
+      forall(j=1:D%ny)  denomy(j) = (cos(j*dky_h)-1.0_RP) * dy2 * 2
+
+      forall(k=1:D%nz)  denomz(k) = (cos(k*dkz_h)-1.0_RP) * dz2 * 2
+      !$omp end workshare
+      
+      !$omp do
+      do k=1,D%nz
+        do j=1,D%ny
+          do i=1,D%nx
+            D%rwork(i,j,k) = D%rwork(i,j,k) / (denomx(i) + denomy(j) + denomz(k))
+          end do
+        end do
+      end do
+      !$omp end do
+      
+      !$omp end parallel
+      call Execute(D%backward, D%rwork)
+      !$omp parallel private(i,j,k)
+
+      !$omp workshare
+      Phi = D%rwork/(8*D%nx*D%ny*D%nz)
+      !$omp end workshare
+
+      !$omp end parallel
+
+    end subroutine PoisFFT_Solver3D_FullDirichletStag
+
+
+
+
+    subroutine PoisFFT_Solver3D_FullNeumannStag(D, Phi, RHS)
+      type(PoisFFT_Solver3D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      real(RP) :: dx2, dy2, dz2
+      real(RP) :: dkx_h, dky_h, dkz_h !half of ussual dkx
+      real(RP) :: denomx(D%nx), denomy(D%ny), denomz(D%nz)
+      integer i,j,k
+      real t1,t2
+      
+      dx2 = 1._RP/D%dx**2
+      dy2 = 1._RP/D%dy**2
+      dz2 = 1._RP/D%dz**2
+
+      dkx_h = pi/(D%nx)
+      dky_h = pi/(D%ny)
+      dkz_h = pi/(D%nz)
+
+      !$omp parallel private(i,j,k)
+
+      !$omp workshare
+      D%rwork = RHS
+      !$omp end workshare
+
+
+      !$omp end parallel
+      call Execute(D%forward, D%rwork)
+      !$omp parallel private(i,j,k)
+
+
+      !$omp single
+      D%rwork(1,1,1) = 0
+      !$omp end single
+
+      !$omp workshare
+      forall(i=1:D%nx)  denomx(i) = (cos((i-1)*dkx_h)-1.0_RP) * dx2 * 2
+
+      forall(j=1:D%ny)  denomy(j) = (cos((j-1)*dky_h)-1.0_RP) * dy2 * 2
+      
+      forall(k=1:D%nz)  denomz(k) = (cos((k-1)*dkz_h)-1.0_RP) * dz2 * 2
+      !$omp end workshare
+      
+      !$omp do
+      do k=1,D%nz
+        do j=1,D%ny
+          do i=1,D%nx
+            if (i==1.and.j==1.and.k==1.) cycle
+            D%rwork(i,j,k) = D%rwork(i,j,k) / (denomx(i) + denomy(j) + denomz(k))
+          end do
+        end do
+      end do
+      !$omp end do
+
+                                                      
+      !$omp end parallel
+      call Execute(D%backward, D%rwork)
+      !$omp parallel private(i,j,k)
+
+      
+      !$omp workshare
+      Phi = D%rwork/(8*D%nx*D%ny*D%nz)
+      !$omp end workshare
+
+      !$omp end parallel
+
+    end subroutine PoisFFT_Solver3D_FullNeumannStag
 
 
 
@@ -235,6 +439,7 @@ write(*,*) "BCs",D%BCs
       real(RP), intent(in)  :: RHS(:,:,:)
       real(RP) :: dx2, dy2, dz2
       real(RP) :: dkx, dky, dkz
+      real(RP) :: denomx(D%nx), denomy(D%ny), denomz(D%nz)
       integer i,j,k
       integer tid      !thread id
 
@@ -246,117 +451,540 @@ write(*,*) "BCs",D%BCs
       dky = 2._RP*pi/(D%ny)
       dkz = 2._RP*pi/(D%nz)
 
-      !$omp parallel private(tid)
+      !$omp parallel private(tid,i,j,k)
       tid = 1
-      !$ tid = omp_get_thread_num()
-      
+      !$ tid = omp_get_thread_num()+1
 
       ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
       !$omp do
       do j=1,D%ny
         do i=1,D%nx
           D%Solvers1D(tid)%rwork = RHS(i,j,:)
-          
-          call Execute(D%Solvers1D(tid)%fplan,D%Solvers1D(tid)%rwork)
-          
+
+
+          call Execute(D%Solvers1D(tid)%forward,D%Solvers1D(tid)%rwork)
+
+
           Phi(i,j,:) = D%Solvers1D(tid)%rwork
-        enddo
-      enddo
+        end do
+      end do
       !$omp end do
 
-      !now solve nz 2D problems
+      !$omp sections
+      forall(i=1:D%nx)  denomx(i) = (cos((i-1)*dkx)-1.0_RP) * dx2 * 2
+      !$omp section
+      forall(j=1:D%ny)  denomy(j) = (cos((j-1)*dky)-1.0_RP) * dy2 * 2
+      !$omp section
+      forall(k=1:D%nz)  denomz(k) = (cos((k-1)*pi/D%nz)-1.0_RP) * dz2 * 2
+      !$omp end sections
+
       !$omp do
       do k=1,D%nz
         forall(i=1:D%nx,j=1:D%ny)&
-          D%Solvers2D(tid)%cwork(i,j) = cmplx(Phi(i,j,k),0._RP)
-          
-        call Execute(D%Solvers2D(tid)%fplan, D%Solvers2D(tid)%cwork)
+          D%Solvers2D(tid)%cwork(i,j) = cmplx(Phi(i,j,k),0._RP,CP)
 
-        D%Solvers2D(tid)%cwork(1,1) = 0
-        forall(i=1:D%nx,j=1:D%ny, i/=1.or.j/=1) &
-          D%Solvers2D(tid)%cwork(i,j) = D%Solvers2D(tid)%cwork(i,j)&
-                                            / (2.0_RP * ((cos((i-1)*dkx)-1.0_RP)*dx2+&
-                                                        (cos((j-1)*dky)-1.0_RP)*dy2+&
-                                                        (cos((k-1)*pi/D%nz)-1.0_RP)*dz2))
 
-        call Execute(D%Solvers2D(tid)%bplan, D%Solvers2D(tid)%cwork)
+        call Execute(D%Solvers2D(tid)%forward, D%Solvers2D(tid)%cwork)
 
-        Phi(:,:,k) = real(D%Solvers2D(tid)%cwork,RP)/(D%nx*D%ny)
 
-        if (k>1) then
-          Phi(:,:,k) = 2 * Phi(:,:,k) / D%nz
+        if (k==1) then
+
+          D%Solvers2D(tid)%cwork(1,1) = 0
+
+
+          do j=1,D%ny
+            do i=1,D%nx
+              if (i==1.and.j==1) cycle
+              D%Solvers2D(tid)%cwork(i,j) = D%Solvers2D(tid)%cwork(i,j)&
+                                              / (denomx(i) + denomy(j) + denomz(k))
+            end do
+          end do
+
         else
-          Phi(:,:,k) = Phi(:,:,k) / D%nz
+
+          do j=1,D%ny
+            do i=1,D%nx
+              D%Solvers2D(tid)%cwork(i,j) = D%Solvers2D(tid)%cwork(i,j)&
+                                              / (denomx(i) + denomy(j) + denomz(k))
+            end do
+          end do
+
         endif
-      enddo
+
+
+        call Execute(D%Solvers2D(tid)%backward, D%Solvers2D(tid)%cwork)
+
+
+        Phi(:,:,k) = real(D%Solvers2D(tid)%cwork,RP) / (2 * D%nx * D%ny * D%nz)
+
+
+      end do
       !$omp end do
+
 
       !$omp do
       do j=1,D%ny
         do i=1,D%nx
           D%Solvers1D(tid)%rwork = Phi(i,j,:)
-          
-          call Execute(D%Solvers1D(tid)%bplan,D%Solvers1D(tid)%rwork)
-          
-          Phi(i,j,:) = D%Solvers1D(tid)%rwork / 4._RP
-        enddo
-      enddo
-      !$omp end do
 
+
+          call Execute(D%Solvers1D(tid)%backward,D%Solvers1D(tid)%rwork)
+
+
+          Phi(i,j,:) = D%Solvers1D(tid)%rwork
+        end do
+      end do
+      !$omp end do
       !$omp end parallel
+
     end subroutine PoisFFT_Solver3D_PPNs
 
 
 
 
-    subroutine poisfft_3d_init(D)
+
+    subroutine PoisFFT_Solver3D_Init(D)
       type(PoisFFT_Solver3D), intent(inout) :: D
       integer i
       
-      D%nthreads = 1
       !$omp parallel
-      !$omp critical
+      !$omp single
       !$ D%nthreads = omp_get_num_threads()
-      !$omp end critical
+      !$omp end single
       !$omp end parallel
-write (*,*) "init",D%BCs      
+
+
       if (all(D%BCs==PoisFFT_Periodic)) then
       
-        D%fplan = PoisFFT_Plan3D_QuickCreate(D, [FFT_Complex, FFTW_FORWARD])
-        D%bplan = PoisFFT_Plan3D_QuickCreate(D, [FFT_Complex, FFTW_BACKWARD])
+        if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
+
+        D%forward = PoisFFT_Plan3D_QuickCreate(D, [FFT_Complex, FFTW_FORWARD])
+        D%backward = PoisFFT_Plan3D_QuickCreate(D, [FFT_Complex, FFTW_BACKWARD])
         
         call data_allocate_complex(D)
-        
-      else if (all(D%BCs(1:4)==PoisFFT_Periodic).and.all(D%BCs(5:6)==PoisFFT_NeumannStag)) then
+
+
+      else if (all(D%BCs==PoisFFT_DirichletStag)) then
+
+        if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
+
+        D%forward = PoisFFT_Plan3D_QuickCreate(D, [(FFT_RealOdd10, i=1,3)])
+        D%backward = PoisFFT_Plan3D_QuickCreate(D, [(FFT_RealOdd01, i=1,3)])
+
+        call data_allocate_real(D)
+
+
+      else if (all(D%BCs==PoisFFT_NeumannStag)) then
+
+        if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
+
+        D%forward = PoisFFT_Plan3D_QuickCreate(D, [(FFT_RealEven10, i=1,3)])
+        D%backward = PoisFFT_Plan3D_QuickCreate(D, [(FFT_RealEven01, i=1,3)])
+
+        call data_allocate_real(D)
+
+
+      else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. all(D%BCs(5:6)==PoisFFT_NeumannStag)) then
+
+        if (D%nthreads>1) call PoisFFT_InitThreads(1)
 
         allocate(D%Solvers1D(D%nthreads))
 
         D%Solvers1D(1) = PoisFFT_Solver1D_From3D(D,3)
         
-        D%Solvers1D(1)%fplan = PoisFFT_Plan1D_QuickCreate(D%Solvers1D(1), [FFT_RealEven10])
-        D%Solvers1D(1)%bplan = PoisFFT_Plan1D_QuickCreate(D%Solvers1D(1), [FFT_RealEven01])
+        D%Solvers1D(1)%forward = PoisFFT_Plan1D_QuickCreate(D%Solvers1D(1), [FFT_RealEven10])
+        D%Solvers1D(1)%backward = PoisFFT_Plan1D_QuickCreate(D%Solvers1D(1), [FFT_RealEven01])
         call data_allocate_real(D%Solvers1D(1))
 
         do i=2,D%nthreads
           D%Solvers1D(i) = D%Solvers1D(1)
           call data_allocate_real(D%Solvers1D(i))
-        enddo
+        end do
 
         allocate(D%Solvers2D(D%nthreads))
 
         D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
 
-        D%Solvers2D(1)%fplan = PoisFFT_Plan2D_QuickCreate(D%Solvers2D(1), [FFT_Complex, FFTW_FORWARD])
-        D%Solvers2D(1)%bplan = PoisFFT_Plan2D_QuickCreate(D%Solvers2D(1), [FFT_Complex, FFTW_BACKWARD])
+        D%Solvers2D(1)%forward = PoisFFT_Plan2D_QuickCreate(D%Solvers2D(1), [FFT_Complex, FFTW_FORWARD])
+        D%Solvers2D(1)%backward = PoisFFT_Plan2D_QuickCreate(D%Solvers2D(1), [FFT_Complex, FFTW_BACKWARD])
         call data_allocate_complex(D%Solvers2D(1))
 
         do i=2,D%nthreads
           D%Solvers2D(i) = D%Solvers2D(1)
           call data_allocate_complex(D%Solvers2D(i))
-        enddo
+        end do
 
       endif
-    end subroutine poisfft_3d_init
+    end subroutine PoisFFT_Solver3D_Init
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    function PoisFFT_Solver2D_New(nx,ny,dx,dy,BCs) result(D)
+      type(PoisFFT_Solver2D) :: D
+
+      integer, intent(in)   :: nx, ny
+      real(RP), intent(in)  :: dx, dy
+      integer, dimension(4) :: bcs
+
+      D%dx = dx
+      D%dy = dy
+
+      D%nx = nx
+      D%ny = ny
+
+      D%cnt = D%nx * D%ny
+
+      D%BCs = BCs
+
+      !create fftw plans and allocate working array
+      call Init(D)
+    end function PoisFFT_Solver2D_New
+
+
+
+    subroutine PoisFFT_Solver2D_Execute(D,Phi,RHS)
+      type(PoisFFT_Solver2D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:)
+      real(RP), intent(in)  :: RHS(:,:)
+
+      integer   :: ngPhi(2), ngRHS(2)
+
+
+      ngPhi = (ubound(Phi)-[D%nx,D%ny])/2
+      ngRHS = (ubound(RHS)-[D%nx,D%ny])/2
+
+
+!       if (all(D%BCs==PoisFFT_Periodic)) then
+! 
+!         call PoisFFT_Solver2D_FullPeriodic(D,&
+!                  Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+!                      ngPhi(2)+1:ngPhi(2)+D%ny),&
+!                  RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+!                      ngRHS(2)+1:ngRHS(2)+D%ny))
+! 
+!       else if (all(D%BCs==PoisFFT_DirichletStag)) then
+! 
+!         call PoisFFT_Solver2D_FullDirichletStag(D,&
+!                  Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+!                      ngPhi(2)+1:ngPhi(2)+D%ny),&
+!                  RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+!                      ngRHS(2)+1:ngRHS(2)+D%ny))
+
+      if (all(D%BCs==PoisFFT_NeumannStag)) then
+
+        call PoisFFT_Solver2D_FullNeumannStag(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny))
+      endif
+
+    end subroutine PoisFFT_Solver2D_Execute
+
+
+
+    
+    
+    subroutine PoisFFT_Solver2D_FullNeumannStag(D, Phi, RHS)
+      type(PoisFFT_Solver2D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:)
+      real(RP), intent(in)  :: RHS(:,:)
+      real(RP) :: dx2, dy2
+      real(RP) :: dkx_h, dky_h
+      real(RP) :: denomx(D%nx), denomy(D%ny)
+      integer i,j
+
+      dx2 = 1._RP/D%dx**2
+      dy2 = 1._RP/D%dy**2
+
+      dkx_h = pi/(D%nx)
+      dky_h = pi/(D%ny)
+
+      ! Forward FFT of RHS
+      D%rwork = RHS
+
+
+      call Execute(D%forward, D%rwork)
+
+
+      forall(i=1:D%nx)  denomx(i) = (cos((i-1)*dkx_h)-1.0_RP) * dx2 * 2
+
+      forall(j=1:D%ny)  denomy(j) = (cos((j-1)*dky_h)-1.0_RP) * dy2 * 2
+
+      D%rwork(1,1) = 0
+      
+      do j = 1,D%ny
+        do i = 1,D%nx
+          if (i==1.and.j==1) cycle
+          D%rwork(i,j) = D%rwork(i,j) / (denomx(i) + denomy(j))
+        end do
+      end do
+
+      call Execute(D%backward, D%rwork)
+
+      Phi = D%rwork/(4*D%nx*D%ny)
+
+    end subroutine PoisFFT_Solver2D_FullNeumannStag
+
+
+    
+    subroutine Poisfft_Solver2D_Init(D)
+      type(PoisFFT_Solver2D), intent(inout) :: D
+      integer i
+
+
+      if (all(D%BCs==PoisFFT_Periodic)) then
+
+        D%forward = PoisFFT_Plan2D_QuickCreate(D, [FFT_Complex, FFTW_FORWARD])
+        D%backward = PoisFFT_Plan2D_QuickCreate(D, [FFT_Complex, FFTW_BACKWARD])
+
+        call data_allocate_complex(D)
+
+
+      else if (all(D%BCs==PoisFFT_DirichletStag)) then
+
+        D%forward = PoisFFT_Plan2D_QuickCreate(D, [(FFT_RealOdd10, i=1,2)])
+        D%backward = PoisFFT_Plan2D_QuickCreate(D, [(FFT_RealOdd01, i=1,2)])
+
+        call data_allocate_real(D)
+
+
+      else if (all(D%BCs==PoisFFT_NeumannStag)) then
+
+        D%forward = PoisFFT_Plan2D_QuickCreate(D, [(FFT_RealEven10, i=1,2)])
+        D%backward = PoisFFT_Plan2D_QuickCreate(D, [(FFT_RealEven01, i=1,2)])
+
+        call data_allocate_real(D)
+
+
+      endif
+    end subroutine PoisFFT_Solver2D_Init
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    function PoisFFT_Solver1D_New(nx,dx,BCs) result(D)
+      type(PoisFFT_Solver1D) :: D
+
+      integer, intent(in)   :: nx
+      real(RP), intent(in)  :: dx
+      integer, dimension(2) :: bcs
+
+      D%dx = dx
+
+      D%nx = nx
+
+      D%cnt = D%nx
+
+      D%BCs = BCs
+
+      !create fftw plans and allocate working array
+      call Init(D)
+    end function PoisFFT_Solver1D_New
+
+
+
+    subroutine PoisFFT_Solver1D_Execute(D,Phi,RHS)
+      type(PoisFFT_Solver1D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:)
+      real(RP), intent(in)  :: RHS(:)
+
+      integer   :: ngPhi(1), ngRHS(1)
+
+
+      ngPhi = (ubound(Phi)-D%nx)/2
+      ngRHS = (ubound(RHS)-D%nx)/2
+
+
+      if (all(D%BCs==PoisFFT_Periodic)) then
+
+        call PoisFFT_Solver1D_FullPeriodic(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
+
+      else if (all(D%BCs==PoisFFT_DirichletStag)) then
+
+        call PoisFFT_Solver1D_FullDirichletStag(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
+
+      else if (all(D%BCs==PoisFFT_NeumannStag)) then
+
+        call PoisFFT_Solver1D_FullNeumannStag(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
+      endif
+
+    end subroutine PoisFFT_Solver1D_Execute
+
+
+    
+
+
+    subroutine PoisFFT_Solver1D_FullPeriodic(D, Phi, RHS)
+      type(PoisFFT_Solver1D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:)
+      real(RP), intent(in)  :: RHS(:)
+      real(RP) :: dx2
+      real(RP) :: dkx
+      integer i
+
+      dx2 = 1._RP/D%dx**2
+
+      dkx = 2._RP*pi/(D%nx)
+
+      ! Forward FFT of RHS
+      D%cwork = cmplx(RHS,0._RP,CP)
+
+
+      call Execute(D%forward, D%cwork)
+
+      
+      D%cwork(1) = 0
+      forall(i=2:D%nx) &
+        D%cwork(i) = D%cwork(i) / (2.0_RP * (cos((i-1)*dkx)-1.0_RP)*dx2)
+
+      call Execute(D%backward, D%cwork)
+
+      Phi = real(D%cwork,RP) / (D%nx)
+
+    end subroutine PoisFFT_Solver1D_FullPeriodic
+
+
+
+
+
+    subroutine PoisFFT_Solver1D_FullDirichletStag(D, Phi, RHS)
+      type(PoisFFT_Solver1D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:)
+      real(RP), intent(in)  :: RHS(:)
+      real(RP) :: dx2
+      real(RP) :: dkx_h !half of ussual dkx
+      integer i
+
+      dx2 = 1._RP/D%dx**2
+      dkx_h = pi/(D%nx)
+
+      ! Forward FFT of RHS
+      D%rwork = RHS
+
+
+      call Execute(D%forward, D%rwork)
+
+
+      forall(i=1:D%nx) &
+        D%rwork(i) = D%rwork(i) / (2.0_RP * (cos((i)*dkx_h)-1.0_RP)*dx2)
+
+      call Execute(D%backward, D%rwork)
+
+      Phi = D%rwork/(2*D%nx)
+
+    end subroutine PoisFFT_Solver1D_FullDirichletStag
+
+
+
+
+    subroutine PoisFFT_Solver1D_FullNeumannStag(D, Phi, RHS)
+      type(PoisFFT_Solver1D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:)
+      real(RP), intent(in)  :: RHS(:)
+      real(RP) :: dx2
+      real(RP) :: dkx_h
+      integer i
+
+      dx2 = 1._RP/D%dx**2
+
+      dkx_h = pi/(D%nx)
+
+      ! Forward FFT of RHS
+      D%rwork = RHS
+
+
+      call Execute(D%forward, D%rwork)
+
+      
+      D%rwork = D%rwork/(D%nx)
+
+      D%rwork(1) = 0
+      forall(i=2:D%nx) &
+        D%rwork(i) = D%rwork(i) / (2.0_RP * (cos((i-1)*dkx_h)-1.0_RP)*dx2)
+
+      call Execute(D%backward, D%rwork)
+
+      Phi = D%rwork/2
+
+    end subroutine PoisFFT_Solver1D_FullNeumannStag
+
+
+    
+    subroutine Poisfft_Solver1D_Init(D)
+      type(PoisFFT_Solver1D), intent(inout) :: D
+      integer i
+
+
+      if (all(D%BCs==PoisFFT_Periodic)) then
+
+        D%forward = PoisFFT_Plan1D_QuickCreate(D, [FFT_Complex, FFTW_FORWARD])
+        D%backward = PoisFFT_Plan1D_QuickCreate(D, [FFT_Complex, FFTW_BACKWARD])
+
+        call data_allocate_complex(D)
+
+
+      else if (all(D%BCs==PoisFFT_DirichletStag)) then
+
+        D%forward = PoisFFT_Plan1D_QuickCreate(D, [FFT_RealOdd10])
+        D%backward = PoisFFT_Plan1D_QuickCreate(D, [FFT_RealOdd01])
+
+        call data_allocate_real(D)
+
+
+      else if (all(D%BCs==PoisFFT_NeumannStag)) then
+
+        D%forward = PoisFFT_Plan1D_QuickCreate(D, [FFT_RealEven10])
+        D%backward = PoisFFT_Plan1D_QuickCreate(D, [FFT_RealEven01])
+
+        call data_allocate_real(D)
+
+
+      endif
+    end subroutine PoisFFT_Solver1D_Init
     
 end module PoisFFT

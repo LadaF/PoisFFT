@@ -54,4 +54,4 @@ module vtkarray
       write (11,*)
 
     end subroutine VtkArraySimple
-  end module vtkarray
+end module vtkarray

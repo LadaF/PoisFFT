@@ -102,3 +102,11 @@
       endif
       
       plan%planowner=.true.
+      
+
+#undef colons
+#undef realplantypes
+#undef nxyzs
+#undef PoisFFT_SolverXD
+#undef PoisFFT_PlanXD
+#undef SliceXD

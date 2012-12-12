@@ -1,9 +1,32 @@
-module FFT
- ! Based on  Athena ath_fft.c
+module Precisions
   use iso_c_binding
   implicit none
+  
+  integer, parameter :: DCP =  c_double_complex
+  integer, parameter :: DRP =  c_double
 
-   include 'customfftw3.f90'
+  integer, parameter :: SCP =  c_float_complex
+  integer, parameter :: SRP =  c_float
+
+#ifdef DPREC
+  integer, parameter :: CP = DCP 
+  integer, parameter :: RP = DRP
+#else
+  integer, parameter :: CP = SCP 
+  integer, parameter :: RP = SRP
+#endif
+
+end module Precisions
+
+
+module FFT
+
+  use iso_c_binding
+  use Precisions
+  
+  implicit none
+
+  include 'customfftw3.f90'
 
 
   integer, parameter :: FFT_Complex = 0
@@ -17,16 +40,6 @@ module FFT
   integer, parameter :: FFT_RealOdd11   = FFTW_RODFT11
 
   logical, parameter :: BLOCK_DECOMP = .false.
-
-
-  integer, parameter :: DCP =  c_double_complex
-  integer, parameter :: DRP =  c_double
-
-  integer, parameter :: SCP =  c_float_complex
-  integer, parameter :: SRP =  c_float!c_double
-
-  integer, parameter :: CP = DCP
-  integer, parameter :: RP = DRP
  
   type PoisFFT_Plan1D
     type(c_ptr)         :: planptr=c_null_ptr
@@ -78,7 +91,7 @@ module FFT
     integer  :: nx
     integer  :: cnt
     integer, dimension(2) :: BCs
-    type(PoisFFT_Plan1D) :: fplan, bplan
+    type(PoisFFT_Plan1D) :: forward, backward
     complex(CP), dimension(:),&!contiguous,
                        pointer :: cwork => null()
     real(RP), dimension(:),&!contiguous,
@@ -90,7 +103,7 @@ module FFT
     integer  :: nx, ny
     integer  :: cnt
     integer, dimension(4) :: BCs
-    type(PoisFFT_Plan2D) :: fplan, bplan
+    type(PoisFFT_Plan2D) :: forward, backward
     complex(CP), dimension(:,:),&!contiguous,
                        pointer :: cwork => null()
     real(RP), dimension(:,:),&!contiguous,
@@ -102,12 +115,12 @@ module FFT
     integer  :: nx, ny, nz
     integer  :: cnt
     integer, dimension(6) :: BCs
-    type(PoisFFT_Plan3D) :: fplan, bplan
+    type(PoisFFT_Plan3D) :: forward, backward
     complex(CP), dimension(:,:,:),&!contiguous,
                        pointer :: cwork => null()
     real(RP), dimension(:,:,:),&!contiguous,
                        pointer :: rwork => null()
-    integer :: nthreads
+    integer :: nthreads = 1
     !will be used in splitting for some boundary conditions                   
     type(PoisFFT_Solver1D),dimension(:),allocatable :: Solvers1D
     type(PoisFFT_Solver2D),dimension(:),allocatable :: Solvers2D
@@ -191,8 +204,8 @@ module FFT
 
       DL%BCs = DR%BCs
 
-      DL%fplan = DR%fplan
-      DL%bplan = DR%bplan
+      DL%forward = DR%forward
+      DL%backward = DR%backward
       DL%rwork => DR%rwork
       DL%cwork => DR%cwork
     end subroutine PoisFFT_Solver1D_Assign
@@ -211,8 +224,8 @@ module FFT
 
       DL%BCs = DR%BCs
 
-      DL%fplan = DR%fplan
-      DL%bplan = DR%bplan
+      DL%forward = DR%forward
+      DL%backward = DR%backward
       DL%rwork => DR%rwork
       DL%cwork => DR%cwork
     end subroutine PoisFFT_Solver2D_Assign
@@ -233,13 +246,21 @@ module FFT
 
       DL%BCs = DR%BCs
 
-      DL%fplan = DR%fplan
-      DL%bplan = DR%bplan
+      DL%forward = DR%forward
+      DL%backward = DR%backward
       DL%rwork => DR%rwork
       DL%cwork => DR%cwork
 
-      if (allocated(DR%Solvers1D)) DL%Solvers1D = DR%Solvers1D
-      if (allocated(DR%Solvers2D)) DL%Solvers2D = DR%Solvers2D
+      if (allocated(DR%Solvers1D)) then
+         allocate(DL%Solvers1D(size(DR%Solvers1D)))
+         DL%Solvers1D = DR%Solvers1D
+      endif
+      
+      if (allocated(DR%Solvers2D)) then
+         allocate(DL%Solvers2D(size(DR%Solvers2D)))
+         DL%Solvers2D = DR%Solvers2D
+      endif
+      
     end subroutine PoisFFT_Solver3D_Assign
 
 
@@ -318,16 +339,19 @@ module FFT
     function PoisFFT_Plan1D_Create(D, plantypes, sl, usework) result(plan)
 #define dimensions 1
 #include "plan_create.f90"
+#undef dimensions
     end function PoisFFT_Plan1D_Create
 
     function PoisFFT_Plan2D_Create(D, plantypes, sl, usework) result(plan)
 #define dimensions 2
 #include "plan_create.f90"
+#undef dimensions
     end function PoisFFT_Plan2D_Create
 
     function PoisFFT_Plan3D_Create(D, plantypes, sl, usework) result(plan)
 #define dimensions 3
 #include "plan_create.f90"
+#undef dimensions
     end function PoisFFT_Plan3D_Create
 
 
@@ -338,6 +362,9 @@ module FFT
 #define realcomplex 2
 
 #include "data_allocate.f90"
+
+#undef dimensions
+#undef realcomplex
     end subroutine data_allocate_1D_Complex
 
     subroutine data_allocate_1D_Real(D, data)
@@ -345,13 +372,20 @@ module FFT
 #define realcomplex 1
 
 #include "data_allocate.f90"
+
+#undef dimensions
+#undef realcomplex
     end subroutine data_allocate_1D_Real
+
 
     subroutine data_allocate_2D_Complex(D, data)
 #define dimensions 2
 #define realcomplex 2
 
 #include "data_allocate.f90"
+    
+#undef dimensions
+#undef realcomplex
     end subroutine data_allocate_2D_Complex
 
     subroutine data_allocate_2D_Real(D, data)
@@ -359,6 +393,9 @@ module FFT
 #define realcomplex 1
 
 #include "data_allocate.f90"
+    
+#undef dimensions
+#undef realcomplex
     end subroutine data_allocate_2D_Real
 
     subroutine data_allocate_3D_Complex(D, data)
@@ -366,6 +403,9 @@ module FFT
 #define realcomplex 2
 
 #include "data_allocate.f90"
+
+#undef dimensions
+#undef realcomplex
     end subroutine data_allocate_3D_Complex
 
     subroutine data_allocate_3D_Real(D, data)
@@ -373,6 +413,9 @@ module FFT
 #define realcomplex 1
 
 #include "data_allocate.f90"
+    
+#undef dimensions
+#undef realcomplex
     end subroutine data_allocate_3D_Real
 
 
@@ -579,4 +622,19 @@ module FFT
     end subroutine PoisFFT_Plan3D_Destroy
 
 
+    subroutine PoisFFT_InitThreads(nthreads)  !instructs fftw to plan to use nthreads threads
+      integer, intent(in) :: nthreads
+      integer(c_int) :: error
+      
+      error =  fftw_init_threads()
+     
+      if (error==0) then
+        write(*,*) "Error when initializing FFTW for threads."
+      else
+        call fftw_plan_with_nthreads(int(nthreads,c_int))
+      end if
+      
+    end subroutine PoisFFT_InitThreads
+
+    
 end module FFT

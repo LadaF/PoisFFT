@@ -221,5 +221,19 @@
       type(C_PTR), value :: p
     end subroutine fftw_destroy_plan
 
+
+    subroutine fftw_plan_with_nthreads(nthreads) bind(C, name='fftw_plan_with_nthreads')
+      import
+      integer(C_INT), value :: nthreads
+    end subroutine fftw_plan_with_nthreads
+
+    integer(C_INT) function fftw_init_threads() bind(C, name='fftw_init_threads')
+      import
+    end function fftw_init_threads
+
+    subroutine fftw_cleanup_threads() bind(C, name='fftw_cleanup_threads')
+      import
+    end subroutine fftw_cleanup_threads
+
    end interface
   

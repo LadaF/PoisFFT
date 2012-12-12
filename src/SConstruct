@@ -1,0 +1,32 @@
+import os
+comp = ARGUMENTS.get('comp','')
+prec = ARGUMENTS.get('prec','')
+
+
+
+if str(comp)=='sun':
+  env = Environment(tools=['link','sunf90','sunf95'])
+  env.Append(F90FLAGS='-fpp -xpp=cpp -g -fast -openmp -fPIC')
+  env.Replace(SHF90FLAGS=['$F90FLAGS','-fPIC'])
+  env.Replace(SHLINKFLAGS=['$LINKFLAGS', '-G'])
+else:
+  env = Environment()
+  env.Append(F90FLAGS='-cpp -w -g -Wall -Ofast -fopenmp')
+
+if str(prec)=='dp':
+  prec_dir = 'dp'  
+  env.Append(F90FLAGS=' -DDPREC')
+else:
+  prec_dir = 'sp'
+
+
+env.Append(ENV = {'PATH' : os.environ['PATH']})
+
+objs = env.SharedObject(target='fft', source='fft.f90')
+objs += env.SharedObject(target='poisfft', source='poisfft.f90')
+
+objs = filter(lambda o: str(o)[-4:] != '.mod', objs)
+
+t = env.SharedLibrary(target='libpoisfft', source=objs)
+
+Default(t)
