@@ -1,12 +1,13 @@
 program testpoisson
-  use precisions
-  use poisfft
-  use vtkarray
+  use Precisions
+  use PoisFFT
   
   implicit none
   
+  integer,parameter :: RP = SRP
+
   real(RP), parameter :: pi = 3.141592653589793238462_RP!pi = 4*atan(1._RP)!
-  integer :: nx = 16, ny = 16, nz = 16
+  integer :: nx = 131, ny = 123, nz = 127
   real(RP), dimension(:,:,:), allocatable :: Phi, RHS
   real(RP), dimension(:,:), allocatable :: Phi2D, RHS2D
   real(RP), dimension(:), allocatable :: Phi1D, RHS1D
@@ -14,14 +15,13 @@ program testpoisson
   integer i,j,k,niters,inunit
   real(RP) :: R,x,y,z,tmp1,tmp2
   integer(8) :: t1,t2,trate
-  type(PoisFFT_Solver3D) :: Solver
-  type(PoisFFT_Solver2D) :: Solver2D
-  type(PoisFFT_Solver1D) :: Solver1D
+  type(PoisFFT_Solver3D_SP) :: Solver3D
+  type(PoisFFT_Solver2D_SP) :: Solver2D
+  type(PoisFFT_Solver1D_SP) :: Solver1D
   character(len=5) :: ch5
 
   call system_clock(count_rate=trate)
   
-!   read (*,*) nx,ny,nz
   if (command_argument_count()>=3) then
     call get_command_argument(1,value=ch5)
     read(ch5,'(i5)') nx
@@ -50,22 +50,18 @@ program testpoisson
   allocate(Phi1D(0:nx+1))
 
 
-!   open(newunit=inunit,file="input.vtk")
-!   read(unit=inunit,fmt="(13/)")
+
   do k=1,nz
    do j=1,ny
     do i=1,nx
      x=(i-1._RP/2)*dx
      y=(j-1._RP/2)*dy
      z=(k-1._RP/2)*dz
-     !RHS(i,j,k)=cos(2*x)*cos(2*y)*cos(2*z)!(pi/2-abs(x-pi))*(pi/2-abs(y-pi))*(pi/2-abs(z-pi))!
      call random_number(RHS(i,j,k))
-!      read(unit=inunit,fmt=*) RHS(i,j,k)
      call random_number(Phi(i,j,k))
     enddo
    enddo
   enddo
-!   close(inunit)
   RHS=RHS-sum(RHS)/size(RHS)
 
 
@@ -76,7 +72,6 @@ program testpoisson
      x=(i-1._RP/2)*dx
      y=(j-1._RP/2)*dy
      z=(k-1._RP/2)*dz
-     !RHS(i,j,k)=cos(2*x)*cos(2*y)*cos(2*z)!(pi/2-abs(x-pi))*(pi/2-abs(y-pi))*(pi/2-abs(z-pi))!
      call random_number(RHS2D(i,j))
      call random_number(Phi2D(i,j))
     enddo
@@ -87,7 +82,6 @@ program testpoisson
 
   do i=1,nx
     x=(i-1._RP/2)*dx
-!     RHS1D(i)=(pi/2-abs(x-pi))
     call random_number(RHS1D(i))
     call random_number(Phi1D(i))
   enddo
@@ -125,20 +119,18 @@ program testpoisson
 
   write (*,*) R
 
-  Solver = PoisFFT_Solver3D_New(nx,ny,nz,dx,dy,dz,[(PoisFFT_PERIODIC, i=1,4),(PoisFFT_NeumannStag, i=5,6)])
+  call New(Solver3D,nx,ny,nz,dx,dy,dz,[(PoisFFT_PERIODIC, i=1,4),(PoisFFT_NeumannStag, i=5,6)])
 
   do i=1,3
-    !call cpu_time(t1)
     call system_clock(count=t1)
 
-    call PoisFFT_Solver3D_Execute(Solver,Phi,RHS)
+    call Execute(Solver3D,Phi,RHS)
 
-    !call cpu_time(t2)
     call system_clock(count=t2)
     write(*,*) "solver cpu time", real(t2-t1)/real(trate)
   end do
 
-  call PoisFFT_Solver3D_DeallocateData(Solver)
+  call DeallocateData(Solver3D)
 
   Phi(0,:,:)=Phi(nx,:,:)
   Phi(:,0,:)=Phi(:,ny,:)
@@ -153,34 +145,6 @@ program testpoisson
 ! 
   write (*,*) R
 
-
-!  write(*,*) "sum", sum(Phi(1:nx,1:ny,1:nz))
-! 
-!   Phi=Phi-sum(Phi(1:nx,1:ny,1:nz))/(nx*ny*nz)
-! 
-! 
-!  call VtkArraySimple("out.vtk",real(Phi(1:nx,1:ny,1:nz),kind(1.)))
-! 
-!   do i=1,niters/100
-!     call GS3D(nx,ny,nz,100,Phi,RHS,&
-!                 dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
-!                 [3,3,3,3,2,2])
-!   enddo
-! 
-!   call Res3D(nx,ny,nz,Phi,RHS,&
-!                dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
-!                [3,3,3,3,2,2],R)
-! 
-!   write (*,*) R
-! 
-!  write(*,*) "sum", sum(Phi(1:nx,1:ny,1:nz))
-! 
-!  Phi=Phi-sum(Phi(1:nx,1:ny,1:nz))/(nx*ny*nz)
-! 
-! 
-! call VtkArraySimple("gs.vtk",real(Phi(1:nx,1:ny,1:nz),kind(1.)))
-
-!   call VtkArraySimple("rhs2.vtk",real(RHS,kind(1.)))
 
   write (*,*) "---------"
 
@@ -212,29 +176,24 @@ program testpoisson
   enddo
 
 
-!  call VtkArraySimple("rhs.vtk",real(RHS,kind(1.)))
-
-
   call Res3D(nx,ny,nz,Phi,RHS,&
                dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
                [1,1,1,1,1,1],R)
 
   write (*,*) R
 
-  Solver = PoisFFT_Solver3D_New(nx,ny,nz,dx,dy,dz,[(PoisFFT_DirichletStag, i=1,6)])
+  call New(Solver3D,nx,ny,nz,dx,dy,dz,[(PoisFFT_DirichletStag, i=1,6)])
 
   do i=1,3
-    !call cpu_time(t1)
     call system_clock(count=t1)
 
-    call PoisFFT_Solver3D_Execute(Solver,Phi,RHS)
+    call Execute(Solver3D,Phi,RHS)
 
-    !call cpu_time(t2)
     call system_clock(count=t2)
     write(*,*) "solver cpu time", real(t2-t1)/real(trate)
   end do
 
-  call PoisFFT_Solver3D_DeallocateData(Solver)
+  call DeallocateData(Solver3D)
 
   call Res3D(nx,ny,nz,Phi,RHS,&
                dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
@@ -242,41 +201,7 @@ program testpoisson
 
   write (*,*) R
 
-
-
-
-!   call VtkArraySimple("outdir.vtk",real(Phi(1:nx,1:ny,1:nz),kind(1.)))
-! 
-! !   do k=1,nz
-! !    do j=1,ny
-! !     do i=1,nx
-! !      call random_number(Phi(i,j,k))
-! !     enddo
-! !    enddo
-! !   enddo
-! 
-!   do i=1,niters/100
-!     call GS3D(nx,ny,nz,100,Phi,RHS,&
-!                 dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
-!                 [1,1,1,1,1,1])
-!   call Res3D(nx,ny,nz,Phi,RHS,&
-!                dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
-!                [1,1,1,1,1,1],R)
-! 
-!   write (*,*) R
-!   enddo
-! 
-!   call Res3D(nx,ny,nz,Phi,RHS,&
-!                dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
-!                [1,1,1,1,1,1],R)
-! 
-!   write (*,*) R
-! 
-!  call VtkArraySimple("gsdir.vtk",real(Phi(1:nx,1:ny,1:nz),kind(1.)))
-! 
-! !   call VtkArraySimple("rhs2.vtk",real(RHS,kind(1.)))
-! 
- write(*,*) "--------"
+  write(*,*) "--------"
 
 
 
@@ -304,7 +229,6 @@ program testpoisson
   enddo
 
 
-!  call VtkArraySimple("rhs.vtk",real(RHS,kind(1.)))
 
 
   Phi(0,:,:)=Phi(1,:,:)
@@ -320,20 +244,18 @@ program testpoisson
 
   write (*,*) R
 
-  Solver = PoisFFT_Solver3D_New(nx,ny,nz,dx,dy,dz,[(PoisFFT_NeumannStag, i=1,6)])
+  call New(Solver3D,nx,ny,nz,dx,dy,dz,[(PoisFFT_NeumannStag, i=1,6)])
 
   do i=1,3
-    !call cpu_time(t1)
     call system_clock(count=t1)
 
-    call PoisFFT_Solver3D_Execute(Solver,Phi,RHS)
+    call Execute(Solver3D,Phi,RHS)
 
-    !call cpu_time(t2)
     call system_clock(count=t2)
     write(*,*) "solver cpu time", real(t2-t1)/real(trate)
   end do
 
-  call PoisFFT_Solver3D_DeallocateData(Solver)
+  call DeallocateData(Solver3D)
 
   Phi(0,:,:)=Phi(1,:,:)
   Phi(:,0,:)=Phi(:,1,:)
@@ -348,44 +270,7 @@ program testpoisson
 
   write (*,*) R
 
-
-
-! 
-!   Phi=Phi-sum(Phi(1:nx,1:ny,1:nz))/(nx*ny*nz)
-! 
-!   tmp1=Phi(nx/2,ny/2,nz/2)
-! 
-!   call VtkArraySimple("outneum.vtk",real(Phi(1:nx,1:ny,1:nz),kind(1.)))
-! 
-! !   do k=1,nz
-! !    do j=1,ny
-! !     do i=1,nx
-! !      call random_number(Phi(i,j,k))
-! !     enddo
-! !    enddo
-! !   enddo
-! 
-!   do i=1,niters/100
-!     call GS3D(nx,ny,nz,100,Phi,RHS,&
-!                 dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
-!                 [2,2,2,2,2,2])
-!   enddo
-! 
-!   call Res3D(nx,ny,nz,Phi,RHS,&
-!                dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
-!                [2,2,2,2,2,2],R)
-! 
-!   write (*,*) R
-! 
-!   Phi=Phi-sum(Phi(1:nx,1:ny,1:nz))/(nx*ny*nz)
-! 
-!   tmp2=Phi(nx/2,ny/2,nz/2)
-! 
-!  call VtkArraySimple("gsneum.vtk",real(Phi(1:nx,1:ny,1:nz),kind(1.)))
-
-!   call VtkArraySimple("rhs2.vtk",real(RHS,kind(1.)))
-
- write(*,*) "--------"
+  write(*,*) "--------"
 
 
 
@@ -425,20 +310,18 @@ program testpoisson
                [3,3,3,3,3,3],R)
 
   write (*,*) R
-  Solver = PoisFFT_Solver3D_New(nx,ny,nz,dx,dy,dz,[(PoisFFT_PERIODIC, i=1,6)])
+  call New(Solver3D,nx,ny,nz,dx,dy,dz,[(PoisFFT_PERIODIC, i=1,6)])
 
   do i=1,3
-    !call cpu_time(t1)
     call system_clock(count=t1)
 
-    call PoisFFT_Solver3D_Execute(Solver,Phi,RHS)
+    call Execute(Solver3D,Phi,RHS)
 
-    !call cpu_time(t2)
     call system_clock(count=t2)
     write(*,*) "solver cpu time", real(t2-t1)/real(trate)
   end do
 
-  call PoisFFT_Solver3D_DeallocateData(Solver)
+  call DeallocateData(Solver3D)
 
   Phi(0,:,:)=Phi(nx,:,:)
   Phi(:,0,:)=Phi(:,ny,:)
@@ -452,431 +335,14 @@ program testpoisson
                [3,3,3,3,3,3],R)
 
   write (*,*) R
-!   Phi=Phi-sum(Phi(1:nx,1:ny,1:nz))/(nx*ny*nz)
-! !
-! call VtkArraySimple("periodic.vtk",real(Phi(1:nx,1:ny,1:nz),kind(1.)))
-! 
-!   do i=1,niters/100
-!     call GS3D(nx,ny,nz,100,Phi,RHS,&
-!                 dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
-!                 [3,3,3,3,3,3])
-!   enddo
-! 
-!   call Res3D(nx,ny,nz,Phi,RHS,&
-!                dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
-!                [3,3,3,3,3,3],R)
-! 
-!   write (*,*) R
-! 
-!   Phi=Phi-sum(Phi(1:nx,1:ny,1:nz))/(nx*ny*nz)
-! 
-! 
-! call VtkArraySimple("gsperiodic.vtk",real(Phi(1:nx,1:ny,1:nz),kind(1.)))
-! 
-!   call VtkArraySimple("rhs.vtk",real(RHS,kind(1.)))
 
 
- write(*,*) "--------"
 
 
 
 
+  
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-!   do j=1,ny
-!     do i=1,nx
-!       call random_number(Phi2D(i,j))
-!     enddo
-!   enddo
-! 
-! 
-! !  call VtkArraySimple("rhs.vtk",real(RHS,kind(1.)))
-! 
-! 
-!   Phi2D(0,:)=Phi2D(1,:)
-!   Phi2D(:,0)=Phi2D(:,1)
-!   Phi2D(:,ny+1)=Phi2D(:,ny)
-!   Phi2D(nx+1,:)=Phi2D(nx,:)
-! 
-! 
-!   call Res2D(nx,ny,Phi2D,RHS2D,&
-!                dx**(-2),dx**(-2),dy**(-2),dy**(-2),&
-!                [2,2,2,2],R)
-! 
-!   write (*,*) R
-! 
-!   Solver2D = PoisFFT_Solver2D_New(nx,ny,dx,dy,[(PoisFFT_NeumannStag, i=1,4)])
-! 
-!   do i=1,3
-!     !call cpu_time(t1)
-!     call system_clock(count=t1)
-! 
-!     call Execute(Solver2D,Phi2D,RHS2D)
-! 
-!     !call cpu_time(t2)
-!     call system_clock(count=t2)
-!     write(*,*) "solver cpu time", real(t2-t1)/real(trate)
-!   end do
-! 
-!   call DeallocateData(Solver2D)
-! 
-!   Phi2D(0,:)=Phi2D(1,:)
-!   Phi2D(:,0)=Phi2D(:,1)
-!   Phi2D(:,ny+1)=Phi2D(:,ny)
-!   Phi2D(nx+1,:)=Phi2D(nx,:)
-! 
-!   call Res2D(nx,ny,Phi2D,RHS2D,&
-!                dx**(-2),dx**(-2),dy**(-2),dy**(-2),&
-!                [2,2,2,2],R)
-! 
-!   write (*,*) R
-! 
-! 
-! 
-! 
-!   Phi2D=Phi2D-sum(Phi2D(1:nx,1:ny))/(nx*ny)
-! 
-!   tmp1=Phi2D(nx/2,ny/2)
-! 
-!   call VtkArraySimple("outneum2d.vtk",reshape(real(Phi2D(1:nx,1:ny),kind(1.)),[nx,ny,1]))
-! 
-! !   do k=1,nz
-! !    do j=1,ny
-! !     do i=1,nx
-! !      call random_number(Phi(i,j,k))
-! !     enddo
-! !    enddo
-! !   enddo
-! 
-!   do i=1,niters/100
-!     call GS2D(nx,ny,100,Phi2D,RHS2D,&
-!                 dx**(-2),dx**(-2),dy**(-2),dy**(-2),&
-!                 [2,2,2,2])
-!   enddo
-! 
-!   call Res2D(nx,ny,Phi2D,RHS2D,&
-!                dx**(-2),dx**(-2),dy**(-2),dy**(-2),&
-!                [2,2,2,2],R)
-! 
-!   write (*,*) R
-! 
-!   Phi2D=Phi2D-sum(Phi2D(1:nx,1:ny))/(nx*ny)
-! 
-!   tmp2=Phi2D(nx/2,ny/2)
-! 
-!  call VtkArraySimple("gsneum2d.vtk",reshape(real(Phi2D(1:nx,1:ny),kind(1.)),[nx,ny,1]))
-! 
-! !   call VtkArraySimple("rhs2.vtk",real(RHS,kind(1.)))
-! 
-!  write(*,*) "--------"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-!   do i=1,nx
-!      call random_number(Phi1D(i))
-!   enddo
-! 
-! 
-! !  call VtkArraySimple("rhs.vtk",real(RHS,kind(1.)))
-! 
-! 
-!   Phi1D(0)=Phi1D(1)
-!   Phi1D(nx+1)=Phi1D(nx)
-! 
-! 
-!   call Res1D(nx,Phi1D,RHS1D,&
-!                dx**(-2),dx**(-2),&
-!                [3,3],R)
-! 
-!   write (*,*) R
-! 
-!   Solver1D = PoisFFT_Solver1D_New(nx,dx,[(PoisFFT_Periodic, i=1,2)])
-! 
-!   do i=1,3
-!     !call cpu_time(t1)
-!     call system_clock(count=t1)
-! 
-!     call Execute(Solver1D,Phi1D,RHS1D)
-! 
-!     !call cpu_time(t2)
-!     call system_clock(count=t2)
-!     write(*,*) "solver cpu time", real(t2-t1)/real(trate)
-!   end do
-! 
-!   call DeallocateData(Solver1D)
-! 
-!   Phi1D(0)=Phi1D(1)
-!   Phi1D(nx+1)=Phi1D(nx)
-! 
-!   call Res1D(nx,Phi1D,RHS1D,&
-!                dx**(-2),dx**(-2),&
-!                [3,3],R)
-! 
-!   write (*,*) R
-! 
-! 
-! 
-! 
-!   Phi1D=Phi1D-sum(Phi1D(1:nx))/(nx)
-! 
-!   tmp1=Phi1D(nx/2)
-! 
-!   call VtkArraySimple("outperiodic1d.vtk",reshape(real(Phi1D(1:nx),kind(1.)),[nx,1,1]))
-! 
-! !   do k=1,nz
-! !    do j=1,ny
-! !     do i=1,nx
-! !      call random_number(Phi(i,j,k))
-! !     enddo
-! !    enddo
-! !   enddo
-! 
-!   do i=1,niters/100
-!     call GS1D(nx,100,Phi1D,RHS1D,&
-!                 dx**(-2),dx**(-2),&
-!                 [3,3])
-!   enddo
-! 
-!   call Res1D(nx,Phi1D,RHS1D,&
-!                dx**(-2),dx**(-2),&
-!                [3,3],R)
-! 
-!   write (*,*) R
-! 
-!   Phi1D=Phi1D-sum(Phi1D(1:nx))/(nx)
-! 
-!   tmp2=Phi1D(nx/2)
-! 
-!  call VtkArraySimple("gsperiodic1d.vtk",reshape(real(Phi1D(1:nx),kind(1.)),[nx,1,1]))
-! 
-! !   call VtkArraySimple("rhs2.vtk",real(RHS,kind(1.)))
-! 
-!  write(*,*) "--------"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-!   do i=1,nx
-!      call random_number(Phi1D(i))
-!   enddo
-! 
-! 
-! !  call VtkArraySimple("rhs.vtk",real(RHS,kind(1.)))
-! 
-! 
-!   Phi1D(0)=Phi1D(1)
-!   Phi1D(nx+1)=Phi1D(nx)
-! 
-! 
-!   call Res1D(nx,Phi1D,RHS1D,&
-!                dx**(-2),dx**(-2),&
-!                [1,1],R)
-! 
-!   write (*,*) R
-! 
-!   Solver1D = PoisFFT_Solver1D_New(nx,dx,[(PoisFFT_DirichletStag, i=1,2)])
-! 
-!   do i=1,3
-!     !call cpu_time(t1)
-!     call system_clock(count=t1)
-! 
-!     call Execute(Solver1D,Phi1D,RHS1D)
-! 
-!     !call cpu_time(t2)
-!     call system_clock(count=t2)
-!     write(*,*) "solver cpu time", real(t2-t1)/real(trate)
-!   end do
-! 
-!   call DeallocateData(Solver1D)
-! 
-!   Phi1D(0)=Phi1D(1)
-!   Phi1D(nx+1)=Phi1D(nx)
-! 
-!   call Res1D(nx,Phi1D,RHS1D,&
-!                dx**(-2),dx**(-2),&
-!                [1,1],R)
-! 
-!   write (*,*) R
-! 
-! 
-!   call VtkArraySimple("outdir1d.vtk",reshape(real(Phi1D(1:nx),kind(1.)),[nx,1,1]))
-! 
-! !   do k=1,nz
-! !    do j=1,ny
-! !     do i=1,nx
-! !      call random_number(Phi(i,j,k))
-! !     enddo
-! !    enddo
-! !   enddo
-! 
-!   do i=1,niters/100
-!     call GS1D(nx,100,Phi1D,RHS1D,&
-!                 dx**(-2),dx**(-2),&
-!                 [1,1])
-!   enddo
-! 
-!   call Res1D(nx,Phi1D,RHS1D,&
-!                dx**(-2),dx**(-2),&
-!                [1,1],R)
-! 
-!   write (*,*) R
-! 
-! 
-!  call VtkArraySimple("gsdir1d.vtk",reshape(real(Phi1D(1:nx),kind(1.)),[nx,1,1]))
-! 
-! !   call VtkArraySimple("rhs2.vtk",real(RHS,kind(1.)))
-! 
-!  write(*,*) "--------"
-
-
-
-
-
-
-
-
-
-
-
-
-!   do i=1,nx
-!      call random_number(Phi1D(i))
-!   enddo
-! 
-! 
-! !  call VtkArraySimple("rhs.vtk",real(RHS,kind(1.)))
-! 
-! 
-!   Phi1D(0)=Phi1D(1)
-!   Phi1D(nx+1)=Phi1D(nx)
-! 
-! 
-!   call Res1D(nx,Phi1D,RHS1D,&
-!                dx**(-2),dx**(-2),&
-!                [2,2],R)
-! 
-!   write (*,*) R
-! 
-!   Solver1D = PoisFFT_Solver1D_New(nx,dx,[(PoisFFT_NeumannStag, i=1,2)])
-! 
-!   do i=1,3
-!     !call cpu_time(t1)
-!     call system_clock(count=t1)
-! 
-!     call Execute(Solver1D,Phi1D,RHS1D)
-! 
-!     !call cpu_time(t2)
-!     call system_clock(count=t2)
-!     write(*,*) "solver cpu time", real(t2-t1)/real(trate)
-!   end do
-! 
-!   call DeallocateData(Solver1D)
-! 
-!   Phi1D(0)=Phi1D(1)
-!   Phi1D(nx+1)=Phi1D(nx)
-! 
-!   call Res1D(nx,Phi1D,RHS1D,&
-!                dx**(-2),dx**(-2),&
-!                [2,2],R)
-! 
-!   write (*,*) R
-! 
-! 
-! 
-! 
-!   Phi1D=Phi1D-sum(Phi1D(1:nx))/(nx)
-! 
-!   tmp1=Phi1D(nx/2)
-! 
-!   call VtkArraySimple("outneum1d.vtk",reshape(real(Phi1D(1:nx),kind(1.)),[nx,1,1]))
-! 
-! !   do k=1,nz
-! !    do j=1,ny
-! !     do i=1,nx
-! !      call random_number(Phi(i,j,k))
-! !     enddo
-! !    enddo
-! !   enddo
-! 
-!   do i=1,niters/100
-!     call GS1D(nx,100,Phi1D,RHS1D,&
-!                 dx**(-2),dx**(-2),&
-!                 [2,2])
-!   enddo
-! 
-!   call Res1D(nx,Phi1D,RHS1D,&
-!                dx**(-2),dx**(-2),&
-!                [2,2],R)
-! 
-!   write (*,*) R
-! 
-!   Phi1D=Phi1D-sum(Phi1D(1:nx))/(nx)
-! 
-!   tmp2=Phi1D(nx/2)
-! 
-!  call VtkArraySimple("gsneum1d.vtk",reshape(real(Phi1D(1:nx),kind(1.)),[nx,1,1]))
-! 
-! !   call VtkArraySimple("rhs2.vtk",real(RHS,kind(1.)))
-! 
-!  write(*,*) "--------"
-
-
-
-
-
-
-
-
-
-  write(*,*) "average of RHS:", sum(RHS1D)/(nx)
 
   contains
   

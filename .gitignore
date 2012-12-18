@@ -1,0 +1,13 @@
+*.mod
+*.o
+*.so
+*.os
+*.vtk
+*~
+*.c
+athena/*
+back/*
+bin/*
+lib/*
+*.dblite
+fftw3.f03

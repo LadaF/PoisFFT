@@ -6,13 +6,28 @@ prec = ARGUMENTS.get('prec','')
 
 if str(comp)=='sun':
   env = Environment(tools=['link','sunf90','sunf95'])
-  env.Append(F90FLAGS='-fpp -xpp=cpp -g -fast -openmp -fPIC')
+  omp_flag = ' -openmp'
+  env.Append(F90FLAGS='-fpp -xpp=cpp -g -fast -fPIC')
   env.Replace(SHF90FLAGS=['$F90FLAGS','-fPIC'])
   env.Replace(SHLINKFLAGS=['$LINKFLAGS', '-G'])
+  comp_dir='sun'
+  
+  env.Append(F90PATH = ['${TARGET.dir}'])
+  env.Append(FORTRANMODDIRPREFIX = '-moddir=')              
+  env.Append(INCPREFIX = '-M')
+
 else:
   env = Environment()
-  env.Append(F90FLAGS='-cpp -w -g -Wall -Ofast -fopenmp')
+  env.Append(F90FLAGS='-cpp -w -g -Wall -Ofast')
+  omp_flag = ' -fopenmp'
+  comp_dir='gcc'
+  
+  env.Append(F90PATH = ['${TARGET.dir}'])
+  env.Append(FORTRANMODDIRPREFIX = '-J')
 
+
+env.Append(F90FLAGS=omp_flag)
+  
 if str(prec)=='dp':
   prec_dir = 'dp'  
   env.Append(F90FLAGS=' -DDPREC')
@@ -20,13 +35,25 @@ else:
   prec_dir = 'sp'
 
 
+env.Append(FORTRANMODDIR = '${TARGET.dir}')
+
 env.Append(ENV = {'PATH' : os.environ['PATH']})
 
-objs = env.SharedObject(target='fft', source='fft.f90')
-objs += env.SharedObject(target='poisfft', source='poisfft.f90')
+objs = env.SharedObject(target='../bin/'+comp_dir+'/precisions', source='precisions.f90')
+objs += env.SharedObject(target='../bin/'+comp_dir+'/parameters', source='parameters.f90')
+objs += env.SharedObject(target='../bin/'+comp_dir+'/fft', source='fft.f90')
+objs += env.SharedObject(target='../bin/'+comp_dir+'/poisfft', source='poisfft.f90')
+objs += env.SharedObject(target='../bin/'+comp_dir+'/main', source='main.f90')
 
 objs = filter(lambda o: str(o)[-4:] != '.mod', objs)
 
-t = env.SharedLibrary(target='libpoisfft', source=objs)
+lib = env.SharedLibrary(target='../lib/'+comp_dir+'/libpoisfft', source = objs)
 
-Default(t)
+testobj = env.StaticObject(F90FLAGS='-O3',target='../bin/'+comp_dir+'/testpoisson', source='testpoisson.f90')
+testobj = filter(lambda o: str(o)[-4:] != '.mod', testobj)
+
+test = env.Program(LINKFLAGS=omp_flag, LIBS=['fftw3','fftw3f','fftw3_omp'],target='../bin/'+comp_dir+'/testpoisson', source = objs + testobj)
+
+env.Alias('test',['../bin/'+comp_dir+'/testpoisson'])
+
+Default(lib)
