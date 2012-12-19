@@ -26,13 +26,16 @@ else:
 
 
 env.Append(ENV = {'PATH' : os.environ['PATH']})
+env.Append(ENV = {'LIBRARY_PATH' : os.environ['LIBRARY_PATH']})
 
 try:
   fc = os.environ['FC']
-  env.Replace(F90 = fc)
+  if len(fc)>0:
+    env.Replace(F90 = fc)
 except:
   pass
 
+env.Replace(LINK = env.Dump('F90'))
 
 env.Append(F90FLAGS=omp_flag)
   
