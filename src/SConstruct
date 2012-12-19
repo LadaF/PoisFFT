@@ -3,7 +3,6 @@ comp = ARGUMENTS.get('comp','')
 prec = ARGUMENTS.get('prec','')
 
 
-
 if str(comp)=='sun':
   env = Environment(tools=['link','sunf90','sunf95'])
   omp_flag = ' -openmp'
@@ -26,6 +25,15 @@ else:
   env.Append(FORTRANMODDIRPREFIX = '-J')
 
 
+env.Append(ENV = {'PATH' : os.environ['PATH']})
+
+try:
+  fc = os.environ['FC']
+  env.Replace(F90 = fc)
+except:
+  pass
+
+
 env.Append(F90FLAGS=omp_flag)
   
 if str(prec)=='dp':
@@ -36,8 +44,6 @@ else:
 
 
 env.Append(FORTRANMODDIR = '${TARGET.dir}')
-
-env.Append(ENV = {'PATH' : os.environ['PATH']})
 
 objs = env.SharedObject(target='../bin/'+comp_dir+'/precisions', source='precisions.f90')
 objs += env.SharedObject(target='../bin/'+comp_dir+'/parameters', source='parameters.f90')
