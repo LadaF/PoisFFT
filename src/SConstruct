@@ -10,11 +10,19 @@ if str(comp)=='sun':
   env.Replace(SHF90FLAGS=['$F90FLAGS','-fPIC'])
   env.Replace(SHLINKFLAGS=['$LINKFLAGS', '-G'])
   comp_dir='sun'
+
+  env.Append(F90PATH = ['${TARGET.dir}'])
+  env.Append(FORTRANMODDIRPREFIX = '-moddir=')
+  env.Append(INCPREFIX = '-M')
+ 
+elif str(comp)=='intel':
+  env = Environment(tools=['default','ifort'])
+  omp_flag = ' -openmp'
+  env.Append(F90FLAGS='-cpp -g -fast')
+  comp_dir='intel'
   
   env.Append(F90PATH = ['${TARGET.dir}'])
-  env.Append(FORTRANMODDIRPREFIX = '-moddir=')              
-  env.Append(INCPREFIX = '-M')
-
+  
 else:
   env = Environment()
   env.Append(F90FLAGS='-cpp -w -g -Wall -Ofast')
@@ -26,7 +34,7 @@ else:
 
 
 env.Append(ENV = {'PATH' : os.environ['PATH']})
-env.Append(ENV = {'LIBRARY_PATH' : os.environ['LIBRARY_PATH']})
+env.Append(ENV = {'LD_LIBRARY_PATH' : os.environ['LD_LIBRARY_PATH']})
 
 try:
   fc = os.environ['FC']

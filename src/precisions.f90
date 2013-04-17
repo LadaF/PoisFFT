@@ -1,4 +1,4 @@
-module Precisions
+module PoisFFT_Precisions
   use iso_c_binding
   implicit none
 
@@ -8,6 +8,6 @@ module Precisions
   integer, parameter :: SCP =  c_float_complex
   integer, parameter :: SRP =  c_float
 
-end module Precisions
+end module PoisFFT_Precisions
 
 

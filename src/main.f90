@@ -1,7 +1,8 @@
 module PoisFFT
 
-  use Precisions
-  use Parameters
+  use PoisFFT_Precisions
+  
+  use PoisFFT_Parameters
 
   use PoisFFT_SP, PoisFFT_Solver1D_SP => PoisFFT_Solver1D, &
                   PoisFFT_Solver2D_SP => PoisFFT_Solver2D, &

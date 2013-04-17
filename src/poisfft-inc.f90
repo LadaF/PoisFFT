@@ -1,7 +1,7 @@
   use iso_c_binding
   !$ use omp_lib
-  use Precisions
-  use Parameters
+  use PoisFFT_Precisions
+  use PoisFFT_Parameters
 
   implicit none
 

@@ -1,5 +1,5 @@
 program testpoisson
-  use Precisions
+  use PoisFFT_Precisions
   use PoisFFT
   
   implicit none

@@ -1,5 +1,5 @@
   use iso_c_binding
-  use Precisions
+  use PoisFFT_Precisions
 
   implicit none
 

@@ -1,4 +1,4 @@
-module Parameters
+module PoisFFT_Parameters
 
   integer, parameter :: PoisFFT_Periodic = 0
   integer, parameter :: PoisFFT_Dirichlet = 1
@@ -6,4 +6,4 @@ module Parameters
   integer, parameter :: PoisFFT_DirichletStag = 3
   integer, parameter :: PoisFFT_NeumannStag = 4
 
-end module Parameters
+end module PoisFFT_Parameters
