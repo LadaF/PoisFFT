@@ -34,7 +34,12 @@ else:
 
 
 env.Append(ENV = {'PATH' : os.environ['PATH']})
-env.Append(ENV = {'LD_LIBRARY_PATH' : os.environ['LD_LIBRARY_PATH']})
+
+try:
+  env.Append(ENV = {'LD_LIBRARY_PATH' : os.environ['LD_LIBRARY_PATH']})
+except:
+  pass
+
 
 try:
   fc = os.environ['FC']
