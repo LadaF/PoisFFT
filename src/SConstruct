@@ -69,7 +69,16 @@ objs += env.SharedObject(target='../bin/'+comp_dir+'/main', source='main.f90')
 
 objs = filter(lambda o: str(o)[-4:] != '.mod', objs)
 
+sobjs = env.Object(target='../bin/'+comp_dir+'/precisions', source='precisions.f90')
+sobjs += env.Object(target='../bin/'+comp_dir+'/parameters', source='parameters.f90')
+sobjs += env.Object(target='../bin/'+comp_dir+'/fft', source='fft.f90')
+sobjs += env.Object(target='../bin/'+comp_dir+'/poisfft', source='poisfft.f90')
+sobjs += env.Object(target='../bin/'+comp_dir+'/main', source='main.f90')
+
+sobjs = filter(lambda o: str(o)[-4:] != '.mod', sobjs)
+
 lib = env.SharedLibrary(target='../lib/'+comp_dir+'/libpoisfft', source = objs)
+lib = lib + env.StaticLibrary(target='../lib/'+comp_dir+'/libpoisfft', source = sobjs)
 
 testobj = env.StaticObject(F90FLAGS='-O3',target='../bin/'+comp_dir+'/testpoisson', source='testpoisson.f90')
 testobj = filter(lambda o: str(o)[-4:] != '.mod', testobj)
