@@ -47,10 +47,8 @@
 
       integer   :: ngPhi(3), ngRHS(3)
 
-
       ngPhi = (ubound(Phi)-[D%nx,D%ny,D%nz])/2
       ngRHS = (ubound(RHS)-[D%nx,D%ny,D%nz])/2
-
 
       if (all(D%BCs==PoisFFT_Periodic)) then
 
@@ -98,13 +96,19 @@
 
 
 
-    subroutine PoisFFT_Solver3D_New(D,nx,ny,nz,dx,dy,dz,BCs,nthreads)
+    subroutine PoisFFT_Solver3D_New(D,nx,ny,nz,dx,dy,dz,BCs,gnxyz,offs,mpi_comm,nthreads)
+#ifdef MPI
+  use mpi
+#endif
       type(PoisFFT_Solver3D), intent(out) :: D
 
       integer, intent(in)   :: nx, ny, nz
       real(RP), intent(in)  :: dx, dy, dz
       integer, intent(in)   :: bcs(6)
-      integer, optional     :: nthreads
+      integer, intent(in), optional :: nthreads
+      integer(c_size_t), intent(in), optional :: gnxyz(3)
+      integer(c_size_t), intent(in), optional :: offs(3)
+      integer(c_int32_t), intent(in), optional  :: mpi_comm
 
       D%dx = dx
       D%dy = dy
@@ -113,10 +117,34 @@
       D%nx = nx
       D%ny = ny
       D%nz = nz
+      
+      if (present(gnxyz)) then
+        D%gnx = gnxyz(1)
+        D%gny = gnxyz(2)
+        D%gnz = gnxyz(3)
+      else
+        D%gnx = nx
+        D%gny = ny
+        D%gnz = nz
+      end if
+
+      if (present(offs)) then
+        D%offx = offs(1)
+        D%offy = offs(2)
+        D%offz = offs(3)
+      end if
 
       D%cnt = D%nx * D%ny * D%nz
 
       D%BCs = BCs
+      
+#ifdef MPI      
+      if (present(mpi_comm)) then
+        D%mpi_comm = mpi_comm
+      else
+        stop "No PFFT comm present in PoisFFT_Solver3D_New."
+      end if
+#endif
 
       if (present(nthreads)) then
         D%nthreads = nthreads
@@ -124,7 +152,7 @@
         D%nthreads = 1
       endif
 
-      !create fftw plans and allocate working array
+      !create fftw plans and allocate working arrays
       call Init(D)
     end subroutine PoisFFT_Solver3D_New
 
@@ -137,14 +165,17 @@
       if (direction==1) then
         D%dx = D3D%dx
         D%nx = D3D%nx
+        D%gnx = D3D%gnx
         D%BCs = D3D%BCs(1:2)
       else if (direction==2) then
         D%dx = D3D%dy
         D%nx = D3D%ny
+        D%gnx = D3D%gny
         D%BCs = D3D%BCs(3:4)
       else
         D%dx = D3D%dz
         D%nx = D3D%nz
+        D%gnx = D3D%gnz
         D%BCs = D3D%BCs(5:6)
       endif
 
@@ -160,20 +191,26 @@
       if (direction==1) then
         D%dx = D3D%dy
         D%nx = D3D%ny
+        D%gnx = D3D%gny
         D%dy = D3D%dz
         D%ny = D3D%nz
+        D%gny = D3D%gnz
         D%BCs = D3D%BCs(3:6)
       else if (direction==2) then
         D%dx = D3D%dx
         D%nx = D3D%nx
+        D%gnx = D3D%gnx
         D%dy = D3D%dz
         D%ny = D3D%nz
+        D%gny = D3D%gnz
         D%BCs = D3D%BCs([1,2,5,6])
       else
         D%dx = D3D%dx
         D%nx = D3D%nx
+        D%gnx = D3D%gnx
         D%dy = D3D%dy
         D%ny = D3D%ny
+        D%gny = D3D%gny
         D%BCs = D3D%BCs(1:4)
       endif
 
@@ -251,10 +288,9 @@
       dy2 = 1._RP/D%dy**2
       dz2 = 1._RP/D%dz**2
 
-      dkx = 2._RP*pi/(D%nx)
-      dky = 2._RP*pi/(D%ny)
-      dkz = 2._RP*pi/(D%nz)
-
+      dkx = 2._RP*pi/(D%gnx)
+      dky = 2._RP*pi/(D%gny)
+      dkz = 2._RP*pi/(D%gnz)
 
       !$omp parallel private(i,j,k)
 
@@ -262,41 +298,55 @@
       D%cwork = cmplx(RHS,0._RP,CP)
       !$omp end workshare
 
-
       !$omp end parallel
+#ifdef MPI
+      call PoisFFT_Plan_Execute_MPI(D%forward)
+#else
       call Execute(D%forward, D%cwork)
+#endif
       !$omp parallel private(i,j,k)
 
-      !$omp workshare
-      forall(i=1:D%nx)  denomx(i) = (cos((i-1)*dkx)-1.0_RP) * dx2 * 2
+      !$omp sections
+      !$omp section
+      forall(i=1:D%nx)  denomx(i) = (cos((i-1+D%offx)*dkx)-1.0_RP) * dx2 * 2
+      !$omp section
+      forall(j=1:D%ny)  denomy(j) = (cos((j-1+D%offy)*dky)-1.0_RP) * dy2 * 2
+      !$omp section
+      forall(k=1:D%nz)  denomz(k) = (cos((k-1+D%offz)*dkz)-1.0_RP) * dz2 * 2
+      !$omp end sections
 
-      forall(j=1:D%ny)  denomy(j) = (cos((j-1)*dky)-1.0_RP) * dy2 * 2
-
-      forall(k=1:D%nz)  denomz(k) = (cos((k-1)*dkz)-1.0_RP) * dz2 * 2
-      !$omp end workshare
-
-      !$omp single
-      D%cwork(1,1,1) = 0
-      !$omp end single
-
-      !$omp do
-      do k=1,D%nz
-        do j=1,D%ny
-          do i=1,D%nx
-            if (i==1.and.j==1.and.k==1.) cycle
-            D%cwork(i,j,k) = D%cwork(i,j,k) / (denomx(i) + denomy(j) + denomz(k))
+      if (D%offx==0.and.D%offy==0.and.D%offz==0) then
+#define xwork cwork
+#include "loop_nest_3d.f90"
+#undef xwork
+        !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
+        ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
+      
+        !$omp single
+        D%cwork(1,1,1) = 0
+        !$omp end single
+      else
+        !$omp do
+        do k=1,D%nz
+          do j=1,D%ny
+            do i=1,D%nx
+              D%cwork(i,j,k) = D%cwork(i,j,k) / (denomx(i) + denomy(j) + denomz(k))
+            end do
           end do
         end do
-      end do
-      !$omp end do
-
+        !$omp end do
+      end if
 
       !$omp end parallel
+#ifdef MPI
+      call PoisFFT_Plan_Execute_MPI(D%backward)
+#else
       call Execute(D%backward, D%cwork)
+#endif
       !$omp parallel
 
       !$omp workshare
-       Phi = real(D%cwork,RP) / (D%nx*D%ny*D%nz)
+       Phi = real(D%cwork,RP) / (D%gnx*D%gny*D%gnz)
       !$omp end workshare
 
       !$omp end parallel
@@ -319,9 +369,9 @@
       dy2 = 1._RP/D%dy**2
       dz2 = 1._RP/D%dz**2
 
-      dkx_h = pi/(D%nx)
-      dky_h = pi/(D%ny)
-      dkz_h = pi/(D%nz)
+      dkx_h = pi/(D%gnx)
+      dky_h = pi/(D%gny)
+      dkz_h = pi/(D%gnz)
 
       !$omp parallel private(i,j,k)
 
@@ -331,17 +381,22 @@
 
 
       !$omp end parallel
+#ifdef MPI
+      call PoisFFT_Plan_Execute_MPI(D%forward)
+#else
       call Execute(D%forward, D%rwork)
+#endif
       !$omp parallel private(i,j,k)
 
 
-      !$omp workshare
-      forall(i=1:D%nx)  denomx(i) = (cos(i*dkx_h)-1.0_RP) * dx2 * 2
-
-      forall(j=1:D%ny)  denomy(j) = (cos(j*dky_h)-1.0_RP) * dy2 * 2
-
-      forall(k=1:D%nz)  denomz(k) = (cos(k*dkz_h)-1.0_RP) * dz2 * 2
-      !$omp end workshare
+      !$omp sections
+      !$omp section
+      forall(i=1:D%nx)  denomx(i) = (cos((i+D%offx)*dkx_h)-1.0_RP) * dx2 * 2
+      !$omp section
+      forall(j=1:D%ny)  denomy(j) = (cos((j+D%offy)*dky_h)-1.0_RP) * dy2 * 2
+      !$omp section
+      forall(k=1:D%nz)  denomz(k) = (cos((k+D%offz)*dkz_h)-1.0_RP) * dz2 * 2
+      !$omp end sections
 
       !$omp do
       do k=1,D%nz
@@ -354,7 +409,11 @@
       !$omp end do
 
       !$omp end parallel
+#ifdef MPI
+      call PoisFFT_Plan_Execute_MPI(D%backward)
+#else
       call Execute(D%backward, D%rwork)
+#endif
       !$omp parallel private(i,j,k)
 
       !$omp workshare
@@ -382,9 +441,9 @@
       dy2 = 1._RP/D%dy**2
       dz2 = 1._RP/D%dz**2
 
-      dkx_h = pi/(D%nx)
-      dky_h = pi/(D%ny)
-      dkz_h = pi/(D%nz)
+      dkx_h = pi/(D%gnx)
+      dky_h = pi/(D%gny)
+      dkz_h = pi/(D%gnz)
 
       !$omp parallel private(i,j,k)
 
@@ -394,41 +453,59 @@
 
 
       !$omp end parallel
+#ifdef MPI
+      call PoisFFT_Plan_Execute_MPI(D%forward)
+#else
       call Execute(D%forward, D%rwork)
+#endif
       !$omp parallel private(i,j,k)
 
-
       !$omp single
-      D%rwork(1,1,1) = 0
+      if (D%offx==0.and.D%offy==0.and.D%offz==0) D%rwork(1,1,1) = 0
       !$omp end single
 
-      !$omp workshare
-      forall(i=1:D%nx)  denomx(i) = (cos((i-1)*dkx_h)-1.0_RP) * dx2 * 2
+      !$omp sections
+      !$omp section
+      forall(i=1:D%nx)  denomx(i) = (cos((i-1+D%offx)*dkx_h)-1.0_RP) * dx2 * 2
+      !$omp section
+      forall(j=1:D%ny)  denomy(j) = (cos((j-1+D%offy)*dky_h)-1.0_RP) * dy2 * 2
+      !$omp section
+      forall(k=1:D%nz)  denomz(k) = (cos((k-1+D%offz)*dkz_h)-1.0_RP) * dz2 * 2
+      !$omp end sections
 
-      forall(j=1:D%ny)  denomy(j) = (cos((j-1)*dky_h)-1.0_RP) * dy2 * 2
-
-      forall(k=1:D%nz)  denomz(k) = (cos((k-1)*dkz_h)-1.0_RP) * dz2 * 2
-      !$omp end workshare
-
-      !$omp do
-      do k=1,D%nz
-        do j=1,D%ny
-          do i=1,D%nx
-            if (i==1.and.j==1.and.k==1.) cycle
-            D%rwork(i,j,k) = D%rwork(i,j,k) / (denomx(i) + denomy(j) + denomz(k))
+      if (D%offx==0.and.D%offy==0.and.D%offz==0) then
+#define xwork rwork
+#include "loop_nest_3d.f90"
+#undef xwork
+        !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
+        ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
+      
+        !$omp single
+        D%rwork(1,1,1) = 0
+        !$omp end single
+      else
+        !$omp do
+        do k=1,D%nz
+          do j=1,D%ny
+            do i=1,D%nx
+              D%rwork(i,j,k) = D%rwork(i,j,k) / (denomx(i) + denomy(j) + denomz(k))
+            end do
           end do
         end do
-      end do
-      !$omp end do
+        !$omp end do
+      end if
 
 
       !$omp end parallel
+#ifdef MPI
+      call PoisFFT_Plan_Execute_MPI(D%backward)
+#else
       call Execute(D%backward, D%rwork)
+#endif
       !$omp parallel private(i,j,k)
 
-
       !$omp workshare
-      Phi = D%rwork/(8*D%nx*D%ny*D%nz)
+      Phi = D%rwork/(8*D%gnx*D%gny*D%gnz)
       !$omp end workshare
 
       !$omp end parallel
@@ -476,6 +553,7 @@
       !$omp end do
 
       !$omp sections
+      !$omp section
       forall(i=1:D%nx)  denomx(i) = (cos((i-1)*dkx)-1.0_RP) * dx2 * 2
       !$omp section
       forall(j=1:D%ny)  denomy(j) = (cos((j-1)*dky)-1.0_RP) * dy2 * 2
@@ -485,25 +563,30 @@
 
       !$omp do
       do k=1,D%nz
-        forall(i=1:D%nx,j=1:D%ny)&
-          D%Solvers2D(tid)%cwork(i,j) = cmplx(Phi(i,j,k),0._RP,CP)
+        D%Solvers2D(tid)%cwork(1:D%nx,1:D%ny) = cmplx(Phi(1:D%nx,1:D%ny,k),0._RP,CP)
 
 
         call Execute(D%Solvers2D(tid)%forward, D%Solvers2D(tid)%cwork)
 
 
         if (k==1) then
-
-          D%Solvers2D(tid)%cwork(1,1) = 0
-
-
-          do j=1,D%ny
-            do i=1,D%nx
-              if (i==1.and.j==1) cycle
+          do j=2,D%ny
+            do i=2,D%nx
               D%Solvers2D(tid)%cwork(i,j) = D%Solvers2D(tid)%cwork(i,j)&
-                                              / (denomx(i) + denomy(j) + denomz(k))
+                                              / (denomx(i) + denomy(j))
             end do
           end do
+          do i=2,D%nx
+              D%Solvers2D(tid)%cwork(i,1) = D%Solvers2D(tid)%cwork(i,1)&
+                                              / (denomx(i))
+          end do
+          do j=2,D%ny
+              D%Solvers2D(tid)%cwork(1,j) = D%Solvers2D(tid)%cwork(1,j)&
+                                              / (denomy(j))
+          end do
+          !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
+          ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
+          D%Solvers2D(tid)%cwork(1,1) = 0
 
         else
 
@@ -563,31 +646,28 @@
 
         if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
 
-        D%forward = PoisFFT_Plan3D_QuickCreate(D, [FFT_Complex, FFTW_FORWARD])
-        D%backward = PoisFFT_Plan3D_QuickCreate(D, [FFT_Complex, FFTW_BACKWARD])
-
         call data_allocate_complex(D)
 
+        D%forward = PoisFFT_Plan3D_QuickCreate(D, [FFT_Complex, FFTW_FORWARD])
+        D%backward = PoisFFT_Plan3D_QuickCreate(D, [FFT_Complex, FFTW_BACKWARD])
 
       else if (all(D%BCs==PoisFFT_DirichletStag)) then
 
         if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
 
-        D%forward = PoisFFT_Plan3D_QuickCreate(D, [(FFT_RealOdd10, i=1,3)])
-        D%backward = PoisFFT_Plan3D_QuickCreate(D, [(FFT_RealOdd01, i=1,3)])
-
         call data_allocate_real(D)
 
+        D%forward = PoisFFT_Plan3D_QuickCreate(D, [(FFT_RealOdd10, i=1,3)])
+        D%backward = PoisFFT_Plan3D_QuickCreate(D, [(FFT_RealOdd01, i=1,3)])
 
       else if (all(D%BCs==PoisFFT_NeumannStag)) then
 
         if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
 
-        D%forward = PoisFFT_Plan3D_QuickCreate(D, [(FFT_RealEven10, i=1,3)])
-        D%backward = PoisFFT_Plan3D_QuickCreate(D, [(FFT_RealEven01, i=1,3)])
-
         call data_allocate_real(D)
 
+        D%forward = PoisFFT_Plan3D_QuickCreate(D, [(FFT_RealEven10, i=1,3)])
+        D%backward = PoisFFT_Plan3D_QuickCreate(D, [(FFT_RealEven01, i=1,3)])
 
       else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. all(D%BCs(5:6)==PoisFFT_NeumannStag)) then
 
@@ -597,9 +677,10 @@
 
         D%Solvers1D(1) = PoisFFT_Solver1D_From3D(D,3)
 
+        call data_allocate_real(D%Solvers1D(1))
+
         D%Solvers1D(1)%forward = PoisFFT_Plan1D_QuickCreate(D%Solvers1D(1), [FFT_RealEven10])
         D%Solvers1D(1)%backward = PoisFFT_Plan1D_QuickCreate(D%Solvers1D(1), [FFT_RealEven01])
-        call data_allocate_real(D%Solvers1D(1))
 
         do i=2,D%nthreads
           D%Solvers1D(i) = D%Solvers1D(1)
@@ -610,9 +691,10 @@
 
         D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
 
+        call data_allocate_complex(D%Solvers2D(1))
+
         D%Solvers2D(1)%forward = PoisFFT_Plan2D_QuickCreate(D%Solvers2D(1), [FFT_Complex, FFTW_FORWARD])
         D%Solvers2D(1)%backward = PoisFFT_Plan2D_QuickCreate(D%Solvers2D(1), [FFT_Complex, FFTW_BACKWARD])
-        call data_allocate_complex(D%Solvers2D(1))
 
         do i=2,D%nthreads
           D%Solvers2D(i) = D%Solvers2D(1)
@@ -656,6 +738,9 @@
 
       D%nx = nx
       D%ny = ny
+
+      D%gnx = nx
+      D%gny = ny
 
       D%cnt = D%nx * D%ny
 
@@ -816,6 +901,8 @@
       D%dx = dx
 
       D%nx = nx
+
+      D%gnx = nx
 
       D%cnt = D%nx
 

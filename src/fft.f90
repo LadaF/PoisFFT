@@ -1,6 +1,6 @@
 module FFT_SP
-#define RP SRP
-#define CP SCP
+#define RP 4
+#define CP 4
 
 #include "fft-inc.f90"
 
@@ -9,8 +9,8 @@ module FFT_SP
 end module FFT_SP
 
 module FFT_DP
-#define RP DRP
-#define CP DCP
+#define RP 8
+#define CP 8
 
 #include "fft-inc.f90"
 

@@ -4,7 +4,7 @@ program testpoisson
   
   implicit none
   
-  integer,parameter :: RP = SRP
+  integer,parameter :: RP = DRP
 
   real(RP), parameter :: pi = 3.141592653589793238462_RP!pi = 4*atan(1._RP)!
   integer :: nx = 131, ny = 123, nz = 127
@@ -15,9 +15,9 @@ program testpoisson
   integer i,j,k,niters,inunit
   real(RP) :: R,x,y,z,tmp1,tmp2
   integer(8) :: t1,t2,trate
-  type(PoisFFT_Solver3D_SP) :: Solver3D
-  type(PoisFFT_Solver2D_SP) :: Solver2D
-  type(PoisFFT_Solver1D_SP) :: Solver1D
+  type(PoisFFT_Solver3D_DP) :: Solver3D
+  type(PoisFFT_Solver2D_DP) :: Solver2D
+  type(PoisFFT_Solver1D_DP) :: Solver1D
   character(len=5) :: ch5
 
   call system_clock(count_rate=trate)
@@ -103,66 +103,6 @@ program testpoisson
 
 
   
-
-
-  write (*,*) "3D PPNs"
-  Phi(0,:,:)=Phi(nx,:,:)
-  Phi(:,0,:)=Phi(:,ny,:)
-  Phi(:,:,0)=Phi(:,:,1)
-  Phi(nx+1,:,:)=Phi(1,:,:)
-  Phi(:,ny+1,:)=Phi(:,1,:)
-  Phi(:,:,nz+1)=Phi(:,:,nz)
-
-  call Res3D(nx,ny,nz,Phi,RHS,&
-               dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
-               [3,3,3,3,2,2],R)
-
-  write (*,*) R
-
-  call New(Solver3D,nx,ny,nz,dx,dy,dz,[(PoisFFT_PERIODIC, i=1,4),(PoisFFT_NeumannStag, i=5,6)])
-
-  do i=1,3
-    call system_clock(count=t1)
-
-    call Execute(Solver3D,Phi,RHS)
-
-    call system_clock(count=t2)
-    write(*,*) "solver cpu time", real(t2-t1)/real(trate)
-  end do
-
-  call DeallocateData(Solver3D)
-
-  Phi(0,:,:)=Phi(nx,:,:)
-  Phi(:,0,:)=Phi(:,ny,:)
-  Phi(:,:,0)=Phi(:,:,1)
-  Phi(nx+1,:,:)=Phi(1,:,:)
-  Phi(:,ny+1,:)=Phi(:,1,:)
-  Phi(:,:,nz+1)=Phi(:,:,nz)
-
-  call Res3D(nx,ny,nz,Phi,RHS,&
-               dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
-               [3,3,3,3,2,2],R)
-! 
-  write (*,*) R
-
-
-  write (*,*) "---------"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
   write(*,*) "3D staggered Dirichlet"
@@ -335,6 +275,80 @@ program testpoisson
                [3,3,3,3,3,3],R)
 
   write (*,*) R
+
+
+  write (*,*) "---------"
+
+
+
+
+
+
+
+
+
+
+
+  write (*,*) "3D PPNs"
+  Phi(0,:,:)=Phi(nx,:,:)
+  Phi(:,0,:)=Phi(:,ny,:)
+  Phi(:,:,0)=Phi(:,:,1)
+  Phi(nx+1,:,:)=Phi(1,:,:)
+  Phi(:,ny+1,:)=Phi(:,1,:)
+  Phi(:,:,nz+1)=Phi(:,:,nz)
+
+  call Res3D(nx,ny,nz,Phi,RHS,&
+               dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
+               [3,3,3,3,2,2],R)
+
+  write (*,*) R
+
+  call New(Solver3D,nx,ny,nz,dx,dy,dz,[(PoisFFT_PERIODIC, i=1,4),(PoisFFT_NeumannStag, i=5,6)])
+
+  do i=1,3
+    call system_clock(count=t1)
+
+    call Execute(Solver3D,Phi,RHS)
+
+    call system_clock(count=t2)
+    write(*,*) "solver cpu time", real(t2-t1)/real(trate)
+  end do
+
+  call DeallocateData(Solver3D)
+
+  Phi(0,:,:)=Phi(nx,:,:)
+  Phi(:,0,:)=Phi(:,ny,:)
+  Phi(:,:,0)=Phi(:,:,1)
+  Phi(nx+1,:,:)=Phi(1,:,:)
+  Phi(:,ny+1,:)=Phi(:,1,:)
+  Phi(:,:,nz+1)=Phi(:,:,nz)
+
+  call Res3D(nx,ny,nz,Phi,RHS,&
+               dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
+               [3,3,3,3,2,2],R)
+! 
+  write (*,*) R
+
+
+  write (*,*) "---------"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

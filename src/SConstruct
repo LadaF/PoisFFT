@@ -1,6 +1,8 @@
 import os
 comp = ARGUMENTS.get('comp','')
 prec = ARGUMENTS.get('prec','')
+mpi = ARGUMENTS.get('mpi','')
+openmp = ARGUMENTS.get('openmp','')
 
 
 if str(comp)=='sun':
@@ -24,16 +26,16 @@ elif str(comp)=='intel':
   env.Append(F90PATH = ['${TARGET.dir}'])
   
 else:
-  env = Environment()
-  env.Append(F90FLAGS='-cpp -w -g -Wall -Ofast')
-  omp_flag = ' -fopenmp'
+  env = Environment(ENV = {'PATH' : os.environ['PATH']})
+  env.Append(F90FLAGS='-cpp -w -g -Wall -Ofast -fbacktrace')
+  if str(openmp)=='yes':
+    omp_flag = ' -fopenmp'
+  else:
+    omp_flag = ''
   comp_dir='gcc'
   
-  env.Append(F90PATH = ['${TARGET.dir}'])
+  env.Append(F90PATH = ['${TARGET.dir}','/usr/local/include/','/usr/local/lib64'])
   env.Append(FORTRANMODDIRPREFIX = '-J')
-
-
-env.Append(ENV = {'PATH' : os.environ['PATH']})
 
 try:
   env.Append(ENV = {'LD_LIBRARY_PATH' : os.environ['LD_LIBRARY_PATH']})
@@ -48,7 +50,11 @@ try:
 except:
   pass
 
-env.Replace(LINK = env.Dump('F90'))
+if str(mpi)=='yes':
+  env.Replace(LINK = 'mpif90')
+  env.Append(F90FLAGS=' -DMPI')
+else:
+  env.Replace(LINK = (env.Dump('F90')))
 
 env.Append(F90FLAGS=omp_flag)
   
@@ -63,6 +69,8 @@ env.Append(FORTRANMODDIR = '${TARGET.dir}')
 
 objs = env.SharedObject(target='../bin/'+comp_dir+'/precisions', source='precisions.f90')
 objs += env.SharedObject(target='../bin/'+comp_dir+'/parameters', source='parameters.f90')
+objs += env.SharedObject(target='../bin/'+comp_dir+'/customfftw3', source='customfftw3.f90')
+objs += env.SharedObject(target='../bin/'+comp_dir+'/custompfft', source='custompfft.f90')
 objs += env.SharedObject(target='../bin/'+comp_dir+'/fft', source='fft.f90')
 objs += env.SharedObject(target='../bin/'+comp_dir+'/poisfft', source='poisfft.f90')
 objs += env.SharedObject(target='../bin/'+comp_dir+'/main', source='main.f90')
@@ -80,11 +88,17 @@ sobjs = filter(lambda o: str(o)[-4:] != '.mod', sobjs)
 lib = env.SharedLibrary(target='../lib/'+comp_dir+'/libpoisfft', source = objs)
 lib = lib + env.StaticLibrary(target='../lib/'+comp_dir+'/libpoisfft', source = sobjs)
 
-testobj = env.StaticObject(F90FLAGS='-O3',target='../bin/'+comp_dir+'/testpoisson', source='testpoisson.f90')
-testobj = filter(lambda o: str(o)[-4:] != '.mod', testobj)
-
-test = env.Program(LINKFLAGS=omp_flag, LIBS=['fftw3','fftw3f','fftw3_omp'],target='../bin/'+comp_dir+'/testpoisson', source = objs + testobj)
-
-env.Alias('test',['../bin/'+comp_dir+'/testpoisson'])
+if str(mpi)=='yes':
+    testobj = env.StaticObject(F90FLAGS='-O3',target='../bin/'+comp_dir+'/testmpi', source='testmpi.f90')
+    testobj = filter(lambda o: str(o)[-4:] != '.mod', testobj)
+    
+    test = env.Program(LINKFLAGS=omp_flag, LIBS=['pfft','pfftf','fftw3_mpi','fftw3f_mpi','fftw3','fftw3f'],target='../bin/'+comp_dir+'/testmpi', source = objs + testobj)
+    env.Alias('test',['../bin/'+comp_dir+'/testmpi'])
+else:
+    testobj = env.StaticObject(F90FLAGS='-O3',target='../bin/'+comp_dir+'/testpoisson', source='testpoisson.f90')
+    testobj = filter(lambda o: str(o)[-4:] != '.mod', testobj)
+    
+    test = env.Program(LINKFLAGS=omp_flag, LIBS=['fftw3','fftw3f','fftw3_omp'],target='../bin/'+comp_dir+'/testpoisson', source = objs + testobj)
+    env.Alias('test',['../bin/'+comp_dir+'/testpoisson'])
 
 Default(lib)

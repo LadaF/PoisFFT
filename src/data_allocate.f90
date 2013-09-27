@@ -13,32 +13,40 @@
 #endif
 
 #if realcomplex == 1
-#define datatype real(rprec)
-#define dataf    real(1,rprec)
+#define datatype real(RP)
+#define dataf    real(1,RP)
 #define xwork    rwork
 #else
-#define datatype complex(cprec)
-#define dataf    cmplx(1,1,cprec)
+#define datatype complex(CP)
+#define dataf    cmplx(1,1,CP)
 #define xwork    cwork
 #endif
 
 
       type( PoisFFT_SolverXD ), intent(inout)        :: D
-      datatype , dimension( colons ), pointer, optional    :: data
+!       datatype , dimension( colons ), pointer, optional    :: data
       type(c_ptr) :: p
-
-      p = fftw_malloc( int(sizeof( dataf ), c_size_t) * int(D%cnt, c_size_t) )
+#if MPI && dimensions == 3
+      integer(c_size_t) :: cnt
+      integer(c_intptr_t) :: a1(3),a2(3),a3(3),a4(3)
+      cnt =  pfft_local_size_dft_3d(int([D%gnz,D%gny,D%gnx],c_intptr_t), &
+                  D%mpi_comm, PFFT_TRANSPOSED_NONE, &
+                  a1,a2,a3,a4)
+      if (.not.all(a1(dimensions:1:-1)==dims)) stop "Error. Inconsistent size of local arrays!"
+      p = fftw_malloc( sizeof( dataf ) * cnt )
+#else
+      p = fftw_malloc( sizeof( dataf ) * D%cnt )
+#endif
 
       if (c_associated(p)) then
-        if (present(data)) then
-          call c_f_pointer(p, data, dims )
-        else
+
           call c_f_pointer(p, D%xwork, dims )
-        endif
+
       else
-        stop
+        stop "Data allocate error, fftw_malloc returned NULL."
       endif
 
+      D%xwork = 0
 #undef xwork
 #undef datatype
 #undef dataf

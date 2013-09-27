@@ -2,58 +2,40 @@
 
 #define PoisFFT_SolverXD PoisFFT_Solver1D
 #define PoisFFT_PlanXD   PoisFFT_Plan1D
-#define SliceXD          Slice1D
 #define realplantypes    plantypes(1)
-#define nxyzs            plan%nx
+#define nxyzs            D%gnx
 #define colons           :
 
 #elif dimensions == 2
 
 #define PoisFFT_SolverXD PoisFFT_Solver2D
 #define PoisFFT_PlanXD   PoisFFT_Plan2D
-#define SliceXD          Slice2D
 #define realplantypes    plantypes(1),plantypes(2)
-#define nxyzs            plan%ny,plan%nx
+#define nxyzs            D%gny,D%gnx
 #define colons           :,:
 
 #else
 
 #define PoisFFT_SolverXD PoisFFT_Solver3D
 #define PoisFFT_PlanXD   PoisFFT_Plan3D
-#define SliceXD          Slice3D
 #define realplantypes    plantypes(1),plantypes(2),plantypes(3)
-#define nxyzs            plan%nz,plan%ny,plan%nx
+#define nxyzs            D%gnz,D%gny,D%gnx
 #define colons           :,:,:
 
 #endif
 
-
+#if CP == 4
+#define pfft_cmplx pfftf_plan_dft_3d
+#define pfft_real pfftf_plan_r2r_3d
+#else
+#define pfft_cmplx pfft_plan_dft_3d
+#define pfft_real pfft_plan_r2r_3d
+#endif
 
       type(PoisFFT_PlanXD) :: plan
       
       type(PoisFFT_SolverXD), intent(inout) :: D
-      type(SliceXD), intent(in)            :: sl
-      logical, intent(in)                   :: usework
       integer, intent(in), dimension(:)     :: plantypes
-
-      complex(cprec), dimension(colons),&!contiguous,
-                                     pointer :: data_loc_complex
-      real(rprec), dimension(colons),&!contiguous,
-                                     pointer :: data_loc_real
-
-      nullify(data_loc_complex)
-      nullify(data_loc_real)
-      
-      plan%nx = (sl%ie - sl%is + 1)
-      plan%cnt = plan%nx     
-#if dimensions >= 2
-      plan%ny = (sl%je - sl%js + 1)
-      plan%cnt = plan%cnt * plan%ny
-#endif
-#if dimensions >= 3
-      plan%nz = (sl%ke - sl%ks + 1)
-      plan%cnt = plan%cnt * plan%nz
-#endif
 
       if (plantypes(1)==FFT_Complex) then
        
@@ -64,19 +46,18 @@
        
         plan%dir = plantypes(2)
 
-        if (usework) then
-          data_loc_complex => D%cwork
-        else
-          call data_allocate_complex(D, data_loc_complex)
-        endif
-
-
-        plan%planptr = fftw_plan_gen(nxyzs , data_loc_complex, data_loc_complex,&
+#if MPI && dimensions >=3
+! print *,"forw",int([nxyzs],c_intptr_t), &
+!           size(D%cwork), size(D%cwork), D%mpi_comm, &
+!           plan%dir, PFFT_TRANSPOSED_NONE + PFFT_MEASURE + PFFT_PRESERVE_INPUT
+        plan%planptr = pfft_cmplx(int([nxyzs],c_intptr_t), &
+          D%cwork, D%cwork, D%mpi_comm, &
+          plan%dir, PFFT_TRANSPOSED_NONE + PFFT_MEASURE + PFFT_PRESERVE_INPUT)
+#else
+        plan%planptr = fftw_plan_gen(nxyzs , D%cwork, D%cwork,&
                         plan%dir, FFTW_MEASURE)
-
-        if (.not.usework) then
-          call data_deallocate(data_loc_complex)
-        endif
+#endif
+        
         
       else
       
@@ -85,19 +66,15 @@
           STOP
         endif
 
-        if (usework) then
-          data_loc_real => D%rwork
-        else
-          call data_allocate_real(D, data_loc_real)
-        endif
 
-
-        plan%planptr = fftw_plan_gen(nxyzs , data_loc_real, data_loc_real,&
+#if MPI && dimensions >=3
+        plan%planptr = pfft_real(int([nxyzs],c_intptr_t), &
+          D%rwork, D%rwork, D%mpi_comm, &
+          plantypes, PFFT_TRANSPOSED_NONE + PFFT_MEASURE + PFFT_PRESERVE_INPUT)
+#else
+        plan%planptr = fftw_plan_gen(nxyzs , D%rwork, D%rwork,&
                         realplantypes , FFTW_MEASURE)
-
-        if (.not.usework) then
-          call data_deallocate(data_loc_real)
-        endif
+#endif
         
       endif
       
