@@ -1,8 +1,9 @@
   use iso_c_binding
   use PoisFFT_Precisions
   use fftw3
+#ifdef MPI
   use pfft
-
+#endif
   implicit none
 
 
@@ -502,7 +503,7 @@
     subroutine PoisFFT_InitThreads(nthreads)  !instructs fftw to plan to use nthreads threads
       integer, intent(in) :: nthreads
       integer(c_int) :: error
-#ifdef _OPENMP || ENABLE_PTHREADS
+#if defined(_OPENMP) || defined(ENABLE_PTHREADS)
       error =  fftw_init_threads()
 
       if (error==0) then
