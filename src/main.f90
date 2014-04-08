@@ -20,6 +20,15 @@ contains
       integer(c_int32_t), intent(in) :: mpi_comm
       integer(c_int), intent(in) :: np(:)
       integer(c_int32_t), intent(out) :: PoisFFT_comm, ierror
+      integer :: comm_size
+      
+      call MPI_Comm_size(mpi_comm, comm_size, ierror)
+      
+      if (ierror/=0 .or. comm_size/=product(np)) then
+        ierror = 1
+        return
+      end if
+      
       !This will fail to compile if integer /= 4 bytes as Fortran MPI2 and PFFT assumes.
       ierror = pfft_create_procmesh_2d(MPI_comm, &
                                        np(1), &
