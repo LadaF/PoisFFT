@@ -76,7 +76,7 @@ use iso_c_binding
     type(C_PTR) function fftw_plan_dft_1d(n,in,out,sign,flags) bind(C, name='fftw_plan_dft_1d')
       import
       integer(C_INT), value :: n
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: in
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(in) :: in
       complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: out
       integer(C_INT), value :: sign
       integer(C_INT), value :: flags
@@ -86,7 +86,7 @@ use iso_c_binding
       import
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
-      complex(C_DOUBLE_COMPLEX), dimension(n1,*), intent(out) :: in
+      complex(C_DOUBLE_COMPLEX), dimension(n1,*), intent(in) :: in
       complex(C_DOUBLE_COMPLEX), dimension(n1,*), intent(out) :: out
       integer(C_INT), value :: sign
       integer(C_INT), value :: flags
@@ -97,7 +97,7 @@ use iso_c_binding
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
       integer(C_INT), value :: n2
-      complex(C_DOUBLE_COMPLEX), dimension(n2,n1,*), intent(out) :: in
+      complex(C_DOUBLE_COMPLEX), dimension(n2,n1,*), intent(in) :: in
       complex(C_DOUBLE_COMPLEX), dimension(n2,n1,*), intent(out) :: out
       integer(C_INT), value :: sign
       integer(C_INT), value :: flags
@@ -106,7 +106,7 @@ use iso_c_binding
     type(C_PTR) function fftwf_plan_dft_1d(n,in,out,sign,flags) bind(C, name='fftwf_plan_dft_1d')
       import
       integer(C_INT), value :: n
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: in
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(in) :: in
       complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: out
       integer(C_INT), value :: sign
       integer(C_INT), value :: flags
@@ -116,7 +116,7 @@ use iso_c_binding
       import
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
-      complex(C_FLOAT_COMPLEX), dimension(n1,*), intent(out) :: in
+      complex(C_FLOAT_COMPLEX), dimension(n1,*), intent(in) :: in
       complex(C_FLOAT_COMPLEX), dimension(n1,*), intent(out) :: out
       integer(C_INT), value :: sign
       integer(C_INT), value :: flags
@@ -127,7 +127,7 @@ use iso_c_binding
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
       integer(C_INT), value :: n2
-      complex(C_FLOAT_COMPLEX), dimension(n2,n1,*), intent(out) :: in
+      complex(C_FLOAT_COMPLEX), dimension(n2,n1,*), intent(in) :: in
       complex(C_FLOAT_COMPLEX), dimension(n2,n1,*), intent(out) :: out
       integer(C_INT), value :: sign
       integer(C_INT), value :: flags
@@ -136,7 +136,7 @@ use iso_c_binding
     type(C_PTR) function fftw_plan_r2r_1d(n,in,out,kind,flags) bind(C, name='fftw_plan_r2r_1d')
       import
       integer(C_INT), value :: n
-      real(C_DOUBLE), dimension(*), intent(out) :: in
+      real(C_DOUBLE), dimension(*), intent(in) :: in
       real(C_DOUBLE), dimension(*), intent(out) :: out
       integer(C_FFTW_R2R_KIND), value :: kind
       integer(C_INT), value :: flags
@@ -146,7 +146,7 @@ use iso_c_binding
       import
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
-      real(C_DOUBLE), dimension(n1,*), intent(out) :: in
+      real(C_DOUBLE), dimension(n1,*), intent(in) :: in
       real(C_DOUBLE), dimension(n1,*), intent(out) :: out
       integer(C_FFTW_R2R_KIND), value :: kind0
       integer(C_FFTW_R2R_KIND), value :: kind1
@@ -158,7 +158,7 @@ use iso_c_binding
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
       integer(C_INT), value :: n2
-      real(C_DOUBLE), dimension(n2,n1,*), intent(out) :: in
+      real(C_DOUBLE), dimension(n2,n1,*), intent(in) :: in
       real(C_DOUBLE), dimension(n2,n1,*), intent(out) :: out
       integer(C_FFTW_R2R_KIND), value :: kind0
       integer(C_FFTW_R2R_KIND), value :: kind1
@@ -169,7 +169,7 @@ use iso_c_binding
     type(C_PTR) function fftwf_plan_r2r_1d(n,in,out,kind,flags) bind(C, name='fftwf_plan_r2r_1d')
       import
       integer(C_INT), value :: n
-      real(C_FLOAT), dimension(*), intent(out) :: in
+      real(C_FLOAT), dimension(*), intent(in) :: in
       real(C_FLOAT), dimension(*), intent(out) :: out
       integer(C_FFTW_R2R_KIND), value :: kind
       integer(C_INT), value :: flags
@@ -179,7 +179,7 @@ use iso_c_binding
       import
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
-      real(C_FLOAT), dimension(n1,*), intent(out) :: in
+      real(C_FLOAT), dimension(n1,*), intent(in) :: in
       real(C_FLOAT), dimension(n1,*), intent(out) :: out
       integer(C_FFTW_R2R_KIND), value :: kind0
       integer(C_FFTW_R2R_KIND), value :: kind1
@@ -191,7 +191,7 @@ use iso_c_binding
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
       integer(C_INT), value :: n2
-      real(C_FLOAT), dimension(n2,n1,*), intent(out) :: in
+      real(C_FLOAT), dimension(n2,n1,*), intent(in) :: in
       real(C_FLOAT), dimension(n2,n1,*), intent(out) :: out
       integer(C_FFTW_R2R_KIND), value :: kind0
       integer(C_FFTW_R2R_KIND), value :: kind1
