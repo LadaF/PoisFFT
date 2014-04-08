@@ -119,9 +119,9 @@
       D%nz = nz
       
       if (present(gnxyz)) then
-        D%gnx = gnxyz(1)
-        D%gny = gnxyz(2)
-        D%gnz = gnxyz(3)
+        D%gnx = int( gnxyz(1) )
+        D%gny = int( gnxyz(2) )
+        D%gnz = int( gnxyz(3) )
       else
         D%gnx = nx
         D%gny = ny
@@ -129,9 +129,9 @@
       end if
 
       if (present(offs)) then
-        D%offx = offs(1)
-        D%offy = offs(2)
-        D%offz = offs(3)
+        D%offx = int( offs(1) )
+        D%offy = int( offs(2) )
+        D%offz = int( offs(3) )
       end if
 
       D%cnt = D%nx * D%ny * D%nz
@@ -417,7 +417,7 @@
       !$omp parallel private(i,j,k)
 
       !$omp workshare
-      Phi = D%rwork/(8*D%nx*D%ny*D%nz)
+      Phi = D%rwork/(8*D%gnx*D%gny*D%gnz)
       !$omp end workshare
 
       !$omp end parallel
