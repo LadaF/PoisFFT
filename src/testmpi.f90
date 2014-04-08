@@ -95,7 +95,7 @@ module my_mpi
 
   integer function num_images() result(res)
     integer ie
-    call MPI_Comm_size(mpi_comm, res, ie)  
+    call MPI_Comm_size(mpi_comm, res, ie)
     if (ie/=0) call error_stop("MPI_Comm_size ERROR")
   end function
 
@@ -160,7 +160,7 @@ module my_mpi
      s_rank = s_im - 1
      n_rank = n_im - 1
      b_rank = b_im - 1
-     t_rank = t_im - 1     
+     t_rank = t_im - 1
   end subroutine
   
     
@@ -568,29 +568,32 @@ program testpoisson_MPI
 
   call system_clock(count_rate=trate)
 
-  if (command_argument_count()>=3) then
-    call get_command_argument(1,value=ch5)
-    read(ch5,'(i5)') npxyz(1)!ng(1)
-    call get_command_argument(2,value=ch5)
-    read(ch5,'(i5)') npxyz(2)!ng(2)
-    call get_command_argument(3,value=ch5)
-    read(ch5,'(i5)') npxyz(3)!ng(3)
-  end if
-  
   call MPI_Init(ie)
   if (ie/=0) stop 5
   
+  nims = num_images()
+
   myim = this_image()
   myrank = myim - 1
 
   if (myrank==0) master = .true.
 
-  nims = num_images()
 
-!   npxyz(1) = 1
-!   npxyz(2) = nint(sqrt(real(nims)))
-!   npxyz(3) = nims / npxyz(2)
-  
+  if (command_argument_count()>=3) then
+    call get_command_argument(1,value=ch5)
+    read(ch5,'(i5)') npxyz(1)
+    call get_command_argument(2,value=ch5)
+    read(ch5,'(i5)') npxyz(2)
+    call get_command_argument(3,value=ch5)
+    read(ch5,'(i5)') npxyz(3)
+  else
+    npxyz(1) = 1
+    npxyz(2) = nint(sqrt(real(nims)))
+    npxyz(3) = nims / npxyz(2)
+    if (master)    write (*,*) "Trying to decompose in",npxyz,"process grid."
+  end if
+
+
   nxims = npxyz(1)
   nyims = npxyz(2)
   nzims = npxyz(3)
@@ -598,7 +601,7 @@ program testpoisson_MPI
   if (product(npxyz)/=nims) then
     if (master) then
       write(*,*) "Could not decompose the processes to N x N grid."
-      write(*,*) "Try a perfect square for number of processe."
+      write(*,*) "Try a perfect square for number of processes."
     end if
     call error_stop(25)
   end if
@@ -665,6 +668,9 @@ program testpoisson_MPI
 
   call compute([(PoisFFT_DirichletStag, i=1,6)])
 
+  call save_vtk  
+
+
 
   call MPI_Barrier(mpi_comm,ie)
   
@@ -683,8 +689,6 @@ program testpoisson_MPI
 
   
   
-  call save_vtk  
-
   call MPI_finalize(ie)
   
   
@@ -783,7 +787,7 @@ contains
     call MPI_type_commit(filetype, ie)
     if (ie/=0) call error_stop("type_commit")
     
-    call MPI_Barrier(mpi_comm,ie)   
+    call MPI_Barrier(mpi_comm,ie)
     call MPI_File_get_position(fh, pos, ie)
     call MPI_Barrier(mpi_comm,ie)
     
