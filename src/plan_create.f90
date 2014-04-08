@@ -87,3 +87,5 @@
 #undef PoisFFT_SolverXD
 #undef PoisFFT_PlanXD
 #undef SliceXD
+#undef pfft_cmplx
+#undef pfft_real
