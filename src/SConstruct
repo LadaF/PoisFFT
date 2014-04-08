@@ -90,7 +90,11 @@ objs = filter(lambda o: str(o)[-4:] != '.mod', objs)
 sobjs = env.Object(target='../bin/'+comp_dir+'/precisions', source='precisions.f90')
 sobjs += env.Object(target='../bin/'+comp_dir+'/parameters', source='parameters.f90')
 sobjs += env.Object(target='../bin/'+comp_dir+'/fft', source='fft.f90')
+Depends(sobjs[-1], 'fft-inc.f90')
+Depends(sobjs[-1], 'data_allocate.f90')
 sobjs += env.Object(target='../bin/'+comp_dir+'/poisfft', source='poisfft.f90')
+Depends(sobjs[-1], 'poisfft-inc.f90')
+Depends(sobjs[-1], 'loop_nest_3d.f90')
 sobjs += env.Object(target='../bin/'+comp_dir+'/main', source='main.f90')
 
 sobjs = filter(lambda o: str(o)[-4:] != '.mod', sobjs)
@@ -105,13 +109,13 @@ if str(mpi)=='yes':
     libs = ['pfft','pfftf','fftw3_mpi','fftw3f_mpi','fftw3','fftw3f']
     if (not str(openmp)=='no'):
       libs += ['fftw3_omp']
-    test = env.Program(LINKFLAGS=omp_flag, LIBS=libs,target='../bin/'+comp_dir+'/testmpi', source = objs + testobj)
+    test = env.Program(LINKFLAGS=omp_flag, LIBS=libs,target='../bin/'+comp_dir+'/testmpi', source = sobjs + testobj)
     env.Alias('test',['../bin/'+comp_dir+'/testmpi'])
 else:
     testobj = env.StaticObject(F90FLAGS='-O3',target='../bin/'+comp_dir+'/testpoisson', source='testpoisson.f90')
     testobj = filter(lambda o: str(o)[-4:] != '.mod', testobj)
     
-    test = env.Program(LINKFLAGS=omp_flag, LIBS=['fftw3','fftw3f','fftw3_omp'],target='../bin/'+comp_dir+'/testpoisson', source = objs + testobj)
+    test = env.Program(LINKFLAGS=omp_flag, LIBS=['fftw3','fftw3f','fftw3_omp'],target='../bin/'+comp_dir+'/testpoisson', source = sobjs + testobj)
     env.Alias('test',['../bin/'+comp_dir+'/testpoisson'])
 
 Default(lib)
