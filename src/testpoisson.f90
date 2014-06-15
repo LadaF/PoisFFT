@@ -1,13 +1,15 @@
 program testpoisson
   use PoisFFT_Precisions
-  use PoisFFT
+  use PoisFFT, PoisFFT_Solver1D => PoisFFT_Solver1D_DP, &
+               PoisFFT_Solver2D => PoisFFT_Solver2D_DP, &
+               PoisFFT_Solver3D => PoisFFT_Solver3D_DP
   
   implicit none
   
   integer,parameter :: RP = DRP
 
   real(RP), parameter :: pi = 3.141592653589793238462_RP!pi = 4*atan(1._RP)!
-  integer :: nx = 131, ny = 123, nz = 127
+  integer :: nx = 21, ny = 32, nz = 25
   real(RP), dimension(:,:,:), allocatable :: Phi, RHS
   real(RP), dimension(:,:), allocatable :: Phi2D, RHS2D
   real(RP), dimension(:), allocatable :: Phi1D, RHS1D
@@ -15,9 +17,9 @@ program testpoisson
   integer i,j,k,niters,inunit
   real(RP) :: R,x,y,z,tmp1,tmp2
   integer(8) :: t1,t2,trate
-  type(PoisFFT_Solver3D_DP) :: Solver3D
-  type(PoisFFT_Solver2D_DP) :: Solver2D
-  type(PoisFFT_Solver1D_DP) :: Solver1D
+  type(PoisFFT_Solver3D) :: Solver3D
+  type(PoisFFT_Solver2D) :: Solver2D
+  type(PoisFFT_Solver1D) :: Solver1D
   character(len=5) :: ch5
 
   call system_clock(count_rate=trate)
@@ -88,10 +90,53 @@ program testpoisson
   RHS1D=RHS1D-sum(RHS1D)/size(RHS1D)
 
 
+! goto 10
 
 
+  write(*,*) "2D Periodic"
+
+   do j=1,ny
+    do i=1,nx
+     call random_number(Phi2D(i,j))
+    enddo
+   enddo
+
+  Phi2D(0,:)=Phi2D(nx,:)
+  Phi2D(:,0)=Phi2D(:,ny)
+  Phi2D(nx+1,:)=Phi2D(1,:)
+  Phi2D(:,ny+1)=Phi2D(:,1)
+
+  call Res2D(nx,ny,Phi2D,RHS2D,&
+               dx**(-2),dx**(-2),dy**(-2),dy**(-2),&
+               [3,3,3,3],R)
+
+  write (*,*) R
+  Solver2D = PoisFFT_Solver2D([nx,ny],[dx,dy],[(PoisFFT_PERIODIC, i=1,4)])
+
+  do i=1,3
+    call system_clock(count=t1)
+
+    call Execute(Solver2D,Phi2D,RHS2D)
+
+    call system_clock(count=t2)
+    write(*,*) "solver cpu time", real(t2-t1)/real(trate)
+  end do
+
+  call Finalize(Solver2D)
+
+  Phi2D(0,:)=Phi2D(nx,:)
+  Phi2D(:,0)=Phi2D(:,ny)
+  Phi2D(nx+1,:)=Phi2D(1,:)
+  Phi2D(:,ny+1)=Phi2D(:,1)
+
+  call Res2D(nx,ny,Phi2D,RHS2D,&
+               dx**(-2),dx**(-2),dy**(-2),dy**(-2),&
+               [3,3,3,3],R)
+
+  write (*,*) R
 
 
+  write (*,*) "---------"
 
 
 
@@ -122,7 +167,7 @@ program testpoisson
 
   write (*,*) R
 
-  call New(Solver3D,nx,ny,nz,dx,dy,dz,[(PoisFFT_DirichletStag, i=1,6)])
+  Solver3D = PoisFFT_Solver3D([nx,ny,nz],[dx,dy,dz],[(PoisFFT_DirichletStag, i=1,6)])
 
   do i=1,3
     call system_clock(count=t1)
@@ -133,7 +178,7 @@ program testpoisson
     write(*,*) "solver cpu time", real(t2-t1)/real(trate)
   end do
 
-  call DeallocateData(Solver3D)
+  call Finalize(Solver3D)
 
   call Res3D(nx,ny,nz,Phi,RHS,&
                dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
@@ -184,7 +229,7 @@ program testpoisson
 
   write (*,*) R
 
-  call New(Solver3D,nx,ny,nz,dx,dy,dz,[(PoisFFT_NeumannStag, i=1,6)])
+  Solver3D = PoisFFT_Solver3D([nx,ny,nz],[dx,dy,dz],[(PoisFFT_NeumannStag, i=1,6)])
 
   do i=1,3
     call system_clock(count=t1)
@@ -195,7 +240,7 @@ program testpoisson
     write(*,*) "solver cpu time", real(t2-t1)/real(trate)
   end do
 
-  call DeallocateData(Solver3D)
+  call Finalize(Solver3D)
 
   Phi(0,:,:)=Phi(1,:,:)
   Phi(:,0,:)=Phi(:,1,:)
@@ -250,7 +295,7 @@ program testpoisson
                [3,3,3,3,3,3],R)
 
   write (*,*) R
-  call New(Solver3D,nx,ny,nz,dx,dy,dz,[(PoisFFT_PERIODIC, i=1,6)])
+  Solver3D = PoisFFT_Solver3D([nx,ny,nz],[dx,dy,dz],[(PoisFFT_PERIODIC, i=1,6)])
 
   do i=1,3
     call system_clock(count=t1)
@@ -261,7 +306,7 @@ program testpoisson
     write(*,*) "solver cpu time", real(t2-t1)/real(trate)
   end do
 
-  call DeallocateData(Solver3D)
+  call Finalize(Solver3D)
 
   Phi(0,:,:)=Phi(nx,:,:)
   Phi(:,0,:)=Phi(:,ny,:)
@@ -284,7 +329,7 @@ program testpoisson
 
 
 
-
+10 continue
 
 
 
@@ -303,7 +348,7 @@ program testpoisson
 
   write (*,*) R
 
-  call New(Solver3D,nx,ny,nz,dx,dy,dz,[(PoisFFT_PERIODIC, i=1,4),(PoisFFT_NeumannStag, i=5,6)])
+  Solver3D = PoisFFT_Solver3D([nx,ny,nz],[dx,dy,dz],[(PoisFFT_PERIODIC, i=1,4),(PoisFFT_NeumannStag, i=5,6)])
 
   do i=1,3
     call system_clock(count=t1)
@@ -314,7 +359,7 @@ program testpoisson
     write(*,*) "solver cpu time", real(t2-t1)/real(trate)
   end do
 
-  call DeallocateData(Solver3D)
+  call Finalize(Solver3D)
 
   Phi(0,:,:)=Phi(nx,:,:)
   Phi(:,0,:)=Phi(:,ny,:)

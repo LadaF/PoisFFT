@@ -47,25 +47,25 @@ use iso_c_binding
       import
       type(C_PTR), value :: p
       real(C_DOUBLE), dimension(*), intent(inout) :: in
-      real(C_DOUBLE), dimension(*), intent(out) :: out
+      real(C_DOUBLE), dimension(*), intent(inout) :: out
     end subroutine fftw_execute_r2r
     subroutine fftwf_execute_r2r(p,in,out) bind(C, name='fftwf_execute_r2r')
       import
       type(C_PTR), value :: p
       real(C_FLOAT), dimension(*), intent(inout) :: in
-      real(C_FLOAT), dimension(*), intent(out) :: out
+      real(C_FLOAT), dimension(*), intent(inout) :: out
     end subroutine fftwf_execute_r2r
     subroutine fftw_execute_dft(p,in,out) bind(C, name='fftw_execute_dft')
       import
       type(C_PTR), value :: p
       complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: in
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: out
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: out
     end subroutine fftw_execute_dft
     subroutine fftwf_execute_dft(p,in,out) bind(C, name='fftwf_execute_dft')
       import
       type(C_PTR), value :: p
       complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: in
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: out
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: out
     end subroutine fftwf_execute_dft
   end interface fftw_execute_gen
 
@@ -76,8 +76,8 @@ use iso_c_binding
     type(C_PTR) function fftw_plan_dft_1d(n,in,out,sign,flags) bind(C, name='fftw_plan_dft_1d')
       import
       integer(C_INT), value :: n
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(in) :: in
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: out
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: in
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: out
       integer(C_INT), value :: sign
       integer(C_INT), value :: flags
     end function fftw_plan_dft_1d
@@ -86,8 +86,8 @@ use iso_c_binding
       import
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
-      complex(C_DOUBLE_COMPLEX), dimension(n1,*), intent(in) :: in
-      complex(C_DOUBLE_COMPLEX), dimension(n1,*), intent(out) :: out
+      complex(C_DOUBLE_COMPLEX), dimension(n1,*), intent(inout) :: in
+      complex(C_DOUBLE_COMPLEX), dimension(n1,*), intent(inout) :: out
       integer(C_INT), value :: sign
       integer(C_INT), value :: flags
     end function fftw_plan_dft_2d
@@ -97,8 +97,8 @@ use iso_c_binding
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
       integer(C_INT), value :: n2
-      complex(C_DOUBLE_COMPLEX), dimension(n2,n1,*), intent(in) :: in
-      complex(C_DOUBLE_COMPLEX), dimension(n2,n1,*), intent(out) :: out
+      complex(C_DOUBLE_COMPLEX), dimension(n2,n1,*), intent(inout) :: in
+      complex(C_DOUBLE_COMPLEX), dimension(n2,n1,*), intent(inout) :: out
       integer(C_INT), value :: sign
       integer(C_INT), value :: flags
     end function fftw_plan_dft_3d
@@ -106,8 +106,8 @@ use iso_c_binding
     type(C_PTR) function fftwf_plan_dft_1d(n,in,out,sign,flags) bind(C, name='fftwf_plan_dft_1d')
       import
       integer(C_INT), value :: n
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(in) :: in
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: out
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: in
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: out
       integer(C_INT), value :: sign
       integer(C_INT), value :: flags
     end function fftwf_plan_dft_1d
@@ -116,8 +116,8 @@ use iso_c_binding
       import
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
-      complex(C_FLOAT_COMPLEX), dimension(n1,*), intent(in) :: in
-      complex(C_FLOAT_COMPLEX), dimension(n1,*), intent(out) :: out
+      complex(C_FLOAT_COMPLEX), dimension(n1,*), intent(inout) :: in
+      complex(C_FLOAT_COMPLEX), dimension(n1,*), intent(inout) :: out
       integer(C_INT), value :: sign
       integer(C_INT), value :: flags
     end function fftwf_plan_dft_2d
@@ -127,8 +127,8 @@ use iso_c_binding
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
       integer(C_INT), value :: n2
-      complex(C_FLOAT_COMPLEX), dimension(n2,n1,*), intent(in) :: in
-      complex(C_FLOAT_COMPLEX), dimension(n2,n1,*), intent(out) :: out
+      complex(C_FLOAT_COMPLEX), dimension(n2,n1,*), intent(inout) :: in
+      complex(C_FLOAT_COMPLEX), dimension(n2,n1,*), intent(inout) :: out
       integer(C_INT), value :: sign
       integer(C_INT), value :: flags
     end function fftwf_plan_dft_3d
@@ -136,8 +136,8 @@ use iso_c_binding
     type(C_PTR) function fftw_plan_r2r_1d(n,in,out,kind,flags) bind(C, name='fftw_plan_r2r_1d')
       import
       integer(C_INT), value :: n
-      real(C_DOUBLE), dimension(*), intent(in) :: in
-      real(C_DOUBLE), dimension(*), intent(out) :: out
+      real(C_DOUBLE), dimension(*), intent(inout) :: in
+      real(C_DOUBLE), dimension(*), intent(inout) :: out
       integer(C_FFTW_R2R_KIND), value :: kind
       integer(C_INT), value :: flags
     end function fftw_plan_r2r_1d
@@ -146,8 +146,8 @@ use iso_c_binding
       import
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
-      real(C_DOUBLE), dimension(n1,*), intent(in) :: in
-      real(C_DOUBLE), dimension(n1,*), intent(out) :: out
+      real(C_DOUBLE), dimension(n1,*), intent(inout) :: in
+      real(C_DOUBLE), dimension(n1,*), intent(inout) :: out
       integer(C_FFTW_R2R_KIND), value :: kind0
       integer(C_FFTW_R2R_KIND), value :: kind1
       integer(C_INT), value :: flags
@@ -158,8 +158,8 @@ use iso_c_binding
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
       integer(C_INT), value :: n2
-      real(C_DOUBLE), dimension(n2,n1,*), intent(in) :: in
-      real(C_DOUBLE), dimension(n2,n1,*), intent(out) :: out
+      real(C_DOUBLE), dimension(n2,n1,*), intent(inout) :: in
+      real(C_DOUBLE), dimension(n2,n1,*), intent(inout) :: out
       integer(C_FFTW_R2R_KIND), value :: kind0
       integer(C_FFTW_R2R_KIND), value :: kind1
       integer(C_FFTW_R2R_KIND), value :: kind2
@@ -169,8 +169,8 @@ use iso_c_binding
     type(C_PTR) function fftwf_plan_r2r_1d(n,in,out,kind,flags) bind(C, name='fftwf_plan_r2r_1d')
       import
       integer(C_INT), value :: n
-      real(C_FLOAT), dimension(*), intent(in) :: in
-      real(C_FLOAT), dimension(*), intent(out) :: out
+      real(C_FLOAT), dimension(*), intent(inout) :: in
+      real(C_FLOAT), dimension(*), intent(inout) :: out
       integer(C_FFTW_R2R_KIND), value :: kind
       integer(C_INT), value :: flags
     end function fftwf_plan_r2r_1d
@@ -179,8 +179,8 @@ use iso_c_binding
       import
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
-      real(C_FLOAT), dimension(n1,*), intent(in) :: in
-      real(C_FLOAT), dimension(n1,*), intent(out) :: out
+      real(C_FLOAT), dimension(n1,*), intent(inout) :: in
+      real(C_FLOAT), dimension(n1,*), intent(inout) :: out
       integer(C_FFTW_R2R_KIND), value :: kind0
       integer(C_FFTW_R2R_KIND), value :: kind1
       integer(C_INT), value :: flags
@@ -191,16 +191,88 @@ use iso_c_binding
       integer(C_INT), value :: n0
       integer(C_INT), value :: n1
       integer(C_INT), value :: n2
-      real(C_FLOAT), dimension(n2,n1,*), intent(in) :: in
-      real(C_FLOAT), dimension(n2,n1,*), intent(out) :: out
+      real(C_FLOAT), dimension(n2,n1,*), intent(inout) :: in
+      real(C_FLOAT), dimension(n2,n1,*), intent(inout) :: out
       integer(C_FFTW_R2R_KIND), value :: kind0
       integer(C_FFTW_R2R_KIND), value :: kind1
       integer(C_FFTW_R2R_KIND), value :: kind2
       integer(C_INT), value :: flags
     end function fftwf_plan_r2r_3d
-
   end interface fftw_plan_gen
 
+  interface
+    type(C_PTR) function fftw_plan_many_dft(rank,n,howmany,in,inembed,istride,idist,out,onembed,ostride,odist,sign,flags) &
+                         bind(C, name='fftw_plan_many_dft')
+      import
+      integer(C_INT), value :: rank
+      integer(C_INT), dimension(*), intent(in) :: n
+      integer(C_INT), value :: howmany
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: in
+      integer(C_INT), dimension(*), intent(in) :: inembed
+      integer(C_INT), value :: istride
+      integer(C_INT), value :: idist
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT), dimension(*), intent(in) :: onembed
+      integer(C_INT), value :: ostride
+      integer(C_INT), value :: odist
+      integer(C_INT), value :: sign
+      integer(C_INT), value :: flags
+    end function fftw_plan_many_dft
+    
+    type(C_PTR) function fftw_plan_many_r2r(rank,n,howmany,in,inembed,istride,idist,out,onembed,ostride,odist,kind,flags) &
+                         bind(C, name='fftw_plan_many_r2r')
+      import
+      integer(C_INT), value :: rank
+      integer(C_INT), dimension(*), intent(in) :: n
+      integer(C_INT), value :: howmany
+      real(C_DOUBLE), dimension(*), intent(inout) :: in
+      integer(C_INT), dimension(*), intent(in) :: inembed
+      integer(C_INT), value :: istride
+      integer(C_INT), value :: idist
+      real(C_DOUBLE), dimension(*), intent(inout) :: out
+      integer(C_INT), dimension(*), intent(in) :: onembed
+      integer(C_INT), value :: ostride
+      integer(C_INT), value :: odist
+      integer(C_FFTW_R2R_KIND), dimension(*), intent(in) :: kind
+      integer(C_INT), value :: flags
+    end function fftw_plan_many_r2r
+    
+    type(C_PTR) function fftwf_plan_many_dft(rank,n,howmany,in,inembed,istride,idist,out,onembed,ostride,odist,sign,flags) &
+                         bind(C, name='fftwf_plan_many_dft')
+      import
+      integer(C_INT), value :: rank
+      integer(C_INT), dimension(*), intent(in) :: n
+      integer(C_INT), value :: howmany
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: in
+      integer(C_INT), dimension(*), intent(in) :: inembed
+      integer(C_INT), value :: istride
+      integer(C_INT), value :: idist
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT), dimension(*), intent(in) :: onembed
+      integer(C_INT), value :: ostride
+      integer(C_INT), value :: odist
+      integer(C_INT), value :: sign
+      integer(C_INT), value :: flags
+    end function fftwf_plan_many_dft
+    
+    type(C_PTR) function fftwf_plan_many_r2r(rank,n,howmany,in,inembed,istride,idist,out,onembed,ostride,odist,kind,flags) &
+                         bind(C, name='fftwf_plan_many_r2r')
+      import
+      integer(C_INT), value :: rank
+      integer(C_INT), dimension(*), intent(in) :: n
+      integer(C_INT), value :: howmany
+      real(C_FLOAT), dimension(*), intent(inout) :: in
+      integer(C_INT), dimension(*), intent(in) :: inembed
+      integer(C_INT), value :: istride
+      integer(C_INT), value :: idist
+      real(C_FLOAT), dimension(*), intent(inout) :: out
+      integer(C_INT), dimension(*), intent(in) :: onembed
+      integer(C_INT), value :: ostride
+      integer(C_INT), value :: odist
+      integer(C_FFTW_R2R_KIND), dimension(*), intent(in) :: kind
+      integer(C_INT), value :: flags
+    end function fftwf_plan_many_r2r
+  end interface
 
   interface
 
@@ -390,8 +462,8 @@ use iso_c_binding
       integer(C_INTPTR_T), value :: howmany
       integer(C_INTPTR_T), value :: block0
       integer(C_INTPTR_T), value :: block1
-      real(C_DOUBLE), dimension(*), intent(out) :: in
-      real(C_DOUBLE), dimension(*), intent(out) :: out
+      real(C_DOUBLE), dimension(*), intent(inout) :: in
+      real(C_DOUBLE), dimension(*), intent(inout) :: out
       integer(C_INT32_T), value :: comm
       integer(C_INT), value :: flags
     end function fftw_mpi_plan_many_transpose
@@ -400,212 +472,11 @@ use iso_c_binding
       import
       integer(C_INTPTR_T), value :: n0
       integer(C_INTPTR_T), value :: n1
-      real(C_DOUBLE), dimension(*), intent(out) :: in
-      real(C_DOUBLE), dimension(*), intent(out) :: out
+      real(C_DOUBLE), dimension(*), intent(inout) :: in
+      real(C_DOUBLE), dimension(*), intent(inout) :: out
       integer(C_INT32_T), value :: comm
       integer(C_INT), value :: flags
     end function fftw_mpi_plan_transpose
-    
-    type(C_PTR) function fftw_mpi_plan_many_dft(rnk,n,howmany,block,tblock,in,out,comm,sign,flags) &
-                         bind(C, name='fftw_mpi_plan_many_dft_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      integer(C_INTPTR_T), value :: howmany
-      integer(C_INTPTR_T), value :: block
-      integer(C_INTPTR_T), value :: tblock
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: in
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: sign
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_many_dft
-    
-    type(C_PTR) function fftw_mpi_plan_dft(rnk,n,in,out,comm,sign,flags) bind(C, name='fftw_mpi_plan_dft_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: in
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: sign
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_dft
-    
-    type(C_PTR) function fftw_mpi_plan_dft_1d(n0,in,out,comm,sign,flags) bind(C, name='fftw_mpi_plan_dft_1d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: in
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: sign
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_dft_1d
-    
-    type(C_PTR) function fftw_mpi_plan_dft_2d(n0,n1,in,out,comm,sign,flags) bind(C, name='fftw_mpi_plan_dft_2d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: in
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: sign
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_dft_2d
-    
-    type(C_PTR) function fftw_mpi_plan_dft_3d(n0,n1,n2,in,out,comm,sign,flags) bind(C, name='fftw_mpi_plan_dft_3d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      integer(C_INTPTR_T), value :: n2
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: in
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: sign
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_dft_3d
-    
-    type(C_PTR) function fftw_mpi_plan_many_r2r(rnk,n,howmany,iblock,oblock,in,out,comm,kind,flags) &
-                         bind(C, name='fftw_mpi_plan_many_r2r_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      integer(C_INTPTR_T), value :: howmany
-      integer(C_INTPTR_T), value :: iblock
-      integer(C_INTPTR_T), value :: oblock
-      real(C_DOUBLE), dimension(*), intent(out) :: in
-      real(C_DOUBLE), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_FFTW_R2R_KIND), dimension(*), intent(in) :: kind
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_many_r2r
-    
-    type(C_PTR) function fftw_mpi_plan_r2r(rnk,n,in,out,comm,kind,flags) bind(C, name='fftw_mpi_plan_r2r_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      real(C_DOUBLE), dimension(*), intent(out) :: in
-      real(C_DOUBLE), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_FFTW_R2R_KIND), dimension(*), intent(in) :: kind
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_r2r
-    
-    type(C_PTR) function fftw_mpi_plan_r2r_2d(n0,n1,in,out,comm,kind0,kind1,flags) bind(C, name='fftw_mpi_plan_r2r_2d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      real(C_DOUBLE), dimension(*), intent(out) :: in
-      real(C_DOUBLE), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_FFTW_R2R_KIND), value :: kind0
-      integer(C_FFTW_R2R_KIND), value :: kind1
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_r2r_2d
-    
-    type(C_PTR) function fftw_mpi_plan_r2r_3d(n0,n1,n2,in,out,comm,kind0,kind1,kind2,flags) bind(C, name='fftw_mpi_plan_r2r_3d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      integer(C_INTPTR_T), value :: n2
-      real(C_DOUBLE), dimension(*), intent(out) :: in
-      real(C_DOUBLE), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_FFTW_R2R_KIND), value :: kind0
-      integer(C_FFTW_R2R_KIND), value :: kind1
-      integer(C_FFTW_R2R_KIND), value :: kind2
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_r2r_3d
-    
-    type(C_PTR) function fftw_mpi_plan_many_dft_r2c(rnk,n,howmany,iblock,oblock,in,out,comm,flags) &
-                         bind(C, name='fftw_mpi_plan_many_dft_r2c_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      integer(C_INTPTR_T), value :: howmany
-      integer(C_INTPTR_T), value :: iblock
-      integer(C_INTPTR_T), value :: oblock
-      real(C_DOUBLE), dimension(*), intent(out) :: in
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_many_dft_r2c
-    
-    type(C_PTR) function fftw_mpi_plan_dft_r2c(rnk,n,in,out,comm,flags) bind(C, name='fftw_mpi_plan_dft_r2c_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      real(C_DOUBLE), dimension(*), intent(out) :: in
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_dft_r2c
-    
-    type(C_PTR) function fftw_mpi_plan_dft_r2c_2d(n0,n1,in,out,comm,flags) bind(C, name='fftw_mpi_plan_dft_r2c_2d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      real(C_DOUBLE), dimension(*), intent(out) :: in
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_dft_r2c_2d
-    
-    type(C_PTR) function fftw_mpi_plan_dft_r2c_3d(n0,n1,n2,in,out,comm,flags) bind(C, name='fftw_mpi_plan_dft_r2c_3d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      integer(C_INTPTR_T), value :: n2
-      real(C_DOUBLE), dimension(*), intent(out) :: in
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_dft_r2c_3d
-    
-    type(C_PTR) function fftw_mpi_plan_many_dft_c2r(rnk,n,howmany,iblock,oblock,in,out,comm,flags) &
-                         bind(C, name='fftw_mpi_plan_many_dft_c2r_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      integer(C_INTPTR_T), value :: howmany
-      integer(C_INTPTR_T), value :: iblock
-      integer(C_INTPTR_T), value :: oblock
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: in
-      real(C_DOUBLE), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_many_dft_c2r
-    
-    type(C_PTR) function fftw_mpi_plan_dft_c2r(rnk,n,in,out,comm,flags) bind(C, name='fftw_mpi_plan_dft_c2r_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: in
-      real(C_DOUBLE), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_dft_c2r
-    
-    type(C_PTR) function fftw_mpi_plan_dft_c2r_2d(n0,n1,in,out,comm,flags) bind(C, name='fftw_mpi_plan_dft_c2r_2d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: in
-      real(C_DOUBLE), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_dft_c2r_2d
-    
-    type(C_PTR) function fftw_mpi_plan_dft_c2r_3d(n0,n1,n2,in,out,comm,flags) bind(C, name='fftw_mpi_plan_dft_c2r_3d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      integer(C_INTPTR_T), value :: n2
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: in
-      real(C_DOUBLE), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftw_mpi_plan_dft_c2r_3d
     
     subroutine fftw_mpi_gather_wisdom(comm_) bind(C, name='fftw_mpi_gather_wisdom_f03')
       import
@@ -621,28 +492,28 @@ use iso_c_binding
       import
       type(C_PTR), value :: p
       complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: in
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: out
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: out
     end subroutine fftw_mpi_execute_dft
     
     subroutine fftw_mpi_execute_dft_r2c(p,in,out) bind(C, name='fftw_mpi_execute_dft_r2c')
       import
       type(C_PTR), value :: p
       real(C_DOUBLE), dimension(*), intent(inout) :: in
-      complex(C_DOUBLE_COMPLEX), dimension(*), intent(out) :: out
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: out
     end subroutine fftw_mpi_execute_dft_r2c
     
     subroutine fftw_mpi_execute_dft_c2r(p,in,out) bind(C, name='fftw_mpi_execute_dft_c2r')
       import
       type(C_PTR), value :: p
       complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: in
-      real(C_DOUBLE), dimension(*), intent(out) :: out
+      real(C_DOUBLE), dimension(*), intent(inout) :: out
     end subroutine fftw_mpi_execute_dft_c2r
     
     subroutine fftw_mpi_execute_r2r(p,in,out) bind(C, name='fftw_mpi_execute_r2r')
       import
       type(C_PTR), value :: p
       real(C_DOUBLE), dimension(*), intent(inout) :: in
-      real(C_DOUBLE), dimension(*), intent(out) :: out
+      real(C_DOUBLE), dimension(*), intent(inout) :: out
     end subroutine fftw_mpi_execute_r2r
     
   end interface
@@ -790,8 +661,8 @@ use iso_c_binding
       integer(C_INTPTR_T), value :: howmany
       integer(C_INTPTR_T), value :: block0
       integer(C_INTPTR_T), value :: block1
-      real(C_FLOAT), dimension(*), intent(out) :: in
-      real(C_FLOAT), dimension(*), intent(out) :: out
+      real(C_FLOAT), dimension(*), intent(inout) :: in
+      real(C_FLOAT), dimension(*), intent(inout) :: out
       integer(C_INT32_T), value :: comm
       integer(C_INT), value :: flags
     end function fftwf_mpi_plan_many_transpose
@@ -800,213 +671,13 @@ use iso_c_binding
       import
       integer(C_INTPTR_T), value :: n0
       integer(C_INTPTR_T), value :: n1
-      real(C_FLOAT), dimension(*), intent(out) :: in
-      real(C_FLOAT), dimension(*), intent(out) :: out
+      real(C_FLOAT), dimension(*), intent(inout) :: in
+      real(C_FLOAT), dimension(*), intent(inout) :: out
       integer(C_INT32_T), value :: comm
       integer(C_INT), value :: flags
     end function fftwf_mpi_plan_transpose
     
-    type(C_PTR) function fftwf_mpi_plan_many_dft(rnk,n,howmany,block,tblock,in,out,comm,sign,flags) &
-                         bind(C, name='fftwf_mpi_plan_many_dft_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      integer(C_INTPTR_T), value :: howmany
-      integer(C_INTPTR_T), value :: block
-      integer(C_INTPTR_T), value :: tblock
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: in
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: sign
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_many_dft
-    
-    type(C_PTR) function fftwf_mpi_plan_dft(rnk,n,in,out,comm,sign,flags) bind(C, name='fftwf_mpi_plan_dft_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: in
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: sign
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_dft
-    
-    type(C_PTR) function fftwf_mpi_plan_dft_1d(n0,in,out,comm,sign,flags) bind(C, name='fftwf_mpi_plan_dft_1d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: in
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: sign
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_dft_1d
-    
-    type(C_PTR) function fftwf_mpi_plan_dft_2d(n0,n1,in,out,comm,sign,flags) bind(C, name='fftwf_mpi_plan_dft_2d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: in
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: sign
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_dft_2d
-    
-    type(C_PTR) function fftwf_mpi_plan_dft_3d(n0,n1,n2,in,out,comm,sign,flags) bind(C, name='fftwf_mpi_plan_dft_3d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      integer(C_INTPTR_T), value :: n2
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: in
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: sign
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_dft_3d
-    
-    type(C_PTR) function fftwf_mpi_plan_many_r2r(rnk,n,howmany,iblock,oblock,in,out,comm,kind,flags) &
-                         bind(C, name='fftwf_mpi_plan_many_r2r_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      integer(C_INTPTR_T), value :: howmany
-      integer(C_INTPTR_T), value :: iblock
-      integer(C_INTPTR_T), value :: oblock
-      real(C_FLOAT), dimension(*), intent(out) :: in
-      real(C_FLOAT), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_FFTW_R2R_KIND), dimension(*), intent(in) :: kind
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_many_r2r
-    
-    type(C_PTR) function fftwf_mpi_plan_r2r(rnk,n,in,out,comm,kind,flags) bind(C, name='fftwf_mpi_plan_r2r_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      real(C_FLOAT), dimension(*), intent(out) :: in
-      real(C_FLOAT), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_FFTW_R2R_KIND), dimension(*), intent(in) :: kind
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_r2r
-    
-    type(C_PTR) function fftwf_mpi_plan_r2r_2d(n0,n1,in,out,comm,kind0,kind1,flags) bind(C, name='fftwf_mpi_plan_r2r_2d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      real(C_FLOAT), dimension(*), intent(out) :: in
-      real(C_FLOAT), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_FFTW_R2R_KIND), value :: kind0
-      integer(C_FFTW_R2R_KIND), value :: kind1
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_r2r_2d
-    
-    type(C_PTR) function fftwf_mpi_plan_r2r_3d(n0,n1,n2,in,out,comm,kind0,kind1,kind2,flags) &
-                         bind(C, name='fftwf_mpi_plan_r2r_3d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      integer(C_INTPTR_T), value :: n2
-      real(C_FLOAT), dimension(*), intent(out) :: in
-      real(C_FLOAT), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_FFTW_R2R_KIND), value :: kind0
-      integer(C_FFTW_R2R_KIND), value :: kind1
-      integer(C_FFTW_R2R_KIND), value :: kind2
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_r2r_3d
-    
-    type(C_PTR) function fftwf_mpi_plan_many_dft_r2c(rnk,n,howmany,iblock,oblock,in,out,comm,flags) &
-                         bind(C, name='fftwf_mpi_plan_many_dft_r2c_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      integer(C_INTPTR_T), value :: howmany
-      integer(C_INTPTR_T), value :: iblock
-      integer(C_INTPTR_T), value :: oblock
-      real(C_FLOAT), dimension(*), intent(out) :: in
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_many_dft_r2c
-    
-    type(C_PTR) function fftwf_mpi_plan_dft_r2c(rnk,n,in,out,comm,flags) bind(C, name='fftwf_mpi_plan_dft_r2c_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      real(C_FLOAT), dimension(*), intent(out) :: in
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_dft_r2c
-    
-    type(C_PTR) function fftwf_mpi_plan_dft_r2c_2d(n0,n1,in,out,comm,flags) bind(C, name='fftwf_mpi_plan_dft_r2c_2d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      real(C_FLOAT), dimension(*), intent(out) :: in
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_dft_r2c_2d
-    
-    type(C_PTR) function fftwf_mpi_plan_dft_r2c_3d(n0,n1,n2,in,out,comm,flags) bind(C, name='fftwf_mpi_plan_dft_r2c_3d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      integer(C_INTPTR_T), value :: n2
-      real(C_FLOAT), dimension(*), intent(out) :: in
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_dft_r2c_3d
-    
-    type(C_PTR) function fftwf_mpi_plan_many_dft_c2r(rnk,n,howmany,iblock,oblock,in,out,comm,flags) &
-                         bind(C, name='fftwf_mpi_plan_many_dft_c2r_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      integer(C_INTPTR_T), value :: howmany
-      integer(C_INTPTR_T), value :: iblock
-      integer(C_INTPTR_T), value :: oblock
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: in
-      real(C_FLOAT), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_many_dft_c2r
-    
-    type(C_PTR) function fftwf_mpi_plan_dft_c2r(rnk,n,in,out,comm,flags) bind(C, name='fftwf_mpi_plan_dft_c2r_f03')
-      import
-      integer(C_INT), value :: rnk
-      integer(C_INTPTR_T), dimension(*), intent(in) :: n
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: in
-      real(C_FLOAT), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_dft_c2r
-    
-    type(C_PTR) function fftwf_mpi_plan_dft_c2r_2d(n0,n1,in,out,comm,flags) bind(C, name='fftwf_mpi_plan_dft_c2r_2d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: in
-      real(C_FLOAT), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_dft_c2r_2d
-    
-    type(C_PTR) function fftwf_mpi_plan_dft_c2r_3d(n0,n1,n2,in,out,comm,flags) bind(C, name='fftwf_mpi_plan_dft_c2r_3d_f03')
-      import
-      integer(C_INTPTR_T), value :: n0
-      integer(C_INTPTR_T), value :: n1
-      integer(C_INTPTR_T), value :: n2
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: in
-      real(C_FLOAT), dimension(*), intent(out) :: out
-      integer(C_INT32_T), value :: comm
-      integer(C_INT), value :: flags
-    end function fftwf_mpi_plan_dft_c2r_3d
+
     
     subroutine fftwf_mpi_gather_wisdom(comm_) bind(C, name='fftwf_mpi_gather_wisdom_f03')
       import
@@ -1022,30 +693,453 @@ use iso_c_binding
       import
       type(C_PTR), value :: p
       complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: in
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: out
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: out
     end subroutine fftwf_mpi_execute_dft
     
     subroutine fftwf_mpi_execute_dft_r2c(p,in,out) bind(C, name='fftwf_mpi_execute_dft_r2c')
       import
       type(C_PTR), value :: p
       real(C_FLOAT), dimension(*), intent(inout) :: in
-      complex(C_FLOAT_COMPLEX), dimension(*), intent(out) :: out
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: out
     end subroutine fftwf_mpi_execute_dft_r2c
     
     subroutine fftwf_mpi_execute_dft_c2r(p,in,out) bind(C, name='fftwf_mpi_execute_dft_c2r')
       import
       type(C_PTR), value :: p
       complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: in
-      real(C_FLOAT), dimension(*), intent(out) :: out
+      real(C_FLOAT), dimension(*), intent(inout) :: out
     end subroutine fftwf_mpi_execute_dft_c2r
     
     subroutine fftwf_mpi_execute_r2r(p,in,out) bind(C, name='fftwf_mpi_execute_r2r')
       import
       type(C_PTR), value :: p
       real(C_FLOAT), dimension(*), intent(inout) :: in
-      real(C_FLOAT), dimension(*), intent(out) :: out
+      real(C_FLOAT), dimension(*), intent(inout) :: out
     end subroutine fftwf_mpi_execute_r2r
     
+    
   end interface
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  interface fftw_mpi_plan_gen
+  
+    type(C_PTR) function fftw_mpi_plan_many_dft(rnk,n,howmany,block,tblock,in,out,comm,sign,flags) &
+                         bind(C, name='fftw_mpi_plan_many_dft_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      integer(C_INTPTR_T), value :: howmany
+      integer(C_INTPTR_T), value :: block
+      integer(C_INTPTR_T), value :: tblock
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: in
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: sign
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_many_dft
+    
+    type(C_PTR) function fftw_mpi_plan_dft(rnk,n,in,out,comm,sign,flags) bind(C, name='fftw_mpi_plan_dft_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: in
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: sign
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_dft
+    
+    type(C_PTR) function fftw_mpi_plan_dft_1d(n0,in,out,comm,sign,flags) bind(C, name='fftw_mpi_plan_dft_1d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: in
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: sign
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_dft_1d
+    
+    type(C_PTR) function fftw_mpi_plan_dft_2d(n0,n1,in,out,comm,sign,flags) bind(C, name='fftw_mpi_plan_dft_2d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: in
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: sign
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_dft_2d
+    
+    type(C_PTR) function fftw_mpi_plan_dft_3d(n0,n1,n2,in,out,comm,sign,flags) bind(C, name='fftw_mpi_plan_dft_3d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      integer(C_INTPTR_T), value :: n2
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: in
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: sign
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_dft_3d
+    
+    type(C_PTR) function fftw_mpi_plan_many_r2r(rnk,n,howmany,iblock,oblock,in,out,comm,kind,flags) &
+                         bind(C, name='fftw_mpi_plan_many_r2r_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      integer(C_INTPTR_T), value :: howmany
+      integer(C_INTPTR_T), value :: iblock
+      integer(C_INTPTR_T), value :: oblock
+      real(C_DOUBLE), dimension(*), intent(inout) :: in
+      real(C_DOUBLE), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_FFTW_R2R_KIND), dimension(*), intent(in) :: kind
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_many_r2r
+    
+    type(C_PTR) function fftw_mpi_plan_r2r(rnk,n,in,out,comm,kind,flags) bind(C, name='fftw_mpi_plan_r2r_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      real(C_DOUBLE), dimension(*), intent(inout) :: in
+      real(C_DOUBLE), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_FFTW_R2R_KIND), dimension(*), intent(in) :: kind
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_r2r
+    
+    type(C_PTR) function fftw_mpi_plan_r2r_2d(n0,n1,in,out,comm,kind0,kind1,flags) bind(C, name='fftw_mpi_plan_r2r_2d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      real(C_DOUBLE), dimension(*), intent(inout) :: in
+      real(C_DOUBLE), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_FFTW_R2R_KIND), value :: kind0
+      integer(C_FFTW_R2R_KIND), value :: kind1
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_r2r_2d
+    
+    type(C_PTR) function fftw_mpi_plan_r2r_3d(n0,n1,n2,in,out,comm,kind0,kind1,kind2,flags) bind(C, name='fftw_mpi_plan_r2r_3d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      integer(C_INTPTR_T), value :: n2
+      real(C_DOUBLE), dimension(*), intent(inout) :: in
+      real(C_DOUBLE), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_FFTW_R2R_KIND), value :: kind0
+      integer(C_FFTW_R2R_KIND), value :: kind1
+      integer(C_FFTW_R2R_KIND), value :: kind2
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_r2r_3d
+    
+    type(C_PTR) function fftw_mpi_plan_many_dft_r2c(rnk,n,howmany,iblock,oblock,in,out,comm,flags) &
+                         bind(C, name='fftw_mpi_plan_many_dft_r2c_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      integer(C_INTPTR_T), value :: howmany
+      integer(C_INTPTR_T), value :: iblock
+      integer(C_INTPTR_T), value :: oblock
+      real(C_DOUBLE), dimension(*), intent(inout) :: in
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_many_dft_r2c
+    
+    type(C_PTR) function fftw_mpi_plan_dft_r2c(rnk,n,in,out,comm,flags) bind(C, name='fftw_mpi_plan_dft_r2c_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      real(C_DOUBLE), dimension(*), intent(inout) :: in
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_dft_r2c
+    
+    type(C_PTR) function fftw_mpi_plan_dft_r2c_2d(n0,n1,in,out,comm,flags) bind(C, name='fftw_mpi_plan_dft_r2c_2d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      real(C_DOUBLE), dimension(*), intent(inout) :: in
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_dft_r2c_2d
+    
+    type(C_PTR) function fftw_mpi_plan_dft_r2c_3d(n0,n1,n2,in,out,comm,flags) bind(C, name='fftw_mpi_plan_dft_r2c_3d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      integer(C_INTPTR_T), value :: n2
+      real(C_DOUBLE), dimension(*), intent(inout) :: in
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_dft_r2c_3d
+    
+    type(C_PTR) function fftw_mpi_plan_many_dft_c2r(rnk,n,howmany,iblock,oblock,in,out,comm,flags) &
+                         bind(C, name='fftw_mpi_plan_many_dft_c2r_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      integer(C_INTPTR_T), value :: howmany
+      integer(C_INTPTR_T), value :: iblock
+      integer(C_INTPTR_T), value :: oblock
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: in
+      real(C_DOUBLE), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_many_dft_c2r
+    
+    type(C_PTR) function fftw_mpi_plan_dft_c2r(rnk,n,in,out,comm,flags) bind(C, name='fftw_mpi_plan_dft_c2r_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: in
+      real(C_DOUBLE), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_dft_c2r
+    
+    type(C_PTR) function fftw_mpi_plan_dft_c2r_2d(n0,n1,in,out,comm,flags) bind(C, name='fftw_mpi_plan_dft_c2r_2d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: in
+      real(C_DOUBLE), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_dft_c2r_2d
+    
+    type(C_PTR) function fftw_mpi_plan_dft_c2r_3d(n0,n1,n2,in,out,comm,flags) bind(C, name='fftw_mpi_plan_dft_c2r_3d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      integer(C_INTPTR_T), value :: n2
+      complex(C_DOUBLE_COMPLEX), dimension(*), intent(inout) :: in
+      real(C_DOUBLE), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftw_mpi_plan_dft_c2r_3d
+    
+    
+    
+    type(C_PTR) function fftwf_mpi_plan_many_dft(rnk,n,howmany,block,tblock,in,out,comm,sign,flags) &
+                         bind(C, name='fftwf_mpi_plan_many_dft_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      integer(C_INTPTR_T), value :: howmany
+      integer(C_INTPTR_T), value :: block
+      integer(C_INTPTR_T), value :: tblock
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: in
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: sign
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_many_dft
+    
+    type(C_PTR) function fftwf_mpi_plan_dft(rnk,n,in,out,comm,sign,flags) bind(C, name='fftwf_mpi_plan_dft_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: in
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: sign
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_dft
+    
+    type(C_PTR) function fftwf_mpi_plan_dft_1d(n0,in,out,comm,sign,flags) bind(C, name='fftwf_mpi_plan_dft_1d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: in
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: sign
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_dft_1d
+    
+    type(C_PTR) function fftwf_mpi_plan_dft_2d(n0,n1,in,out,comm,sign,flags) bind(C, name='fftwf_mpi_plan_dft_2d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: in
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: sign
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_dft_2d
+    
+    type(C_PTR) function fftwf_mpi_plan_dft_3d(n0,n1,n2,in,out,comm,sign,flags) bind(C, name='fftwf_mpi_plan_dft_3d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      integer(C_INTPTR_T), value :: n2
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: in
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: sign
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_dft_3d
+    
+    type(C_PTR) function fftwf_mpi_plan_many_r2r(rnk,n,howmany,iblock,oblock,in,out,comm,kind,flags) &
+                         bind(C, name='fftwf_mpi_plan_many_r2r_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      integer(C_INTPTR_T), value :: howmany
+      integer(C_INTPTR_T), value :: iblock
+      integer(C_INTPTR_T), value :: oblock
+      real(C_FLOAT), dimension(*), intent(inout) :: in
+      real(C_FLOAT), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_FFTW_R2R_KIND), dimension(*), intent(in) :: kind
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_many_r2r
+    
+    type(C_PTR) function fftwf_mpi_plan_r2r(rnk,n,in,out,comm,kind,flags) bind(C, name='fftwf_mpi_plan_r2r_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      real(C_FLOAT), dimension(*), intent(inout) :: in
+      real(C_FLOAT), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_FFTW_R2R_KIND), dimension(*), intent(in) :: kind
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_r2r
+    
+    type(C_PTR) function fftwf_mpi_plan_r2r_2d(n0,n1,in,out,comm,kind0,kind1,flags) bind(C, name='fftwf_mpi_plan_r2r_2d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      real(C_FLOAT), dimension(*), intent(inout) :: in
+      real(C_FLOAT), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_FFTW_R2R_KIND), value :: kind0
+      integer(C_FFTW_R2R_KIND), value :: kind1
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_r2r_2d
+    
+    type(C_PTR) function fftwf_mpi_plan_r2r_3d(n0,n1,n2,in,out,comm,kind0,kind1,kind2,flags) &
+                         bind(C, name='fftwf_mpi_plan_r2r_3d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      integer(C_INTPTR_T), value :: n2
+      real(C_FLOAT), dimension(*), intent(inout) :: in
+      real(C_FLOAT), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_FFTW_R2R_KIND), value :: kind0
+      integer(C_FFTW_R2R_KIND), value :: kind1
+      integer(C_FFTW_R2R_KIND), value :: kind2
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_r2r_3d
+    
+    type(C_PTR) function fftwf_mpi_plan_many_dft_r2c(rnk,n,howmany,iblock,oblock,in,out,comm,flags) &
+                         bind(C, name='fftwf_mpi_plan_many_dft_r2c_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      integer(C_INTPTR_T), value :: howmany
+      integer(C_INTPTR_T), value :: iblock
+      integer(C_INTPTR_T), value :: oblock
+      real(C_FLOAT), dimension(*), intent(inout) :: in
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_many_dft_r2c
+    
+    type(C_PTR) function fftwf_mpi_plan_dft_r2c(rnk,n,in,out,comm,flags) bind(C, name='fftwf_mpi_plan_dft_r2c_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      real(C_FLOAT), dimension(*), intent(inout) :: in
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_dft_r2c
+    
+    type(C_PTR) function fftwf_mpi_plan_dft_r2c_2d(n0,n1,in,out,comm,flags) bind(C, name='fftwf_mpi_plan_dft_r2c_2d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      real(C_FLOAT), dimension(*), intent(inout) :: in
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_dft_r2c_2d
+    
+    type(C_PTR) function fftwf_mpi_plan_dft_r2c_3d(n0,n1,n2,in,out,comm,flags) bind(C, name='fftwf_mpi_plan_dft_r2c_3d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      integer(C_INTPTR_T), value :: n2
+      real(C_FLOAT), dimension(*), intent(inout) :: in
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_dft_r2c_3d
+    
+    type(C_PTR) function fftwf_mpi_plan_many_dft_c2r(rnk,n,howmany,iblock,oblock,in,out,comm,flags) &
+                         bind(C, name='fftwf_mpi_plan_many_dft_c2r_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      integer(C_INTPTR_T), value :: howmany
+      integer(C_INTPTR_T), value :: iblock
+      integer(C_INTPTR_T), value :: oblock
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: in
+      real(C_FLOAT), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_many_dft_c2r
+    
+    type(C_PTR) function fftwf_mpi_plan_dft_c2r(rnk,n,in,out,comm,flags) bind(C, name='fftwf_mpi_plan_dft_c2r_f03')
+      import
+      integer(C_INT), value :: rnk
+      integer(C_INTPTR_T), dimension(*), intent(in) :: n
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: in
+      real(C_FLOAT), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_dft_c2r
+    
+    type(C_PTR) function fftwf_mpi_plan_dft_c2r_2d(n0,n1,in,out,comm,flags) bind(C, name='fftwf_mpi_plan_dft_c2r_2d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: in
+      real(C_FLOAT), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_dft_c2r_2d
+    
+    type(C_PTR) function fftwf_mpi_plan_dft_c2r_3d(n0,n1,n2,in,out,comm,flags) bind(C, name='fftwf_mpi_plan_dft_c2r_3d_f03')
+      import
+      integer(C_INTPTR_T), value :: n0
+      integer(C_INTPTR_T), value :: n1
+      integer(C_INTPTR_T), value :: n2
+      complex(C_FLOAT_COMPLEX), dimension(*), intent(inout) :: in
+      real(C_FLOAT), dimension(*), intent(inout) :: out
+      integer(C_INT32_T), value :: comm
+      integer(C_INT), value :: flags
+    end function fftwf_mpi_plan_dft_c2r_3d
+  end interface fftw_mpi_plan_gen
 #endif
 end module fftw3

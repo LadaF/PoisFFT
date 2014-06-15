@@ -1,15 +1,12 @@
 #if dimensions == 1
 #define PoisFFT_SolverXD PoisFFT_Solver1D
-#define dims [D%nx]
-#define colons :
+#define gdims [D%gnx]
 #elif dimensions == 2
 #define PoisFFT_SolverXD PoisFFT_Solver2D
-#define dims [D%nx,D%ny]
-#define colons :,:
+#define gdims [D%gny,D%gnx]
 #else
 #define PoisFFT_SolverXD PoisFFT_Solver3D
-#define dims [D%nx,D%ny,D%nz]
-#define colons :,:,:
+#define gdims [D%gnz,D%gny,D%gnx]
 #endif
 
 #if realcomplex == 1
@@ -24,24 +21,28 @@
 
 
       type( PoisFFT_SolverXD ), intent(inout)        :: D
-!       datatype , dimension( colons ), pointer, optional    :: data
       type(c_ptr) :: p
-#if MPI && dimensions == 3
+#if defined(MPI) && dimensions>1
       integer(c_size_t) :: cnt
-      integer(c_intptr_t) :: a1(3),a2(3),a3(3),a4(3)
-      cnt =  pfft_local_size_dft_3d(int([D%gnz,D%gny,D%gnx],c_intptr_t), &
-                  D%mpi_comm, PFFT_TRANSPOSED_NONE, &
+      integer(c_intptr_t) :: a1(dimensions),a2(dimensions),a3(dimensions),a4(dimensions)
+
+      cnt =  pfft_local_size_dft(dimensions,int(gdims,c_intptr_t), &
+                  D%mpi%comm, PFFT_TRANSPOSED_NONE, &
                   a1,a2,a3,a4)
-      if (.not.all(a1(dimensions:1:-1)==dims)) stop "Error. Inconsistent size of local arrays!"
-      p = fftw_malloc( sizeof( dataf ) * cnt )
+      if (.not.all(a1(dimensions:1:-1)==D%nxyz)) stop "Error. Inconsistent size of local arrays!"
+      p = fftw_malloc( storage_size( dataf )/storage_size('a') * cnt )
+#elif defined(MPI) && dimensions==1
+      p = fftw_malloc( storage_size( dataf )/storage_size('a') * int(D%gnx, c_size_t ))
 #else
-      p = fftw_malloc( sizeof( dataf ) * D%cnt )
+      p = fftw_malloc( storage_size( dataf )/storage_size('a') * D%cnt )
 #endif
 
       if (c_associated(p)) then
-
-          call c_f_pointer(p, D%xwork, dims )
-
+#if defined(MPI) && dimensions==1
+          call c_f_pointer(p, D%xwork, gdims )
+#else
+          call c_f_pointer(p, D%xwork, D%nxyz )
+#endif
       else
         stop "Data allocate error, fftw_malloc returned NULL."
       endif
@@ -50,6 +51,5 @@
 #undef xwork
 #undef datatype
 #undef dataf
-#undef colons
-#undef dims
+#undef gdims
 #undef PoisFFT_SolverXD

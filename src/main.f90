@@ -17,9 +17,10 @@ module PoisFFT
 contains
 #ifdef MPI    
     subroutine PoisFFT_InitMPIGrid(MPI_comm, np, PoisFFT_comm, ierror)
-      integer(c_int32_t), intent(in) :: mpi_comm
+      use mpi, only: MPI_Comm_size
+      integer, intent(in) :: mpi_comm
       integer(c_int), intent(in) :: np(:)
-      integer(c_int32_t), intent(out) :: PoisFFT_comm, ierror
+      integer, intent(out) :: PoisFFT_comm, ierror
       integer :: comm_size
       
       call MPI_Comm_size(mpi_comm, comm_size, ierror)
@@ -29,7 +30,7 @@ contains
         return
       end if
       
-      !This will fail to compile if integer /= 4 bytes as Fortran MPI2 and PFFT assumes.
+      !This will fail to compile if integer /= 4 bytes as PFFT assumes.
       ierror = pfft_create_procmesh_2d(MPI_comm, &
                                        np(1), &
                                        np(2), &
@@ -43,7 +44,7 @@ contains
     subroutine PoisFFT_LocalGridSize(rnk,Nos,PoisFFT_comm,local_ni,local_i_start,local_no,local_o_start)
       integer(c_int), value :: rnk
       integer(c_intptr_t), intent(in) :: Nos(:)
-      integer(c_int32_t), intent(in) :: PoisFFT_comm
+      integer, intent(in) :: PoisFFT_comm
       integer(c_intptr_t), intent(out) :: local_ni(:)
       integer(c_intptr_t), intent(out) :: local_i_start(:)
       integer(c_intptr_t), intent(out) :: local_no(:)

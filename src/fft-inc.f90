@@ -1,3 +1,16 @@
+#if (PREC==2)
+#define RP DRP
+#define CP DCP
+#define fftw_execute_complex fftw_execute_dft
+#define fftw_execute_real fftw_execute_r2r
+#define pfft_execute_gen pfft_execute
+#else
+#define RP SRP
+#define CP SCP
+#define fftw_execute_complex fftwf_execute_dft
+#define fftw_execute_real fftwf_execute_r2r
+#define pfft_execute_gen pfftf_execute
+#endif
   use iso_c_binding
   use PoisFFT_Precisions
   use fftw3
@@ -27,11 +40,25 @@
   end type PoisFFT_Plan1D
 
 
+  type PoisFFT_Plan1D_Many
+    type(c_ptr)         :: planptr=c_null_ptr
+    logical             :: planowner=.false.
+    integer(c_int)      :: dir
+  end type PoisFFT_Plan1D_Many
+
+
   type PoisFFT_Plan2D
     type(c_ptr)         :: planptr=c_null_ptr
     logical             :: planowner=.false.
     integer(c_int)      :: dir
   end type PoisFFT_Plan2D
+
+
+  type PoisFFT_Plan2D_Many
+    type(c_ptr)         :: planptr=c_null_ptr
+    logical             :: planowner=.false.
+    integer(c_int)      :: dir
+  end type PoisFFT_Plan2D_Many
 
 
   type PoisFFT_Plan3D
@@ -41,58 +68,162 @@
   end type PoisFFT_Plan3D
 
 
+  type mpi_vars_1d
+    integer :: rank
+    integer :: np
+    integer :: comm = -1
+  end type
+
   type PoisFFT_Solver1D
     real(RP) :: dx
+    integer(c_int) :: nxyz(1)
     integer(c_int) :: nx
     integer(c_int) :: gnx
+    integer(c_int) :: offx = 0 !offset from global index
     integer(c_size_t) :: cnt
+    integer(c_size_t) :: gcnt
     integer(c_int), dimension(2) :: BCs
+    real(RP), allocatable, dimension(:) :: denomx
+    
     type(PoisFFT_Plan1D) :: forward, backward
-    complex(CP), dimension(:),contiguous,&
+    complex(CP), dimension(:), &
+#ifndef NO_CONTIGUOUS
+    contiguous, &
+#endif
                        pointer :: cwork => null()
-    real(RP), dimension(:),contiguous,&
+    real(RP), dimension(:), &
+#ifndef NO_CONTIGUOUS
+    contiguous, &
+#endif
                        pointer :: rwork => null()
-    integer(c_int32_t) :: mpi_comm
+    logical :: mpi_transpose_needed = .false.
+    type(mpi_vars_1D) :: mpi
   end type PoisFFT_Solver1D
+
+  type PoisFFT_Solver1D_Many
+    real(RP) :: dx
+    integer(c_int) :: nxyz(1)
+    integer(c_int) :: nx
+    integer(c_int) :: gnx
+    integer(c_int) :: offx = 0 !offset from global index
+    integer(c_size_t) :: cnt
+    integer(c_size_t) :: gcnt
+    integer(c_int) :: howmany
+    integer(C_size_t), dimension(3) :: workdims
+    integer(c_int), dimension(2) :: BCs
+    real(RP), allocatable, dimension(:) :: denomx
+    
+    type(PoisFFT_Plan1D_Many) :: forward, backward
+    complex(CP), dimension(:,:,:), &
+#ifndef NO_CONTIGUOUS
+    contiguous, &
+#endif
+                       pointer :: cwork => null()
+    real(RP), dimension(:,:,:), &
+#ifndef NO_CONTIGUOUS
+    contiguous, &
+#endif
+                       pointer :: rwork => null()
+    logical :: mpi_transpose_needed = .false.
+    type(mpi_vars_1D) :: mpi
+  end type PoisFFT_Solver1D_Many
+  
+  type mpi_vars_2d
+    integer :: rank
+    integer :: np
+    integer :: comm = -1
+  end type
 
   type PoisFFT_Solver2D
     real(RP) :: dx, dy
+    integer(c_int) :: nxyz(2)
     integer(c_int) :: nx, ny
     integer(c_int) :: gnx, gny
+    integer(c_int) :: offx = 0, offy = 0 !offsets from global indexes
     integer(c_size_t) :: cnt
+    integer(c_size_t) :: gcnt
     integer(c_int), dimension(4) :: BCs
+    real(RP), allocatable, dimension(:) :: denomx, denomy
+    
     type(PoisFFT_Plan2D) :: forward, backward
-    complex(CP), dimension(:,:),contiguous,&
+    complex(CP), dimension(:,:), &
+#ifndef NO_CONTIGUOUS
+    contiguous, &
+#endif
                        pointer :: cwork => null()
-    real(RP), dimension(:,:),contiguous,&
+    real(RP), dimension(:,:), &
+#ifndef NO_CONTIGUOUS
+    contiguous, &
+#endif
                        pointer :: rwork => null()
-    integer(c_int32_t) :: mpi_comm
+    type(mpi_vars_2D) :: mpi
   end type PoisFFT_Solver2D
+
+  type PoisFFT_Solver2D_Many
+    real(RP) :: dx, dy
+    integer(c_int) :: nxyz(2)
+    integer(c_int) :: nx, ny
+    integer(c_int) :: gnx, gny
+    integer(c_int) :: offx = 0, offy = 0 !offsets from global indexes
+    integer(c_size_t) :: cnt
+    integer(c_size_t) :: gcnt
+    integer(c_int) :: howmany
+    integer(c_size_t), dimension(3) :: workdims
+    integer(c_int), dimension(4) :: BCs
+    real(RP), allocatable, dimension(:) :: denomx, denomy
+    
+    type(PoisFFT_Plan2D_Many) :: forward, backward
+    complex(CP), dimension(:,:,:), &
+#ifndef NO_CONTIGUOUS
+    contiguous, &
+#endif
+                       pointer :: cwork => null()
+    real(RP), dimension(:,:,:), &
+#ifndef NO_CONTIGUOUS
+    contiguous, &
+#endif
+                       pointer :: rwork => null()
+    type(mpi_vars_2D) :: mpi
+  end type PoisFFT_Solver2D_Many
+  
+  type mpi_vars_3D
+    integer :: rank
+    integer :: np
+    integer,dimension(:),allocatable :: snxs, snzs, rnxs, rnzs, sdispls, scounts, rdispls, rcounts
+    real(RP), allocatable :: tmp1(:,:,:), tmp2(:), rwork(:,:,:)
+    integer :: comm = -1
+  end type
 
   type PoisFFT_Solver3D
     real(RP) :: dx, dy, dz
+    integer(c_int) :: nxyz(3)
     integer(c_int) :: nx, ny, nz
     integer(c_int) :: gnx, gny, gnz
     integer(c_int) :: offx = 0, offy = 0, offz = 0 !offsets from global indexes
     integer(c_size_t) :: cnt
+    integer(c_size_t) :: gcnt
     integer(c_int), dimension(6) :: BCs
+    real(RP), allocatable, dimension(:) :: denomx, denomy, denomz
+    
     type(PoisFFT_Plan3D) :: forward, backward
-    complex(CP), dimension(:,:,:),contiguous,&
+    complex(CP), dimension(:,:,:), &
+#ifndef NO_CONTIGUOUS
+    contiguous, &
+#endif
                        pointer :: cwork => null()
-    real(RP), dimension(:,:,:),contiguous,&
+    real(RP), dimension(:,:,:), &
+#ifndef NO_CONTIGUOUS
+    contiguous, &
+#endif
                        pointer :: rwork => null()
     integer :: nthreads = 1
     !will be used in splitting for some boundary conditions
     type(PoisFFT_Solver1D),dimension(:),allocatable :: Solvers1D
     type(PoisFFT_Solver2D),dimension(:),allocatable :: Solvers2D
-    integer(c_int32_t) :: mpi_comm
-  end type PoisFFT_Solver3D
-
-  interface assignment(=)
-    module procedure PoisFFT_Plan1D_Assign
-    module procedure PoisFFT_Plan2D_Assign
-    module procedure PoisFFT_Plan3D_Assign
-  end interface
+    type(PoisFFT_Solver1D_Many),allocatable :: Solver1D
+    type(PoisFFT_Solver2D_Many),allocatable :: Solver2D
+    type(mpi_vars_3D) :: mpi
+ end type PoisFFT_Solver3D
 
   interface data_deallocate
     module procedure data_deallocate_1D_complex
@@ -104,32 +235,42 @@
   end interface
 
   interface data_allocate_real
-    module procedure data_allocate_1D_Real
-    module procedure data_allocate_2D_Real
-    module procedure data_allocate_3D_Real
+    module procedure data_allocate_1D_real
+    module procedure data_allocate_2D_real
+    module procedure data_allocate_3D_real
+    module procedure data_allocate_1D_many_real
+    module procedure data_allocate_2D_many_real
   end interface
 
   interface data_allocate_complex
-    module procedure data_allocate_1D_Complex
-    module procedure data_allocate_2D_Complex
-    module procedure data_allocate_3D_Complex
+    module procedure data_allocate_1D_complex
+    module procedure data_allocate_2D_complex
+    module procedure data_allocate_3D_complex
+    module procedure data_allocate_1D_many_complex
+    module procedure data_allocate_2D_many_complex
   end interface
 
   interface Execute
-    module procedure PoisFFT_Plan1D_Execute_Real_s
-    module procedure PoisFFT_Plan1D_Execute_Complex_s
-    module procedure PoisFFT_Plan2D_Execute_Real_s
-    module procedure PoisFFT_Plan2D_Execute_Complex_s
-    module procedure PoisFFT_Plan3D_Execute_Real_s
-    module procedure PoisFFT_Plan3D_Execute_Complex_s
-    module procedure PoisFFT_Plan1D_Execute_Real_d
-    module procedure PoisFFT_Plan1D_Execute_Complex_d
-    module procedure PoisFFT_Plan2D_Execute_Real_d
-    module procedure PoisFFT_Plan2D_Execute_Complex_d
-    module procedure PoisFFT_Plan3D_Execute_Real_d
-    module procedure PoisFFT_Plan3D_Execute_Complex_d
+    module procedure PoisFFT_Plan1D_Execute_Real
+    module procedure PoisFFT_Plan1D_Execute_Complex
+    module procedure PoisFFT_Plan1D_Many_Execute_Real
+    module procedure PoisFFT_Plan1D_Many_Execute_Complex
+    module procedure PoisFFT_Plan2D_Execute_Real
+    module procedure PoisFFT_Plan2D_Execute_Complex
+    module procedure PoisFFT_Plan2D_Many_Execute_Real
+    module procedure PoisFFT_Plan2D_Many_Execute_Complex
+    module procedure PoisFFT_Plan3D_Execute_Real
+    module procedure PoisFFT_Plan3D_Execute_Complex
   end interface
-
+  
+#ifdef MPI
+  interface Execute_MPI
+    module procedure PoisFFT_Plan1D_Execute_MPI
+    module procedure PoisFFT_Plan2D_Execute_MPI
+    module procedure PoisFFT_Plan2D_Many_Execute_MPI
+    module procedure PoisFFT_Plan3D_Execute_MPI
+ end interface
+#endif
 
   interface Destroy
     module procedure PoisFFT_Plan1D_Destroy
@@ -141,36 +282,6 @@
 
 
   contains
-
-
-
-    !NOTE: The only purpose of these procedures is to avoid copying PL%planowner
-    subroutine PoisFFT_Plan1D_Assign(PL,PR)
-      type(PoisFFT_Plan1D), intent(out) :: PL
-      type(PoisFFT_Plan1D), intent(in)  :: PR
-
-      PL%planptr = PR%planptr
-      PL%dir = PL%dir
-    end subroutine PoisFFT_Plan1D_Assign
-
-    subroutine PoisFFT_Plan2D_Assign(PL,PR)
-      type(PoisFFT_Plan2D), intent(out) :: PL
-      type(PoisFFT_Plan2D), intent(in)  :: PR
-
-      PL%planptr = PR%planptr
-      PL%dir = PL%dir
-    end subroutine PoisFFT_Plan2D_Assign
-
-    subroutine PoisFFT_Plan3D_Assign(PL,PR)
-      type(PoisFFT_Plan3d), intent(out) :: PL
-      type(PoisFFT_Plan3d), intent(in)  :: PR
-
-      PL%planptr = PR%planptr
-      PL%dir = PL%dir
-    end subroutine PoisFFT_Plan3D_Assign
-
-
-
 
 
     function PoisFFT_Plan1D_QuickCreate(D, plantypes) result(plan)
@@ -205,24 +316,39 @@
 #define dimensions 1
 #include "plan_create.f90"
 #undef dimensions
-    end function PoisFFT_Plan1D_Create
+    end function
 
     function PoisFFT_Plan2D_Create(D, plantypes) result(plan)
 #define dimensions 2
 #include "plan_create.f90"
 #undef dimensions
-    end function PoisFFT_Plan2D_Create
+    end function
 
     function PoisFFT_Plan3D_Create(D, plantypes) result(plan)
 #define dimensions 3
 #include "plan_create.f90"
 #undef dimensions
-    end function PoisFFT_Plan3D_Create
+    end function
 
 
 
 
-    subroutine data_allocate_1D_Complex(D)
+    function PoisFFT_Plan1D_Many_Create(D, plantypes) result(plan)
+#define dimensions 1
+#include "plan_create_many.f90"
+#undef dimensions
+    end function
+
+    function PoisFFT_Plan2D_Many_Create(D, plantypes) result(plan)
+#define dimensions 2
+#include "plan_create_many.f90"
+#undef dimensions
+    end function
+
+
+
+
+    subroutine data_allocate_1D_complex(D)
 #define dimensions 1
 #define realcomplex 2
 
@@ -230,9 +356,9 @@
 
 #undef dimensions
 #undef realcomplex
-    end subroutine data_allocate_1D_Complex
+    end subroutine
 
-    subroutine data_allocate_1D_Real(D)
+    subroutine data_allocate_1D_real(D)
 #define dimensions 1
 #define realcomplex 1
 
@@ -240,10 +366,31 @@
 
 #undef dimensions
 #undef realcomplex
-    end subroutine data_allocate_1D_Real
+    end subroutine
 
 
-    subroutine data_allocate_2D_Complex(D)
+    subroutine data_allocate_1D_many_complex(D)
+#define dimensions 1
+#define realcomplex 2
+
+#include "data_allocate_many.f90"
+
+#undef dimensions
+#undef realcomplex
+    end subroutine
+
+    subroutine data_allocate_1D_many_real(D)
+#define dimensions 1
+#define realcomplex 1
+
+#include "data_allocate_many.f90"
+
+#undef dimensions
+#undef realcomplex
+    end subroutine
+
+
+    subroutine data_allocate_2D_complex(D)
 #define dimensions 2
 #define realcomplex 2
 
@@ -251,9 +398,9 @@
 
 #undef dimensions
 #undef realcomplex
-    end subroutine data_allocate_2D_Complex
+    end subroutine
 
-    subroutine data_allocate_2D_Real(D)
+    subroutine data_allocate_2D_real(D)
 #define dimensions 2
 #define realcomplex 1
 
@@ -261,9 +408,31 @@
 
 #undef dimensions
 #undef realcomplex
-    end subroutine data_allocate_2D_Real
+    end subroutine
 
-    subroutine data_allocate_3D_Complex(D)
+    
+    subroutine data_allocate_2D_many_complex(D)
+#define dimensions 2
+#define realcomplex 2
+
+#include "data_allocate_many.f90"
+
+#undef dimensions
+#undef realcomplex
+    end subroutine
+
+    subroutine data_allocate_2D_many_real(D)
+#define dimensions 2
+#define realcomplex 1
+
+#include "data_allocate_many.f90"
+
+#undef dimensions
+#undef realcomplex
+    end subroutine
+    
+
+    subroutine data_allocate_3D_complex(D)
 #define dimensions 3
 #define realcomplex 2
 
@@ -271,9 +440,9 @@
 
 #undef dimensions
 #undef realcomplex
-    end subroutine data_allocate_3D_Complex
+    end subroutine
 
-    subroutine data_allocate_3D_Real(D)
+    subroutine data_allocate_3D_real(D)
 #define dimensions 3
 #define realcomplex 1
 
@@ -281,138 +450,169 @@
 
 #undef dimensions
 #undef realcomplex
-    end subroutine data_allocate_3D_Real
+    end subroutine
 
 
 
 
-    subroutine PoisFFT_Plan1D_Execute_Complex_s(plan, data)
-      type(PoisFFT_Plan1D) ,intent(in) :: plan
-      complex(SCP), dimension(:),contiguous,&
-                                     pointer :: data
+    subroutine PoisFFT_Plan1D_Execute_Complex(plan, data)
+      type(PoisFFT_Plan1D), intent(in) :: plan
+      complex(CP), dimension(:) &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
 
-      call fftwf_execute_dft(plan%planptr, data, data)
+      call fftw_execute_complex(plan%planptr, data, data)
 
-    end subroutine PoisFFT_Plan1D_Execute_Complex_s
+    end subroutine
 
+    subroutine PoisFFT_Plan1D_Execute_Real(plan, data)
+      type(PoisFFT_Plan1D), intent(in) :: plan
+      real(RP), dimension(:) &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
 
-    subroutine PoisFFT_Plan1D_Execute_Real_s(plan, data)
-      type(PoisFFT_Plan1D) ,intent(in) :: plan
-      real(SRP), dimension(:),contiguous,&
-                                     pointer :: data
+      call fftw_execute_real(plan%planptr, data, data)
 
-      call fftwf_execute_r2r(plan%planptr, data, data)
+    end subroutine
+    
 
-    end subroutine PoisFFT_Plan1D_Execute_Real_s
+    subroutine PoisFFT_Plan1D_Many_Execute_Complex(plan, data)
+      type(PoisFFT_Plan1D_Many), intent(in) :: plan
+      complex(CP), dimension(:,:,:) &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
 
-    subroutine PoisFFT_Plan2D_Execute_Complex_s(plan, data)
-      type(PoisFFT_Plan2D) ,intent(in) :: plan
-      complex(SCP), dimension(:,:),contiguous,&
-                                     pointer :: data
+      call fftw_execute_complex(plan%planptr, data, data)
 
-      call fftwf_execute_dft(plan%planptr, data, data)
+    end subroutine
 
-    end subroutine PoisFFT_Plan2D_Execute_Complex_s
+    subroutine PoisFFT_Plan1D_Many_Execute_Real(plan, data)
+      type(PoisFFT_Plan1D_Many), intent(in) :: plan
+      real(RP), dimension(:,:,:) &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
 
+      call fftw_execute_real(plan%planptr, data, data)
 
-    subroutine PoisFFT_Plan2D_Execute_Real_s(plan, data)
-      type(PoisFFT_Plan2D) ,intent(in) :: plan
-      real(SRP), dimension(:,:),contiguous,&
-                                     pointer :: data
+    end subroutine
+    
 
-      call fftwf_execute_r2r(plan%planptr, data, data)
+    subroutine PoisFFT_Plan2D_Execute_Complex(plan, data)
+      type(PoisFFT_Plan2D), intent(in) :: plan
+      complex(CP), dimension(:,:) &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
 
-    end subroutine PoisFFT_Plan2D_Execute_Real_s
+      call fftw_execute_complex(plan%planptr, data, data)
 
-    subroutine PoisFFT_Plan3D_Execute_Complex_s(plan, data)
-      type(PoisFFT_Plan3D) ,intent(in) :: plan
-      complex(SCP), dimension(:,:,:),contiguous,&
-                                     pointer :: data
-
-      call fftwf_execute_dft(plan%planptr, data, data)
-
-    end subroutine PoisFFT_Plan3D_Execute_Complex_s
-
-
-    subroutine PoisFFT_Plan3D_Execute_Real_s(plan, data)
-      type(PoisFFT_Plan3D) ,intent(in) :: plan
-      real(SRP), dimension(:,:,:),contiguous,&
-                                     pointer :: data
-
-      call fftwf_execute_r2r(plan%planptr, data, data)
-
-    end subroutine PoisFFT_Plan3D_Execute_Real_s
-
-
-    subroutine PoisFFT_Plan1D_Execute_Complex_d(plan, data)
-      type(PoisFFT_Plan1D) ,intent(in) :: plan
-      complex(DCP), dimension(:),contiguous,&
-                                     pointer :: data
-
-      call fftw_execute_dft(plan%planptr, data, data)
-
-    end subroutine PoisFFT_Plan1D_Execute_Complex_d
+    end subroutine
 
 
-    subroutine PoisFFT_Plan1D_Execute_Real_d(plan, data)
-      type(PoisFFT_Plan1D) ,intent(in) :: plan
-      real(DRP), dimension(:),contiguous,&
-                                     pointer :: data
+    subroutine PoisFFT_Plan2D_Execute_Real(plan, data)
+      type(PoisFFT_Plan2D), intent(in) :: plan
+      real(RP), dimension(:,:) &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
 
-      call fftw_execute_r2r(plan%planptr, data, data)
+      call fftw_execute_real(plan%planptr, data, data)
 
-    end subroutine PoisFFT_Plan1D_Execute_Real_d
+    end subroutine
+    
 
-    subroutine PoisFFT_Plan2D_Execute_Complex_d(plan, data)
-      type(PoisFFT_Plan2D) ,intent(in) :: plan
-      complex(DCP), dimension(:,:),contiguous,&
-                                     pointer :: data
+    subroutine PoisFFT_Plan2D_Many_Execute_Complex(plan, data)
+      type(PoisFFT_Plan2D_Many), intent(in) :: plan
+      complex(CP), dimension(:,:,:) &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
 
-      call fftw_execute_dft(plan%planptr, data, data)
+      call fftw_execute_complex(plan%planptr, data, data)
 
-    end subroutine PoisFFT_Plan2D_Execute_Complex_d
+    end subroutine
 
 
-    subroutine PoisFFT_Plan2D_Execute_Real_d(plan, data)
-      type(PoisFFT_Plan2D) ,intent(in) :: plan
-      real(DRP), dimension(:,:),contiguous,&
-                                     pointer :: data
+    subroutine PoisFFT_Plan2D_Many_Execute_Real(plan, data)
+      type(PoisFFT_Plan2D_Many), intent(in) :: plan
+      real(RP), dimension(:,:,:) &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
 
-      call fftw_execute_r2r(plan%planptr, data, data)
+      call fftw_execute_real(plan%planptr, data, data)
 
-    end subroutine PoisFFT_Plan2D_Execute_Real_d
+    end subroutine
+    
 
-    subroutine PoisFFT_Plan3D_Execute_Complex_d(plan, data)
+    subroutine PoisFFT_Plan3D_Execute_Complex(plan, data)
       type(PoisFFT_Plan3D), intent(in) :: plan
-      complex(DCP), dimension(:,:,:),contiguous,&
-                                     pointer :: data
+      complex(CP), dimension(:,:,:) &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
 
-      call fftw_execute_dft(plan%planptr, data, data)
+      call fftw_execute_complex(plan%planptr, data, data)
 
-    end subroutine PoisFFT_Plan3D_Execute_Complex_d
+    end subroutine
 
-
-    subroutine PoisFFT_Plan3D_Execute_Real_d(plan, data)
+    subroutine PoisFFT_Plan3D_Execute_Real(plan, data)
       type(PoisFFT_Plan3D), intent(in) :: plan
-      real(DRP), dimension(:,:,:),contiguous,&
-                                     pointer :: data
+      real(RP), dimension(:,:,:) &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
 
-      call fftw_execute_r2r(plan%planptr, data, data)
+      call fftw_execute_real(plan%planptr, data, data)
 
-    end subroutine PoisFFT_Plan3D_Execute_Real_d
+    end subroutine
+
 
 
   
 #ifdef MPI
-    subroutine PoisFFT_Plan_Execute_MPI(plan)
+    subroutine PoisFFT_Plan1D_Execute_MPI(plan)
+      type(PoisFFT_Plan1D), intent(in) :: plan
+
+        call pfft_execute_gen(plan%planptr)
+
+    end subroutine
+
+    subroutine PoisFFT_Plan2D_Execute_MPI(plan)
+      type(PoisFFT_Plan2D), intent(in) :: plan
+
+        call pfft_execute_gen(plan%planptr)
+
+    end subroutine
+
+    subroutine PoisFFT_Plan2D_Many_Execute_MPI(plan)
+      type(PoisFFT_Plan2D_Many), intent(in) :: plan
+
+        call pfft_execute_gen(plan%planptr)
+
+    end subroutine
+
+    subroutine PoisFFT_Plan3D_Execute_MPI(plan)
       type(PoisFFT_Plan3D), intent(in) :: plan
 
-#if CP == 4
-        call pfftf_execute(plan%planptr)
-#else
-        call pfft_execute(plan%planptr)
-#endif
+        call pfft_execute_gen(plan%planptr)
+
     end subroutine
+
 #endif
     
     
@@ -420,7 +620,11 @@
     
 
     subroutine data_deallocate_1D_complex(data)
-      complex(CP), dimension(:), pointer, contiguous :: data
+      complex(CP), dimension(:), pointer &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
       type(c_ptr) :: p
 
       p = c_loc(data(1))
@@ -429,7 +633,11 @@
     end subroutine data_deallocate_1D_complex
 
     subroutine data_deallocate_1D_real(data)
-      real(RP), dimension(:), pointer, contiguous :: data
+      real(RP), dimension(:), pointer &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
       type(c_ptr) :: p
 
       p = c_loc(data(1))
@@ -438,7 +646,11 @@
     end subroutine data_deallocate_1D_real
 
     subroutine data_deallocate_2D_complex(data)
-      complex(CP), dimension(:,:), pointer, contiguous :: data
+      complex(CP), dimension(:,:), pointer &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
       type(c_ptr) :: p
 
       p = c_loc(data(1,1))
@@ -447,7 +659,11 @@
     end subroutine data_deallocate_2D_complex
 
     subroutine data_deallocate_2D_real(data)
-      real(RP), dimension(:,:), pointer, contiguous :: data
+      real(RP), dimension(:,:), pointer &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
       type(c_ptr) :: p
 
       p = c_loc(data(1,1))
@@ -456,7 +672,11 @@
     end subroutine data_deallocate_2D_real
 
     subroutine data_deallocate_3D_complex(data)
-      complex(CP), dimension(:,:,:), pointer, contiguous :: data
+      complex(CP), dimension(:,:,:), pointer &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
       type(c_ptr) :: p
 
       p = c_loc(data(1,1,1))
@@ -466,7 +686,11 @@
 
 
     subroutine data_deallocate_3D_real(data)
-      real(RP), dimension(:,:,:), pointer, contiguous :: data
+      real(RP), dimension(:,:,:), pointer &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
       type(c_ptr) :: p
 
       p = c_loc(data(1,1,1))
@@ -481,29 +705,40 @@
     subroutine PoisFFT_Plan1D_Destroy(plan)
       type(PoisFFT_Plan1D) :: plan
 
-      if (c_associated(plan%planptr).and.plan%planowner)  call fftw_destroy_plan(plan%planptr)
-
+      if (c_associated(plan%planptr).and.plan%planowner)  &
+        call fftw_destroy_plan(plan%planptr)
+      plan%planptr = c_null_ptr
     end subroutine PoisFFT_Plan1D_Destroy
 
     subroutine PoisFFT_Plan2D_Destroy(plan)
       type(PoisFFT_Plan2D) :: plan
 
-      if (c_associated(plan%planptr).and.plan%planowner)  call fftw_destroy_plan(plan%planptr)
-
+      if (c_associated(plan%planptr).and.plan%planowner)  &
+#ifdef MPI
+        call pfft_destroy_plan(plan%planptr)
+#else
+        call fftw_destroy_plan(plan%planptr)
+#endif
+      plan%planptr = c_null_ptr
     end subroutine PoisFFT_Plan2D_Destroy
 
     subroutine PoisFFT_Plan3D_Destroy(plan)
       type(PoisFFT_Plan3D) :: plan
-
-      if (c_associated(plan%planptr).and.plan%planowner)  call fftw_destroy_plan(plan%planptr)
-
+      
+      if (c_associated(plan%planptr).and.plan%planowner)  &
+#ifdef MPI
+        call pfft_destroy_plan(plan%planptr)
+#else
+        call fftw_destroy_plan(plan%planptr)
+#endif
+      plan%planptr = c_null_ptr
     end subroutine PoisFFT_Plan3D_Destroy
 
 
     subroutine PoisFFT_InitThreads(nthreads)  !instructs fftw to plan to use nthreads threads
       integer, intent(in) :: nthreads
-      integer(c_int) :: error
 #if defined(_OPENMP) || defined(ENABLE_PTHREADS)
+      integer(c_int) :: error
       error =  fftw_init_threads()
 
       if (error==0) then
@@ -514,4 +749,8 @@
 #endif
     end subroutine PoisFFT_InitThreads
 
-    
+#undef RP
+#undef CP
+#undef fftw_execute_complex
+#undef fftw_execute_real
+#undef pfft_execute_gen

@@ -1,19 +1,15 @@
 module FFT_SP
-#define RP 4
-#define CP 4
+#define PREC 1
 
 #include "fft-inc.f90"
 
-#undef RP
-#undef CP
+#undef PREC
 end module FFT_SP
 
 module FFT_DP
-#define RP 8
-#define CP 8
+#define PREC 2
 
 #include "fft-inc.f90"
 
-#undef RP
-#undef CP
+#undef PREC
 end module FFT_DP

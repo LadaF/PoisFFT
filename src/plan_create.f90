@@ -24,12 +24,12 @@
 
 #endif
 
-#if CP == 4
-#define pfft_cmplx pfftf_plan_dft_3d
-#define pfft_real pfftf_plan_r2r_3d
+#if (PREC == 2)
+#define pfft_cmplx pfft_plan_dft
+#define pfft_real pfft_plan_r2r
 #else
-#define pfft_cmplx pfft_plan_dft_3d
-#define pfft_real pfft_plan_r2r_3d
+#define pfft_cmplx pfftf_plan_dft
+#define pfft_real pfftf_plan_r2r
 #endif
 
       type(PoisFFT_PlanXD) :: plan
@@ -38,7 +38,7 @@
       integer, intent(in), dimension(:)     :: plantypes
 
       if (plantypes(1)==FFT_Complex) then
-       
+
         if (size(plantypes)<2) then
           write (*,*) "Error: not enough flags when creating PoisFFT_PlanXD"
           STOP
@@ -46,40 +46,37 @@
        
         plan%dir = plantypes(2)
 
-#if MPI && dimensions >=3
-! print *,"forw",int([nxyzs],c_intptr_t), &
-!           size(D%cwork), size(D%cwork), D%mpi_comm, &
-!           plan%dir, PFFT_TRANSPOSED_NONE + PFFT_MEASURE + PFFT_PRESERVE_INPUT
-        plan%planptr = pfft_cmplx(int([nxyzs],c_intptr_t), &
-          D%cwork, D%cwork, D%mpi_comm, &
+#if defined(MPI) && dimensions > 1
+        plan%planptr = pfft_cmplx(dimensions,int([nxyzs],c_intptr_t), &
+          D%cwork, D%cwork, D%mpi%comm, &
           plan%dir, PFFT_TRANSPOSED_NONE + PFFT_MEASURE + PFFT_PRESERVE_INPUT)
 #else
         plan%planptr = fftw_plan_gen(nxyzs , D%cwork, D%cwork,&
                         plan%dir, FFTW_MEASURE)
 #endif
-        
-        
+
       else
-      
+
         if (size(plantypes)< dimensions ) then
           write (*,*) "Error: not enough flags when creating PoisFFT_PlanXD"
           STOP
         endif
 
 
-#if MPI && dimensions >=3
-        plan%planptr = pfft_real(int([nxyzs],c_intptr_t), &
-          D%rwork, D%rwork, D%mpi_comm, &
+#if defined(MPI) && dimensions > 1
+        plan%planptr = pfft_real(dimensions,int([nxyzs],c_intptr_t), &
+          D%rwork, D%rwork, D%mpi%comm, &
           plantypes, PFFT_TRANSPOSED_NONE + PFFT_MEASURE + PFFT_PRESERVE_INPUT)
 #else
         plan%planptr = fftw_plan_gen(nxyzs , D%rwork, D%rwork,&
                         realplantypes , FFTW_MEASURE)
 #endif
-        
+
       endif
       
       plan%planowner=.true.
       
+      if (.not.c_associated(plan%planptr)) stop "Error, FFT plan not created!"
 
 #undef colons
 #undef realplantypes

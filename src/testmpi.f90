@@ -66,10 +66,6 @@ module my_mpi
   use parameters
   use mpi
   
-  type int_dict
-    integer :: key, value
-  end type
-  
   integer :: nims, npxyz(3), pxyz(3)
   integer :: nxims, nyims, nzims
   integer :: myim, myrank, iim, jim, kim
@@ -198,7 +194,8 @@ module subs
    
 
 contains
-    subroutine exchange_boundaries(comm, Phi, nx, ny, nz, BCs)
+
+    subroutine exchange_boundaries_3D(comm, Phi, nx, ny, nz, BCs)
       integer, intent(in) :: comm
       real(RP), intent(inout),contiguous :: Phi(0:,0:,0:)
       integer, intent(in) :: nx, ny, nz
@@ -459,7 +456,203 @@ contains
         end if
       end subroutine
       
-    end subroutine
+    end subroutine exchange_boundaries_3D
+
+  
+  
+
+
+
+    subroutine exchange_boundaries_2D(comm, Phi, nx, ny, BCs)
+      integer, intent(in) :: comm
+      real(RP), intent(inout),contiguous :: Phi(0:,0:)
+      integer, intent(in) :: nx, ny
+      integer, intent(in) :: BCs(4)
+      logical :: oddx, oddy, evenx, eveny
+      integer ierr,tag,status(MPI_STATUS_SIZE)
+      
+      oddx = mod(iim,2) == 1
+      evenx = .not. oddx
+      
+      oddy = mod(jim,2) == 1
+      eveny = .not. oddy
+      
+
+      call MPI_Barrier(comm, ierr)
+
+      !internal boundaries
+      if (oddx) then
+        call send_w
+      else
+        call recv_e
+      end if
+      if (evenx) then
+        call send_w
+      else
+        call recv_e
+      end if
+
+      if (oddx) then
+        call send_e
+      else
+        call recv_w
+      end if
+      if (evenx) then
+        call send_e
+      else
+        call recv_w
+      end if
+
+      if (oddy) then
+        call send_s
+      else
+        call recv_n
+      end if
+      if (eveny) then
+        call send_s
+      else
+        call recv_n
+      end if
+
+      if (oddy) then
+        call send_n
+      else
+        call recv_s
+      end if
+      if (eveny) then
+        call send_n
+      else
+        call recv_s
+      end if
+
+
+      !global domain boundaries
+      if (BCs(1)==PoisFFT_PERIODIC) then
+        if (nxims>1) then
+          if (iim==1) then
+            call send(Phi(1,1:ny), w_rank)
+          else if (iim==nxims) then
+            call recv(Phi(nx+1,1:ny), e_rank)
+          end if
+          if (iim==nxims) then
+            call send(Phi(nx,1:ny), e_rank)
+          else if (iim==1) then
+            call recv(Phi(0,1:ny), w_rank)
+          end if
+        else
+          Phi(0,:)=Phi(nx,:)
+          Phi(nx+1,:)=Phi(1,:)
+        end if
+      else
+        if (BCs(1)==PoisFFT_NeumannStag) then
+          if (iim==1) Phi(0,:) = Phi(1,:)
+        elseif (BCs(1)==PoisFFT_DirichletStag) then
+          if (iim==1) Phi(0,:) = -Phi(1,:)
+        end if
+        if (BCs(2)==PoisFFT_NeumannStag) then
+          if (iim==nxims) Phi(nx+1,:) = Phi(nx,:)
+        elseif (BCs(2)==PoisFFT_DirichletStag) then
+          if (iim==nxims) Phi(nx+1,:) = -Phi(nx,:)
+        end if
+      end if
+
+        
+      if (BCs(3)==PoisFFT_PERIODIC) then
+        if (nyims>1) then
+          if (jim==1) then
+            call send(Phi(1:nx,1), s_rank)
+          else if (jim==nyims) then
+            call recv(Phi(1:nx,ny+1), n_rank)
+          end if
+          if (jim==nyims) then
+            call send(Phi(1:nx,ny), n_rank)
+          else if (jim==1) then
+            call recv(Phi(1:nx,0), s_rank)
+          end if
+        else
+          Phi(:,0)=Phi(:,ny)
+          Phi(:,ny+1)=Phi(:,1)
+        end if
+      else
+        if (BCs(3)==PoisFFT_NeumannStag) then
+          if (jim==1) Phi(:,0) = Phi(:,1)
+        elseif (BCs(3)==PoisFFT_DirichletStag) then
+          if (jim==1) Phi(:,0) = -Phi(:,1)
+        end if
+        if (BCs(4)==PoisFFT_NeumannStag) then
+          if (jim==nyims) Phi(:,ny+1) = Phi(:,ny)
+        elseif (BCs(4)==PoisFFT_DirichletStag) then
+          if (jim==nyims) Phi(:,ny+1) = -Phi(:,ny)
+        end if
+      end if
+
+              
+      call MPI_Barrier(comm, ierr)
+    
+    
+    contains
+    
+    
+      subroutine send(a,to)
+        real(RP), intent(in) :: a(:)
+        integer, intent(in) :: to
+
+        call MPI_Send(a, size(a) , MPI_RP, to, 1, comm, ierr)
+        if (ierr/=0) stop "error sending MPI message."
+      end subroutine
+      
+      subroutine recv(a,from)
+        real(RP), intent(out) :: a(:)
+        integer, intent(in) :: from
+
+        call MPI_Recv(a, size(a) , MPI_RP, from, 1, comm, status, ierr)
+        if (ierr/=0) stop "error sending MPI message."
+      end subroutine
+      
+
+      subroutine send_w
+        if (iim>1) then
+          call send(Phi(1,1:ny), w_rank)
+        end if
+      end subroutine
+      subroutine recv_w
+        if (iim>1) then
+          call recv(Phi(0,1:ny), w_rank)
+        end if
+      end subroutine
+      subroutine send_e
+        if (iim<nxims) then
+          call send(Phi(nx,1:ny), e_rank)
+        end if
+      end subroutine       
+      subroutine recv_e
+        if (iim<nxims) then
+          call recv(Phi(nx+1,1:ny), e_rank)
+        end if
+       end subroutine
+      subroutine send_s
+        if (jim>1) then
+          call send(Phi(1:nx,1), s_rank)
+        end if
+      end subroutine
+      subroutine recv_s
+        if (jim>1) then
+          call recv(Phi(1:nx,0), s_rank)
+        end if
+      end subroutine
+      subroutine send_n
+        if (jim<nyims) then
+          call send(Phi(1:nx,ny), n_rank)
+        end if
+      end subroutine
+      subroutine recv_n
+        if (jim<nyims) then
+          call recv(Phi(1:nx,ny+1), n_rank)
+        end if
+      end subroutine
+
+      
+    end subroutine exchange_boundaries_2D
 
   
   
@@ -475,7 +668,7 @@ contains
       intrinsic mod, abs, max
 
       integer,parameter:: KND=RP,DIRICHLET=1,NEUMANN=2,PERIODIC=3
-      integer, parameter :: Ea=1,We=2,So=3,No=4,Bo=5,To=6
+      integer, parameter :: We=1,Ea=2,So=3,No=4,Bo=5,To=6
 
       integer,intent(in)   :: nx,ny,nz
       real(KND),dimension(0:nx+1,0:ny+1,0:nz+1),intent(inout)::Phi
@@ -514,6 +707,48 @@ contains
 
 
 
+    subroutine Res2D(nx,ny,Phi,RHS,&
+                     Aw,Ae,As,An,&
+                     R)
+
+      implicit none
+      intrinsic mod, abs, max
+
+      integer,parameter:: KND=RP,DIRICHLET=1,NEUMANN=2,PERIODIC=3
+      integer, parameter :: We=1,Ea=2,So=3,No=4
+
+      integer,intent(in)   :: nx,ny
+      real(KND),dimension(0:nx+1,0:ny+1),intent(inout)::Phi
+      real(KND),dimension(1:nx,1:ny),intent(in)::RHS
+      real(KND),intent(in) :: Aw,Ae
+      real(KND),intent(in) :: As,An
+      real(KND),intent(out) :: R
+      integer i,j,k,l
+      real(KND) :: p,Ap
+      integer ie
+
+      R=0
+      Ap = Aw + Ae + As + An
+      
+      do j=1,ny
+         do i=1,nx
+            p=0
+            p=p+Phi(i-1,j)*Aw
+            p=p+Phi(i+1,j)*Ae
+            p=p+Phi(i,j-1)*As
+            p=p+Phi(i,j+1)*An
+            p=p-RHS(i,j)
+            p=abs(-p +Ap*Phi(i,j))
+            R=max(R,abs(p))
+           end do
+       end do
+
+      call MPI_AllReduce(MPI_IN_PLACE, R, 1, MPI_RP, MPI_MAX, mpi_comm, ie)
+
+   end subroutine Res2D
+
+
+
 
 
 end module subs
@@ -537,24 +772,29 @@ end module subs
 
 program testpoisson_MPI
   use iso_fortran_env
-  use PoisFFT
+  use iso_c_binding
+  use PoisFFT, PoisFFT_Solver1D => PoisFFT_Solver1D_DP, &
+               PoisFFT_Solver2D => PoisFFT_Solver2D_DP, &
+               PoisFFT_Solver3D => PoisFFT_Solver3D_DP
   use my_mpi
   use subs
   
   implicit none
 
-  integer(int64) :: ng(3) = [73, 137, 111]
+  integer(c_intptr_t) :: ng(3) = [131, 123, 127]![21,32,25]!
   real(RP), dimension(:,:,:), allocatable :: Phi, RHS
   real(RP) :: dx,dy,dz
   integer i,j,k
   real(RP) :: R,x,y,z
   integer(8) :: t1,t2,trate
   type(PoisFFT_Solver3D_DP) :: Solver3D
-  character(len=5) :: ch5
+  type(PoisFFT_Solver2D_DP) :: Solver2D
+  type(PoisFFT_Solver1D_DP) :: Solver1D
+  character(len=50) :: ch50
   integer :: nx, ny, nz
-  integer(int64),dimension(3) :: nxyz,off,nxyz2,nsxyz2
+  integer(c_intptr_t),dimension(3) :: nxyz,off,nxyz2,nsxyz2
   real(DRP) ::  S
-  integer :: ie
+  integer :: ie = 0
   character(200) :: fname
 
   
@@ -579,13 +819,9 @@ program testpoisson_MPI
   if (myrank==0) master = .true.
 
 
-  if (command_argument_count()>=3) then
-    call get_command_argument(1,value=ch5)
-    read(ch5,'(i5)') npxyz(1)
-    call get_command_argument(2,value=ch5)
-    read(ch5,'(i5)') npxyz(2)
-    call get_command_argument(3,value=ch5)
-    read(ch5,'(i5)') npxyz(3)
+  if (command_argument_count()>=1) then
+    call get_command_argument(1,value=ch50)
+    read(ch50,*) npxyz
   else
     npxyz(1) = 1
     npxyz(2) = nint(sqrt(real(nims)))
@@ -593,6 +829,10 @@ program testpoisson_MPI
     if (master)    write (*,*) "Trying to decompose in",npxyz,"process grid."
   end if
 
+  if (command_argument_count()>=2) then
+    call get_command_argument(2,value=ch50)
+    read(ch50,*) ng
+  end if
 
   nxims = npxyz(1)
   nyims = npxyz(2)
@@ -641,65 +881,77 @@ program testpoisson_MPI
      x=(i+off(1)-1._RP/2)*dx
      y=(j+off(2)-1._RP/2)*dy
      z=(k+off(3)-1._RP/2)*dz
-!      call random_number(RHS(i,j,k))
-!      call random_number(Phi(i,j,k))
-     RHS(i,j,k) = x * sin(y) / (abs(z)+0.1)
-     PHI(i,j,k) = x * sin(y) / (abs(z)+0.1)
+     call random_number(RHS(i,j,k))
+     call random_number(Phi(i,j,k))
+!      RHS(i,j,k) = x * sin(y) / (abs(z)+0.1)
+!      PHI(i,j,k) = x * sin(y) / (abs(z)+0.1)
     end do
    end do
   end do
   
  call MPI_AllReduce(sum(RHS), S, 1, MPI_RP, MPI_SUM, mpi_comm, ie)
  
- RHS=RHS-S/product(ng)
+ RHS = RHS - S / product(ng)
 
   
 
+  call MPI_Barrier(mpi_comm,ie)
+  
+  if (master) write(*,*) "3D PPNs"
+
+  call compute3d([(PoisFFT_Periodic, i=1,4),(PoisFFT_NeumannStag, i=5,6)])
+
+
+   call MPI_Barrier(mpi_comm,ie)
+   
+   if (master) write(*,*) "3D staggered Dirichlet"
+ 
+   call compute3D([(PoisFFT_DirichletStag, i=1,6)])
+ 
+ 
+   call MPI_Barrier(mpi_comm,ie)
+   
+   if (master) write(*,*) "3D staggered Neumann:"
+ 
+   call compute3D([(PoisFFT_NeumannStag, i=1,6)])
+ 
+ 
+   call MPI_Barrier(mpi_comm,ie)
+   
+   if (master) write(*,*) "3D Periodic"
+ 
+   call compute3D([(PoisFFT_Periodic, i=1,6)])
+ 
+ 
 !   call MPI_Barrier(mpi_comm,ie)
 !   
-!   if (master) write(*,*) "3D staggered Dirichlet"
+!   if (master) write(*,*) "2D Periodic"
 ! 
-!   call compute([(PoisFFT_PERIODIC, i=1,4),(PoisFFT_NeumannStag, i=5,6)])
+!   call compute2D([(PoisFFT_Periodic, i=1,4)])
+!   
+! 
+!   call MPI_Barrier(mpi_comm,ie)
+!   
+!   if (master) write(*,*) "1D Periodic"
+! 
+!   call compute1D([(PoisFFT_Periodic, i=1,2)])
 
 
   call MPI_Barrier(mpi_comm,ie)
-  
-  if (master) write(*,*) "3D staggered Dirichlet"
-
-  call compute([(PoisFFT_DirichletStag, i=1,6)])
 
   call save_vtk  
-
-
-
-  call MPI_Barrier(mpi_comm,ie)
-  
-  if (master) write(*,*) "3D staggered Neumann:"
-
-  call compute([(PoisFFT_NeumannStag, i=1,6)])
-
-
-  call MPI_Barrier(mpi_comm,ie)
-  
-  if (master) write(*,*) "3D Periodic"
-
-  call compute([(PoisFFT_Periodic, i=1,6)])
-
-
-
-  
   
   call MPI_finalize(ie)
   
   
 contains
 
-  subroutine compute(BCs)
+  subroutine compute3D(BCs)
     integer, intent(in) :: BCs(6)
     
     Phi(1:nx,1:ny,1:nz) = RHS
 
-    call exchange_boundaries(mpi_comm, Phi, nx, ny, nz, BCs)
+    call exchange_boundaries_3D(mpi_comm, Phi, nx, ny, nz, BCs)
 
     call Res3D(nx,ny,nz,Phi,RHS,&
                  dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
@@ -707,9 +959,9 @@ contains
 
     if (master) write (*,*) "R1:",R
 
-    call New(Solver3D,nx,ny,nz,dx,dy,dz,BCs,ng,off,cart_comm)
+    Solver3D = PoisFFT_Solver3D([nx,ny,nz],[dx,dy,dz],BCs,int(ng),int(off),cart_comm)
 
-    do i=1,1
+    do i=1,2
       call system_clock(count=t1)
 
       call Execute(Solver3D,Phi,RHS)
@@ -718,13 +970,100 @@ contains
       if (master) write(*,*) "solver cpu time", real(t2-t1)/real(trate)
     end do
 
-    call DeallocateData(Solver3D)
+    call Finalize(Solver3D)
 
-    call exchange_boundaries(mpi_comm, Phi, nx, ny, nz, BCs)
+    call exchange_boundaries_3D(mpi_comm, Phi, nx, ny, nz, BCs)
 
     call Res3D(nx,ny,nz,Phi,RHS,&
                  dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
                  R)
+
+    if (master) write (*,*) "R2:",R
+
+    if (master) write(*,*) "--------"
+  end subroutine
+
+  
+  subroutine compute2D(BCs)
+    integer, intent(in) :: BCs(4)
+    integer :: sub_comm, ie
+    integer :: n
+    
+    call MPI_Cart_sub(cart_comm, [.false., .true.], sub_comm, ie)
+
+    call MPI_AllReduce(sum(RHS(:,:,1)), S, 1, MPI_RP, MPI_SUM, sub_comm, ie)
+ 
+    RHS(:,:,1) = RHS(:,:,1) - S / product(ng(1:2))
+
+    call exchange_boundaries_2D(mpi_comm, Phi(:,:,1), nx, ny, BCs)
+
+    call Res2D(nx,ny,Phi(:,:,1),RHS(:,:,1),&
+                 dx**(-2),dx**(-2),dy**(-2),dy**(-2),&
+                 R)
+
+    if (master) write (*,*) "R1:",R
+
+    Solver2D = PoisFFT_Solver2D([nx,ny],[dx,dy],BCs,int(ng(1:2)),int(off(1:2)),sub_comm)
+
+    do i=1,1
+      call system_clock(count=t1)
+
+      call Execute(Solver2D,Phi(:,:,i),RHS(:,:,i))
+
+      call system_clock(count=t2)
+      if (master) write(*,*) "solver cpu time", real(t2-t1)/real(trate)
+    end do
+
+    call Finalize(Solver2D)
+
+    call exchange_boundaries_2D(mpi_comm, Phi(:,:,1), nx, ny, BCs)
+
+    call Res2D(nx,ny,Phi(:,:,1),RHS(:,:,1),&
+                 dx**(-2),dx**(-2),dy**(-2),dy**(-2),&
+                 R)
+
+    if (master) write (*,*) "R2:",R
+
+    if (master) write(*,*) "--------"
+  end subroutine
+
+  
+  subroutine compute1D(BCs)
+    integer, intent(in) :: BCs(2)
+    integer :: sub_comm = -1, ie
+    
+    call MPI_Cart_sub(cart_comm, [.false., .true.], sub_comm, ie)
+
+    call MPI_AllReduce(sum(RHS(1,:,1)), S, 1, MPI_RP, MPI_SUM, sub_comm, ie)
+ 
+    RHS(1,:,1) = RHS(1,:,1) - S / ng(2)
+
+!     call exchange_boundaries_1D(mpi_comm, Phi(:,:,1), nx, BCs)
+
+!     call Res1D(nx,ny,Phi(:,1,1),RHS(:,1,1),&
+!                  dx**(-2),dx**(-2),&
+!                  R)
+
+    if (master) write (*,*) "R1:",R
+
+    Solver1D = PoisFFT_Solver1D([ny],[dy],BCs,int(ng(2:2)),int(off(2:2)),sub_comm)
+
+    do i=1,1
+      call system_clock(count=t1)
+
+      call Execute(Solver1D,Phi(1,:,i),RHS(1,:,i))
+
+      call system_clock(count=t2)
+      if (master) write(*,*) "solver cpu time", real(t2-t1)/real(trate)
+    end do
+
+    call Finalize(Solver1D)
+
+!     call exchange_boundaries_1D(mpi_comm, Phi(:,1,1), nx, ny, BCs)
+
+!     call Res1D(nx,ny,Phi(:,1,1),RHS(:,1,1),&
+!                  dx**(-2),dx**(-2),&
+!                  R)
 
     if (master) write (*,*) "R2:",R
 
@@ -794,6 +1133,7 @@ contains
     call MPI_File_set_view(fh, pos, MPI_RP, filetype, "native", MPI_INFO_NULL, ie)
     if (ie/=0) call error_stop("set_view")
     
+    allocate(buffer(1:nx,1:ny,1:nz))
     buffer = BigEnd(Phi(1:nx,1:ny,1:nz))
        
     call MPI_File_write_all(fh, buffer, nx*ny*nz, MPI_RP, MPI_STATUS_IGNORE, ie)
