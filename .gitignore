@@ -4,8 +4,6 @@
 *.os
 *.vtk
 *~
-*.c
-athena/*
 back/*
 bin/*
 lib/*
