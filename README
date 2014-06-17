@@ -1,0 +1,32 @@
+The PoisFFT library solves the Poisson equation on a uniform Cartesian grid 
+using the Fast Fourier Transform. It calls the library FFTW3 and (if MPI is used) 
+also PFFT.
+
+The installation is done using SConstruct. For compiling the library use
+
+scons
+
+or 
+
+scons mpi=yes
+
+in the `src` directory.
+
+For compiling of the test programs add `test` after the above command.
+
+If you use other compilers than GCC (gfortran, gcc, g++), add argument comp, i.e.,
+
+scons comp=intel
+
+or
+
+scons comp=sun
+
+For other compilers you vill have to add the options in the `SConstruct` file.
+
+If you want to disable OpenMP, use
+
+scons openmp=no
+
+with MPI it disabled automatically due to the restrictions of PFFT.
+
