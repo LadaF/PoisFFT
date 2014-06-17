@@ -5,6 +5,9 @@ mpi = ARGUMENTS.get('mpi','')
 openmp = ARGUMENTS.get('openmp','')
 
 
+if str(mpi)=='yes':
+  openmp = 'no'
+
 if str(comp)=='sun':
   env = Environment(tools=['link','sunf90','sunf95','suncc','sunc++'])
   if str(openmp)=='no':
