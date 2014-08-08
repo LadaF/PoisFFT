@@ -76,12 +76,14 @@
 
   type PoisFFT_Solver1D
     real(RP) :: dx
+    real(RP) :: Lx
     integer(c_int) :: nxyz(1)
     integer(c_int) :: nx
     integer(c_int) :: gnx
     integer(c_int) :: offx = 0 !offset from global index
     integer(c_size_t) :: cnt
     integer(c_size_t) :: gcnt
+    real(RP) :: norm_factor
     integer(c_int), dimension(2) :: BCs
     real(RP), allocatable, dimension(:) :: denomx
     integer :: approximation = 0
@@ -103,12 +105,14 @@
 
   type PoisFFT_Solver1D_Many
     real(RP) :: dx
+    real(RP) :: Lx
     integer(c_int) :: nxyz(1)
     integer(c_int) :: nx
     integer(c_int) :: gnx
     integer(c_int) :: offx = 0 !offset from global index
     integer(c_size_t) :: cnt
     integer(c_size_t) :: gcnt
+    real(RP) :: norm_factor
     integer(c_int) :: howmany
     integer(C_size_t), dimension(3) :: workdims
     integer(c_int), dimension(2) :: BCs
@@ -138,12 +142,14 @@
 
   type PoisFFT_Solver2D
     real(RP) :: dx, dy
+    real(RP) :: Lx, Ly
     integer(c_int) :: nxyz(2)
     integer(c_int) :: nx, ny
     integer(c_int) :: gnx, gny
     integer(c_int) :: offx = 0, offy = 0 !offsets from global indexes
     integer(c_size_t) :: cnt
     integer(c_size_t) :: gcnt
+    real(RP) :: norm_factor
     integer(c_int), dimension(4) :: BCs
     real(RP), allocatable, dimension(:) :: denomx, denomy
     integer :: approximation = 0
@@ -164,12 +170,14 @@
 
   type PoisFFT_Solver2D_Many
     real(RP) :: dx, dy
+    real(RP) :: Lx, Ly
     integer(c_int) :: nxyz(2)
     integer(c_int) :: nx, ny
     integer(c_int) :: gnx, gny
     integer(c_int) :: offx = 0, offy = 0 !offsets from global indexes
     integer(c_size_t) :: cnt
     integer(c_size_t) :: gcnt
+    real(RP) :: norm_factor
     integer(c_int) :: howmany
     integer(c_size_t), dimension(3) :: workdims
     integer(c_int), dimension(4) :: BCs
@@ -200,12 +208,14 @@
 
   type PoisFFT_Solver3D
     real(RP) :: dx, dy, dz
+    real(RP) :: Lx, Ly, Lz
     integer(c_int) :: nxyz(3)
     integer(c_int) :: nx, ny, nz
     integer(c_int) :: gnx, gny, gnz
     integer(c_int) :: offx = 0, offy = 0, offz = 0 !offsets from global indexes
     integer(c_size_t) :: cnt
     integer(c_size_t) :: gcnt
+    real(RP) :: norm_factor
     integer(c_int), dimension(6) :: BCs
     real(RP), allocatable, dimension(:) :: denomx, denomy, denomz
     integer :: approximation = 0
@@ -225,8 +235,8 @@
     !will be used in splitting for some boundary conditions
     type(PoisFFT_Solver1D),dimension(:),allocatable :: Solvers1D
     type(PoisFFT_Solver2D),dimension(:),allocatable :: Solvers2D
-    type(PoisFFT_Solver1D_Many),allocatable :: Solver1D
-    type(PoisFFT_Solver2D_Many),allocatable :: Solver2D
+!     type(PoisFFT_Solver1D_Many),allocatable :: Solver1D
+!     type(PoisFFT_Solver2D_Many),allocatable :: Solver2D
     type(mpi_vars_3D) :: mpi
  end type PoisFFT_Solver3D
 

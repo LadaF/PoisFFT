@@ -585,7 +585,7 @@ contains
     type(PoisFFT_Solver1D) :: Solver
     integer, intent(in) :: BCs(2)
     
-    Solver = PoisFFT_Solver1D([nx],[dx],BCs)
+    Solver = PoisFFT_Solver1D([nx],[Lx],BCs)
 
     call Execute(Solver, Phi1D, RHS1D)
 
@@ -615,7 +615,7 @@ contains
     type(PoisFFT_Solver1D) :: Solver
     integer, intent(in) :: BCs(2)
     
-    Solver = PoisFFT_Solver1D([nx],[dx],BCs, approximation=2)
+    Solver = PoisFFT_Solver1D([nx],[Lx],BCs, approximation=2)
 
     call Execute(Solver, Phi1D, RHS1D)
 
@@ -677,7 +677,7 @@ contains
     type(PoisFFT_Solver2D) :: Solver
     integer, intent(in) :: BCs(4)
     
-    Solver = PoisFFT_Solver2D([nx,ny],[dx,dy],BCs)
+    Solver = PoisFFT_Solver2D([nx,ny],[Lx,Ly],BCs)
 
     call Execute(Solver, Phi2D, RHS2D)
 
@@ -706,7 +706,7 @@ contains
     type(PoisFFT_Solver2D) :: Solver
     integer, intent(in) :: BCs(4)
     
-    Solver = PoisFFT_Solver2D([nx,ny],[dx,dy],BCs, approximation=2)
+    Solver = PoisFFT_Solver2D([nx,ny],[Lx,Ly],BCs, approximation=2)
 
     call Execute(Solver, Phi2D, RHS2D)
 
@@ -765,7 +765,7 @@ contains
     type(PoisFFT_Solver3D) :: Solver
     integer, intent(in) :: BCs(6)
     
-    Solver = PoisFFT_Solver3D([nx,ny,nz],[dx,dy,dz],BCs)
+    Solver = PoisFFT_Solver3D([nx,ny,nz],[Lx,Ly,Lz],BCs)
 
     call Execute(Solver, Phi3D, RHS3D)
 
@@ -794,7 +794,7 @@ contains
     type(PoisFFT_Solver3D) :: Solver
     integer, intent(in) :: BCs(6)
     
-    Solver = PoisFFT_Solver3D([nx,ny,nz],[dx,dy,dz],BCs, approximation=2)
+    Solver = PoisFFT_Solver3D([nx,ny,nz],[Lx,Ly,Lz],BCs, approximation=2)
 
     call Execute(Solver, Phi3D, RHS3D)
 

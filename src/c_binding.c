@@ -7,7 +7,7 @@
 #define POIS_NEW(dims, suff, real) \
         extern void poisfft_solver ## dims ## d ## suff ## _new( \
                        poisfft_solver ## dims ## d ## suff *D,  \
-                       const int *nxyz, const real *dxyz, const int *BCs, \
+                       const int *nxyz, const real *Lxyz, const int *BCs, \
                        const int *approximation, \
                        const int *gnxyz, const int *offs, const void *mpi_comm, \
                        int nthreads);
@@ -42,7 +42,7 @@ typedef struct{int dims; void *D;} poisfft_solver;
 typedef struct{int dims; void *D;} poisfft_solver_f;
 
 poisfft_solver poisfft_solver_new(const int dims,
-                         const int *nxyz, const double *dxyz, 
+                         const int *nxyz, const double *Lxyz, 
                          const int *BCs, const int approximation,
                          const int *gnxyz, const int *offs,
                          const void *mpi_comm, int nthreads){
@@ -56,15 +56,15 @@ poisfft_solver poisfft_solver_new(const int dims,
     switch (S.dims) {
       case 1:
         poisfft_solver1d_new((poisfft_solver1d *) &(S.D),
-                             nxyz, dxyz, BCs, &approximation, gnxyz, offs, mpi_comm, nthreads);
+                             nxyz, Lxyz, BCs, &approximation, gnxyz, offs, mpi_comm, nthreads);
         break;
       case 2:
         poisfft_solver2d_new((poisfft_solver2d *) &(S.D), 
-                             nxyz, dxyz, BCs, &approximation, gnxyz, offs, mpi_comm, nthreads);
+                             nxyz, Lxyz, BCs, &approximation, gnxyz, offs, mpi_comm, nthreads);
         break;
       case 3:
         poisfft_solver3d_new((poisfft_solver3d *) &(S.D),
-                             nxyz, dxyz, BCs, &approximation, gnxyz, offs, mpi_comm, nthreads);
+                             nxyz, Lxyz, BCs, &approximation, gnxyz, offs, mpi_comm, nthreads);
         break;
       default:
         printf("Error, PoisFFT solver dimension must be 1, 2 or 3!\n");
@@ -112,7 +112,7 @@ void poisfft_solver_finalize( poisfft_solver *S){
 
 
 void poisfft_solver_f_new(const int dims,
-                         const int *nxyz, const float *dxyz,
+                         const int *nxyz, const float *Lxyz,
                          const int *BCs, const int *approximation,
                          const int *gnxyz, const int *offs,
                          const void *mpi_comm, int nthreads){
@@ -125,17 +125,17 @@ void poisfft_solver_f_new(const int dims,
     switch (S.dims) {
       case 1:
         poisfft_solver1d_f_new((poisfft_solver1d_f *) &(S.D),
-                               nxyz, dxyz, BCs, approximation,
+                               nxyz, Lxyz, BCs, approximation,
                                gnxyz, offs, mpi_comm, nthreads);
         break;
       case 2:
         poisfft_solver2d_f_new((poisfft_solver2d_f *) &(S.D), 
-                               nxyz, dxyz, BCs, approximation,
+                               nxyz, Lxyz, BCs, approximation,
                                gnxyz, offs, mpi_comm, nthreads);
         break;
       case 3:
         poisfft_solver3d_f_new((poisfft_solver3d_f *) &(S.D),
-                               nxyz, dxyz, BCs, approximation,
+                               nxyz, Lxyz, BCs, approximation,
                                gnxyz, offs, mpi_comm, nthreads);
         break;
       default:

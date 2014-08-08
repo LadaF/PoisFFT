@@ -1,7 +1,7 @@
     type(solver), pointer :: f_D
     type(c_ptr), intent(out) :: D
     integer(c_int) :: nxyz(dims), BCs(2*dims)
-    real(rp) :: dxyz(dims)
+    real(rp) :: Lxyz(dims)
     integer(c_int), optional :: approximation, gnxyz(dims), offs(dims)
     type(c_ptr), value :: mpi_comm
     integer(c_int), value :: nthreads
@@ -24,7 +24,7 @@
 
     if (present(gnxyz).and.present(offs)) then
       f_D = solver(int(nxyz(dims:1:-1)), &
-                   dxyz(dims:1:-1), &
+                   Lxyz(dims:1:-1), &
                    int(BCs(idxs(2*dims:1:-1))), &
                    appr, &
                    int(gnxyz(dims:1:-1)), &
@@ -33,7 +33,7 @@
                    int(nthreads))
     else
       f_D = solver(int(nxyz(dims:1:-1)), &
-                   dxyz(dims:1:-1), &
+                   Lxyz(dims:1:-1), &
                    int(BCs(idxs(2*dims:1:-1))), &
                    appr, &
                    nthreads=int(nthreads))

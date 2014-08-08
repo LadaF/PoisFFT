@@ -6,8 +6,9 @@
 
 const double pi = 3.14159265358979323846;
 
-void init_rhs(const int ns[3], const double ds[3], const double Ls[3], double* a){
 #define IND(i,j,k) (i)*(ns[1]*ns[2])+(j)*(ns[2])+k
+
+void init_rhs(const int ns[3], const double ds[3], const double Ls[3], double* a){
   int i,j,k;
   for (i=0;i<ns[0];i++){
     for (j=0;j<ns[1];j++){
@@ -22,7 +23,6 @@ void init_rhs(const int ns[3], const double ds[3], const double Ls[3], double* a
 }
 
 void check_solution(const int ns[3], const double ds[3], const double Ls[3], double* a){
-#define IND(i,j,k) (i)*(ns[1]*ns[2])+(j)*(ns[2])+k
   int i,j,k;
   double sum = 0;
   for (i=0;i<ns[0];i++){
@@ -80,7 +80,7 @@ int main(){
   init_rhs(ns, ds, Ls, RHS);
 
   // create solver object
-  poisfft_solver S = poisfft_solver_new(3, ns, ds, BCs, POISFFT_SPECTRAL,
+  poisfft_solver S = poisfft_solver_new(3, ns, Ls, BCs, POISFFT_SPECTRAL,
                                         NULL, NULL, NULL, 0);
 
   //run the solver, can be run many times for different right-hand sides

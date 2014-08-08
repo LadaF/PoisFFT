@@ -14,7 +14,7 @@ typedef struct{int dims; void *D;} poisfft_solver;
 typedef struct{int dims; void *D;} poisfft_solver_f;
 
 poisfft_solver poisfft_solver_new(const int dims,
-                         const int *nxyz, const double *dxyz,
+                         const int *nxyz, const double *Lxyz,
                          const int *BCs, const int approximation, 
                          const int *gnxyz, const int *offs,
                          const void *mpi_comm, int nthreads);
@@ -23,7 +23,7 @@ void poisfft_solver_execute( poisfft_solver S, double *Phi, const double *RHS,
 void poisfft_solver_finalize( poisfft_solver *S);
 
 poisfft_solver_f poisfft_solver_f_new(const int dims,
-                         const int *nxyz, const float *dxyz,
+                         const int *nxyz, const float *Lxyz,
                          const int *BCs, const int approximation,
                          const int *gnxyz, const int *offs,
                          const void *mpi_comm, int nthreads);
@@ -46,7 +46,7 @@ namespace PoisFFT{
   template <unsigned int dims, typename real>  class Solver{
     private:
     public:
-      Solver(const int *nxyz, const real *dxyz,
+      Solver(const int *nxyz, const real *Lxyz,
                      const int *BCs, const int *gnxyz=0, const int *offs=0,
                      const void *mpi_comm=0, int nthreads=1);
       ~Solver();
@@ -58,11 +58,11 @@ namespace PoisFFT{
     private:
       poisfft_solver c_solver;
     public:
-      Solver(const int *nxyz, const double *dxyz,
+      Solver(const int *nxyz, const double *Lxyz,
                      const int *BCs, const int approximation=0,
                      const int *gnxyz=0, const int *offs=0,
                      const void *mpi_comm=0, int nthreads=1){
-        c_solver = poisfft_solver_new(dims, nxyz, dxyz, BCs, approximation, 
+        c_solver = poisfft_solver_new(dims, nxyz, Lxyz, BCs, approximation, 
                                       gnxyz, offs, mpi_comm, nthreads);
       };
       ~Solver(){
@@ -78,11 +78,11 @@ namespace PoisFFT{
     private:
       poisfft_solver_f c_solver;
     public:
-      Solver(const int *nxyz, const float *dxyz,
+      Solver(const int *nxyz, const float *Lxyz,
                      const int *BCs, const int approximation=0,
                      const int *gnxyz=0, const int *offs=0,
                      const void *mpi_comm=0, int nthreads=1){
-        c_solver = poisfft_solver_f_new(dims, nxyz, dxyz, BCs, approximation,
+        c_solver = poisfft_solver_f_new(dims, nxyz, Lxyz, BCs, approximation,
                                         gnxyz, offs, mpi_comm, nthreads);
       };
       ~Solver(){

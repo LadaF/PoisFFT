@@ -68,88 +68,12 @@
   contains
 
 
-    subroutine PoisFFT_Solver3D_Execute(D,Phi,RHS)
-      type(PoisFFT_Solver3D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:,:)
-      real(RP), intent(in)  :: RHS(:,:,:)
-
-      integer   :: ngPhi(3), ngRHS(3)
-
-      ngPhi = (ubound(Phi)-[D%nx,D%ny,D%nz])/2
-      ngRHS = (ubound(RHS)-[D%nx,D%ny,D%nz])/2
-
-      if (all(D%BCs==PoisFFT_Periodic)) then
-
-        call PoisFFT_Solver3D_FullPeriodic(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
-                     ngPhi(2)+1:ngPhi(2)+D%ny,&
-                     ngPhi(3)+1:ngPhi(3)+D%nz),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
-                     ngRHS(2)+1:ngRHS(2)+D%ny,&
-                     ngRHS(3)+1:ngRHS(3)+D%nz))
-
-      else if (all(D%BCs==PoisFFT_Dirichlet)) then
-
-        call PoisFFT_Solver3D_FullDirichlet(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
-                     ngPhi(2)+1:ngPhi(2)+D%ny,&
-                     ngPhi(3)+1:ngPhi(3)+D%nz),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
-                     ngRHS(2)+1:ngRHS(2)+D%ny,&
-                     ngRHS(3)+1:ngRHS(3)+D%nz))
-
-      else if (all(D%BCs==PoisFFT_DirichletStag)) then
-
-        call PoisFFT_Solver3D_FullDirichletStag(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
-                     ngPhi(2)+1:ngPhi(2)+D%ny,&
-                     ngPhi(3)+1:ngPhi(3)+D%nz),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
-                     ngRHS(2)+1:ngRHS(2)+D%ny,&
-                     ngRHS(3)+1:ngRHS(3)+D%nz))
-
-      else if (all(D%BCs==PoisFFT_Neumann)) then
-
-        call PoisFFT_Solver3D_FullNeumann(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
-                     ngPhi(2)+1:ngPhi(2)+D%ny,&
-                     ngPhi(3)+1:ngPhi(3)+D%nz),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
-                     ngRHS(2)+1:ngRHS(2)+D%ny,&
-                     ngRHS(3)+1:ngRHS(3)+D%nz))
-
-      else if (all(D%BCs==PoisFFT_NeumannStag)) then
-
-        call PoisFFT_Solver3D_FullNeumannStag(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
-                     ngPhi(2)+1:ngPhi(2)+D%ny,&
-                     ngPhi(3)+1:ngPhi(3)+D%nz),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
-                     ngRHS(2)+1:ngRHS(2)+D%ny,&
-                     ngRHS(3)+1:ngRHS(3)+D%nz))
-
-      else if (all(D%BCs(1:4)==PoisFFT_Periodic).and.all(D%BCs(5:6)==PoisFFT_NeumannStag)) then
-
-        call PoisFFT_Solver3D_PPNs(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
-                     ngPhi(2)+1:ngPhi(2)+D%ny,&
-                     ngPhi(3)+1:ngPhi(3)+D%nz),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
-                     ngRHS(2)+1:ngRHS(2)+D%ny,&
-                     ngRHS(3)+1:ngRHS(3)+D%nz))
-
-      endif
-
-    end subroutine PoisFFT_Solver3D_Execute
-
-
-
-    function PoisFFT_Solver3D_New(nxyz,dxyz,BCs,approximation, &
+    function PoisFFT_Solver3D_New(nxyz,Lxyz,BCs,approximation, &
                                   gnxyz,offs,mpi_comm,nthreads) result(D)
       type(PoisFFT_Solver3D) :: D
 
       integer, intent(in)   :: nxyz(3)
-      real(RP), intent(in)  :: dxyz(3)
+      real(RP), intent(in)  :: Lxyz(3)
       integer, intent(in)   :: bcs(6)
       integer, intent(in), optional :: approximation
       integer, intent(in), optional :: gnxyz(3)
@@ -159,9 +83,9 @@
 
       D%nxyz = nxyz
 
-      D%dx = dxyz(1)
-      D%dy = dxyz(2)
-      D%dz = dxyz(3)
+      D%Lx = Lxyz(1)
+      D%Ly = Lxyz(2)
+      D%Lz = Lxyz(3)
 
       D%nx = nxyz(1)
       D%ny = nxyz(2)
@@ -208,1244 +132,8 @@
       !create fftw plans and allocate working arrays
       call Init(D)
     end function PoisFFT_Solver3D_New
-
-
-    function PoisFFT_Solver1D_From3D(D3D,direction) result(D)
-      type(PoisFFT_Solver1D)             :: D
-      type(PoisFFT_Solver3D), intent(in) :: D3D
-      integer, intent(in)                :: direction
-#ifdef MPI
-      integer :: ie, dims
-      
-      call MPI_Cartdim_get(D3D%mpi%comm, dims, ie)
-      if (ie/=0) stop "Error executing MPI_Cartdim_get."
-
-      if (dims==2) then
-        !We see the dimensions reversed in Fortran!
-        if (direction==1) then
-          D%mpi%comm = MPI_COMM_SELF
-        else if (direction==2) then
-          call MPI_Cart_sub(D3D%mpi%comm, [.false.,.true.], D%mpi%comm, ie)
-          if (ie/=0) stop "Error executing MPI_Cart_sub."
-          call MPI_Comm_size(D%mpi%comm, D%mpi%np, ie)
-          D%mpi_transpose_needed = D%mpi%np > 1
-        else
-          call MPI_Cart_sub(D3D%mpi%comm, [.true.,.false.], D%mpi%comm, ie)
-          if (ie/=0) stop "Error executing MPI_Cart_sub."
-          call MPI_Comm_size(D%mpi%comm, D%mpi%np, ie)
-          D%mpi_transpose_needed = D%mpi%np > 1
-        end if
-      else
-        stop "Not implemented."
-      end if
-      
-#endif
-
-      if (direction==1) then
-        D%dx = D3D%dx
-        D%nx = D3D%nx
-        D%gnx = D3D%gnx
-        D%offx = D3D%offx
-        D%BCs = D3D%BCs(1:2)
-      else if (direction==2) then
-        D%dx = D3D%dy
-        D%nx = D3D%ny
-        D%gnx = D3D%gny
-        D%offx = D3D%offy
-        D%BCs = D3D%BCs(3:4)
-      else
-        D%dx = D3D%dz
-        D%nx = D3D%nz
-        D%gnx = D3D%gnz
-        D%offx = D3D%offz
-        D%BCs = D3D%BCs(5:6)
-      endif
-      
-      D%nxyz = [D%nx]
-
-      D%cnt = D%nx
-      
-      D%gcnt = int(D%gnx, kind(D%gcnt))
-    end function PoisFFT_Solver1D_From3D
-
-
-    function PoisFFT_Solver1D_Many_From3D(D3D,direction) result(D)
-      type(PoisFFT_Solver1D_Many)        :: D
-      type(PoisFFT_Solver3D), intent(in) :: D3D
-      integer, intent(in)                :: direction
-#ifdef MPI
-      integer :: ie, dims
-      
-      call MPI_Cartdim_get(D3D%mpi%comm, dims, ie)
-      if (ie/=0) stop "Error executing MPI_Cartdim_get."
-
-      if (dims==2) then
-        !We see the dimensions reversed in Fortran!
-        if (direction==1) then
-          D%mpi%comm = MPI_COMM_SELF
-        else if (direction==2) then
-          call MPI_Cart_sub(D3D%mpi%comm, [.false.,.true.], D%mpi%comm, ie)
-          if (ie/=0) stop "Error executing MPI_Cart_sub."
-          call MPI_Comm_size(D%mpi%comm, D%mpi%np, ie)
-          D%mpi_transpose_needed = D%mpi%np > 1
-        else
-          call MPI_Cart_sub(D3D%mpi%comm, [.true.,.false.], D%mpi%comm, ie)
-          if (ie/=0) stop "Error executing MPI_Cart_sub."
-          call MPI_Comm_size(D%mpi%comm, D%mpi%np, ie)
-          D%mpi_transpose_needed = D%mpi%np > 1
-        end if
-      else
-        stop "Not implemented."
-      end if
-      
-#endif
-
-      if (direction==1) then
-        D%dx = D3D%dx
-        D%nx = D3D%nx
-        D%gnx = D3D%gnx
-        D%offx = D3D%offx
-        D%BCs = D3D%BCs(1:2)
-        D%howmany = D3D%ny * D3D%nz
-        D%workdims = [D3D%nx, D3D%ny, D3D%nz]
-      else if (direction==2) then
-        D%dx = D3D%dy
-        D%nx = D3D%ny
-        D%gnx = D3D%gny
-        D%offx = D3D%offy
-        D%BCs = D3D%BCs(3:4)
-        D%howmany = D3D%nx * D3D%nz
-        D%workdims = [D3D%ny, D3D%nx, D3D%nz]
-      else
-        D%dx = D3D%dz
-        D%nx = D3D%nz
-        D%gnx = D3D%gnz
-        D%offx = D3D%offz
-        D%BCs = D3D%BCs(5:6)
-        D%howmany = D3D%nx * D3D%ny
-        D%workdims = [D3D%nz, D3D%ny, D3D%nx]
-      endif
-
-      D%nxyz = [D%nx]
-        
-      D%cnt = D%nx
-      
-      D%gcnt = int(D%gnx, kind(D%gcnt))
-    end function PoisFFT_Solver1D_Many_From3D
-
-
-    function PoisFFT_Solver2D_From3D(D3D,direction) result(D)
-      type(PoisFFT_Solver2D)             :: D
-      type(PoisFFT_Solver3D), intent(in) :: D3D
-      integer, intent(in)                :: direction
-#ifdef MPI
-      integer :: ie, dims
-      
-      call MPI_Cartdim_get(D3D%mpi%comm, dims, ie)
-      if (ie/=0) stop "Error executing MPI_Cartdim_get."
-      
-      if (dims==2) then
-        !We see the dimensions reversed in Fortran!
-        if (direction==1) then
-          D%mpi%comm = D3D%mpi%comm
-        else if (direction==2) then
-          call MPI_Cart_sub(D3D%mpi%comm, [.true.,.false.], D%mpi%comm, ie)
-          if (ie/=0) stop "Error executing MPI_Cart_sub."
-        else
-          call MPI_Cart_sub(D3D%mpi%comm, [.false.,.true.], D%mpi%comm, ie)
-          if (ie/=0) stop "Error executing MPI_Cart_sub."
-        end if
-      else
-        stop "Not implemented."
-      end if
-      
-#endif
-
-      if (direction==1) then
-        D%dx = D3D%dy
-        D%nx = D3D%ny
-        D%gnx = D3D%gny
-        D%offx = D3D%offy
-        D%dy = D3D%dz
-        D%ny = D3D%nz
-        D%gny = D3D%gnz
-        D%offy = D3D%offz
-        D%BCs = D3D%BCs(3:6)
-      else if (direction==2) then
-        D%dx = D3D%dx
-        D%nx = D3D%nx
-        D%gnx = D3D%gnx
-        D%offx = D3D%offx
-        D%dy = D3D%dz
-        D%ny = D3D%nz
-        D%gny = D3D%gnz
-        D%offy = D3D%offz
-        D%BCs = D3D%BCs([1,2,5,6])
-      else
-        D%dx = D3D%dx
-        D%nx = D3D%nx
-        D%gnx = D3D%gnx
-        D%offx = D3D%offx
-        D%dy = D3D%dy
-        D%ny = D3D%ny
-        D%gny = D3D%gny
-        D%offy = D3D%offy
-        D%BCs = D3D%BCs(1:4)
-      endif
-
-      D%nxyz = [D%nx, D%ny]
-
-      D%cnt = D%nx * D%ny
-      
-      D%gcnt = int(D%gnx, kind(D%gcnt)) * int(D%gny, kind(D%gcnt))
-    end function PoisFFT_Solver2D_From3D
-
-
-    function PoisFFT_Solver2D_Many_From3D(D3D,direction) result(D)
-      type(PoisFFT_Solver2D_Many)        :: D
-      type(PoisFFT_Solver3D), intent(in) :: D3D
-      integer, intent(in)                :: direction
-#ifdef MPI
-      integer :: ie, dims
-      
-      call MPI_Cartdim_get(D3D%mpi%comm, dims, ie)
-      if (ie/=0) stop "Error executing MPI_Cartdim_get."
-      
-      if (dims==2) then
-        !We see the dimensions reversed in Fortran!
-        if (direction==1) then
-          D%mpi%comm = D3D%mpi%comm
-        else if (direction==2) then
-          call MPI_Cart_sub(D3D%mpi%comm, [.true.,.false.], D%mpi%comm, ie)
-          if (ie/=0) stop "Error executing MPI_Cart_sub."
-        else
-          call MPI_Cart_sub(D3D%mpi%comm, [.false.,.true.], D%mpi%comm, ie)
-          if (ie/=0) stop "Error executing MPI_Cart_sub."
-        end if
-      else
-        stop "Not implemented."
-      end if
-      
-#endif
-
-      if (direction==1) then
-        D%dx = D3D%dy
-        D%nx = D3D%ny
-        D%gnx = D3D%gny
-        D%offx = D3D%offy
-        D%dy = D3D%dz
-        D%ny = D3D%nz
-        D%gny = D3D%gnz
-        D%offy = D3D%offz
-        D%BCs = D3D%BCs(3:6)
-        D%howmany = D3D%nx
-        D%workdims = [D3D%ny, D3D%nz, D3D%nx]
-      else if (direction==2) then
-        D%dx = D3D%dx
-        D%nx = D3D%nx
-        D%gnx = D3D%gnx
-        D%offx = D3D%offx
-        D%dy = D3D%dz
-        D%ny = D3D%nz
-        D%gny = D3D%gnz
-        D%offy = D3D%offz
-        D%BCs = D3D%BCs([1,2,5,6])
-        D%howmany = D3D%ny
-        D%workdims = [D3D%nx, D3D%nz, D3D%ny]
-      else
-        D%dx = D3D%dx
-        D%nx = D3D%nx
-        D%gnx = D3D%gnx
-        D%offx = D3D%offx
-        D%dy = D3D%dy
-        D%ny = D3D%ny
-        D%gny = D3D%gny
-        D%offy = D3D%offy
-        D%BCs = D3D%BCs(1:4)
-        D%howmany = D3D%nz
-        D%workdims = [D3D%nx, D3D%ny, D3D%nz]
-      endif
-      
-      D%nxyz = [D%nx, D%ny]
-
-      D%cnt = D%nx * D%ny
-      
-      D%gcnt = int(D%gnx, kind(D%gcnt)) * int(D%gny, kind(D%gcnt))
-    end function PoisFFT_Solver2D_Many_From3D
-
-
-    subroutine PoisFFT_Solver1D_Finalize(D)
-      type(PoisFFT_Solver1D), intent(inout) :: D
-
-      call Destroy(D%forward)
-      call Destroy(D%backward)
-
-      if (associated(D%rwork)) call data_deallocate(D%rwork)
-      if (associated(D%cwork)) call data_deallocate(D%cwork)
-
-    endsubroutine PoisFFT_Solver1D_Finalize
-
-
-
-    subroutine PoisFFT_Solver2D_Finalize(D)
-      type(PoisFFT_Solver2D), intent(inout) :: D
-
-      call Destroy(D%forward)
-      call Destroy(D%backward)
-
-      if (associated(D%rwork)) call data_deallocate(D%rwork)
-      if (associated(D%cwork)) call data_deallocate(D%cwork)
-
-    endsubroutine PoisFFT_Solver2D_Finalize
-
-
-
-    subroutine PoisFFT_Solver3D_Finalize(D)
-      type(PoisFFT_Solver3D), intent(inout) :: D
-      integer :: i
-
-      call Destroy(D%forward)
-      call Destroy(D%backward)
-
-      if (associated(D%rwork)) call data_deallocate(D%rwork)
-      if (associated(D%cwork)) call data_deallocate(D%cwork)
-
-      if (allocated(D%Solvers1D)) then
-        do i=1,size(D%Solvers1D)
-          call Finalize(D%Solvers1D(i))
-        end do
-      endif
-
-      if (allocated(D%Solvers2D)) then
-        do i=1,size(D%Solvers2D)
-          call Finalize(D%Solvers2D(i))
-        end do
-      endif
-
-!       if (allocated(D%Solver1D)) call Finalize(D%Solver1D)
-! 
-!       if (allocated(D%Solver2D)) call Finalize(D%Solver2D)
-
-    endsubroutine PoisFFT_Solver3D_Finalize
-
-
-
-    subroutine PoisFFT_Solver3D_FullPeriodic(D, Phi, RHS)
-      type(PoisFFT_Solver3D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:,:)
-      real(RP), intent(in)  :: RHS(:,:,:)
-      integer i,j,k
-
-      !$omp parallel private(i,j,k)
-
-      !$omp workshare
-      D%cwork = cmplx(RHS,0._RP,CP)
-      !$omp end workshare
-
-      !$omp end parallel
-#ifdef MPI
-      call Execute_MPI(D%forward)
-#else
-      call Execute(D%forward, D%cwork)
-#endif
-      !$omp parallel private(i,j,k)
-
-      if (D%offx==0.and.D%offy==0.and.D%offz==0) then
-#define xwork cwork
-#include "loop_nest_3d.f90"
-#undef xwork
-        !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
-        ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
-      
-        !$omp single
-        D%cwork(1,1,1) = 0
-        !$omp end single
-      else
-        !$omp do
-        do k=1,D%nz
-          do j=1,D%ny
-            do i=1,D%nx
-              D%cwork(i,j,k) = D%cwork(i,j,k) / (D%denomx(i) + D%denomy(j) + D%denomz(k))
-            end do
-          end do
-        end do
-        !$omp end do
-      end if
-
-      !$omp end parallel
-#ifdef MPI
-      call Execute_MPI(D%backward)
-#else
-      call Execute(D%backward, D%cwork)
-#endif
-      !$omp parallel
-
-      !$omp workshare
-       Phi = real(D%cwork,RP) / real(D%gcnt,RP)
-      !$omp end workshare
-
-      !$omp end parallel
-
-    end subroutine PoisFFT_Solver3D_FullPeriodic
-
-
-
-
-    subroutine PoisFFT_Solver3D_FullDirichlet(D, Phi, RHS)
-      type(PoisFFT_Solver3D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:,:)
-      real(RP), intent(in)  :: RHS(:,:,:)
-      integer i,j,k
-
-      !$omp parallel private(i,j,k)
-
-      !$omp workshare
-      D%rwork = RHS
-      !$omp end workshare
-
-
-      !$omp end parallel
-#ifdef MPI
-      call Execute_MPI(D%forward)
-#else
-      call Execute(D%forward, D%rwork)
-#endif
-      !$omp parallel private(i,j,k)
-
-      !$omp do
-      do k=1,D%nz
-        do j=1,D%ny
-          do i=1,D%nx
-            D%rwork(i,j,k) = D%rwork(i,j,k) / (D%denomx(i) + D%denomy(j) + D%denomz(k))
-          end do
-        end do
-      end do
-      !$omp end do
-
-      !$omp end parallel
-#ifdef MPI
-      call Execute_MPI(D%backward)
-#else
-      call Execute(D%backward, D%rwork)
-#endif
-      !$omp parallel private(i,j,k)
-
-      !$omp workshare
-      Phi = D%rwork / (8*real(D%gnx+1,RP)*real(D%gny+1,RP)*real(D%gnz+1,RP))
-      !$omp end workshare
-
-      !$omp end parallel
-
-    end subroutine PoisFFT_Solver3D_FullDirichlet
-
-
-
-
-    subroutine PoisFFT_Solver3D_FullDirichletStag(D, Phi, RHS)
-      type(PoisFFT_Solver3D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:,:)
-      real(RP), intent(in)  :: RHS(:,:,:)
-      integer i,j,k
-
-      !$omp parallel private(i,j,k)
-
-      !$omp workshare
-      D%rwork = RHS
-      !$omp end workshare
-
-
-      !$omp end parallel
-#ifdef MPI
-      call Execute_MPI(D%forward)
-#else
-      call Execute(D%forward, D%rwork)
-#endif
-      !$omp parallel private(i,j,k)
-
-      !$omp do
-      do k=1,D%nz
-        do j=1,D%ny
-          do i=1,D%nx
-            D%rwork(i,j,k) = D%rwork(i,j,k) / (D%denomx(i) + D%denomy(j) + D%denomz(k))
-          end do
-        end do
-      end do
-      !$omp end do
-
-      !$omp end parallel
-#ifdef MPI
-      call Execute_MPI(D%backward)
-#else
-      call Execute(D%backward, D%rwork)
-#endif
-      !$omp parallel private(i,j,k)
-
-      !$omp workshare
-      Phi = D%rwork / real(8*D%gcnt,RP)
-      !$omp end workshare
-
-      !$omp end parallel
-
-    end subroutine PoisFFT_Solver3D_FullDirichletStag
-
-
-
-
-    subroutine PoisFFT_Solver3D_FullNeumann(D, Phi, RHS)
-      type(PoisFFT_Solver3D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:,:)
-      real(RP), intent(in)  :: RHS(:,:,:)
-      integer i,j,k
-
-      !$omp parallel private(i,j,k)
-
-      !$omp workshare
-      D%rwork = RHS
-      !$omp end workshare
-
-
-      !$omp end parallel
-#ifdef MPI
-      call Execute_MPI(D%forward)
-#else
-      call Execute(D%forward, D%rwork)
-#endif
-      !$omp parallel private(i,j,k)
-
-      !$omp single
-      if (D%offx==0.and.D%offy==0.and.D%offz==0) D%rwork(1,1,1) = 0
-      !$omp end single
-
-      if (D%offx==0.and.D%offy==0.and.D%offz==0) then
-#define xwork rwork
-#include "loop_nest_3d.f90"
-#undef xwork
-        !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
-        ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
-      
-        !$omp single
-        D%rwork(1,1,1) = 0
-        !$omp end single
-      else
-        !$omp do
-        do k=1,D%nz
-          do j=1,D%ny
-            do i=1,D%nx
-              D%rwork(i,j,k) = D%rwork(i,j,k) / (D%denomx(i) + D%denomy(j) + D%denomz(k))
-            end do
-          end do
-        end do
-        !$omp end do
-      end if
-
-
-      !$omp end parallel
-#ifdef MPI
-      call Execute_MPI(D%backward)
-#else
-      call Execute(D%backward, D%rwork)
-#endif
-      !$omp parallel private(i,j,k)
-
-      !$omp workshare
-      Phi = D%rwork / (8*real(D%gnx-1,RP)*real(D%gny-1,RP)*real(D%gnz-1,RP))
-      !$omp end workshare
-
-      !$omp end parallel
-
-    end subroutine PoisFFT_Solver3D_FullNeumann
-
-
-
-
-    subroutine PoisFFT_Solver3D_FullNeumannStag(D, Phi, RHS)
-      type(PoisFFT_Solver3D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:,:)
-      real(RP), intent(in)  :: RHS(:,:,:)
-      integer i,j,k
-
-      !$omp parallel private(i,j,k)
-
-      !$omp workshare
-      D%rwork = RHS
-      !$omp end workshare
-
-
-      !$omp end parallel
-#ifdef MPI
-      call Execute_MPI(D%forward)
-#else
-      call Execute(D%forward, D%rwork)
-#endif
-      !$omp parallel private(i,j,k)
-
-      !$omp single
-      if (D%offx==0.and.D%offy==0.and.D%offz==0) D%rwork(1,1,1) = 0
-      !$omp end single
-
-      if (D%offx==0.and.D%offy==0.and.D%offz==0) then
-#define xwork rwork
-#include "loop_nest_3d.f90"
-#undef xwork
-        !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
-        ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
-      
-        !$omp single
-        D%rwork(1,1,1) = 0
-        !$omp end single
-      else
-        !$omp do
-        do k=1,D%nz
-          do j=1,D%ny
-            do i=1,D%nx
-              D%rwork(i,j,k) = D%rwork(i,j,k) / (D%denomx(i) + D%denomy(j) + D%denomz(k))
-            end do
-          end do
-        end do
-        !$omp end do
-      end if
-
-
-      !$omp end parallel
-#ifdef MPI
-      call Execute_MPI(D%backward)
-#else
-      call Execute(D%backward, D%rwork)
-#endif
-      !$omp parallel private(i,j,k)
-
-      !$omp workshare
-      Phi = D%rwork / (8*real(D%gnx,RP)*real(D%gny,RP)*real(D%gnz,RP))
-      !$omp end workshare
-
-      !$omp end parallel
-
-    end subroutine PoisFFT_Solver3D_FullNeumannStag
-
-
-
-#ifdef MPI
-
-#ifdef MANY_VARIANT
-!     subroutine PoisFFT_Solver3D_PPNs(D, Phi, RHS)
-!       type(PoisFFT_Solver3D), intent(inout) :: D
-!       real(RP), intent(out) :: Phi(:,:,:)
-!       real(RP), intent(in)  :: RHS(:,:,:)
-!       integer i,j,k
-! 
-!       interface
-!         subroutine MPI_ALLTOALLV(SENDBUF, SENDCOUNTS, SDISPLS, SENDTYPE, &
-!                                  RECVBUF, RECVCOUNTS, RDISPLS, RECVTYPE, COMM, IERROR)
-!           import
-!           REAL(RP)    SENDBUF(*), RECVBUF(*)
-!           INTEGER    SENDCOUNTS(*), SDISPLS(*), SENDTYPE
-!           INTEGER    RECVCOUNTS(*), RDISPLS(*), RECVTYPE
-!           INTEGER    COMM, IERROR
-!         end subroutine
-!       end interface
-!       integer :: l, ie
-! 
-! 
-! 
-! 
-!       if (D%Solver1D%mpi_transpose_needed) then
-!       
-!         do k = 1, D%nz
-!           do j = 1, D%ny
-!             do i = 1, D%nx
-!               D%mpi%tmp1(k,j,i) = RHS(i,j,k)
-!             end do
-!           end do
-!         end do
-! 
-!         
-!         !step2 exchange
-!         call MPI_AllToAllV(D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
-!                            D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
-!                            D%Solver1D%mpi%comm, ie)
-!         !step3 local reordering of blocks
-! 
-!         do l = 1, D%mpi%np
-!           do k = 0, D%mpi%rnxs(1)-1
-!             do j = 0, D%ny-1
-!               do i = 0, D%mpi%rnzs(l)-1
-!                 D%Solver1D%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1) = &
-!                   D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l))
-!               end do
-!             end do
-!           end do
-!         end do
-!      
-!         ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-!         call Execute(D%Solver1D%forward,D%Solver1D%rwork)
-! 
-!         
-! 
-!         !step3' local reordering of blocks
-!         do l = 1, D%mpi%np
-!           do k = 0, D%mpi%rnxs(1)-1
-!             do j = 0, D%ny-1
-!               do i = 0, D%mpi%rnzs(l)-1
-!                 D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l)) = &
-!                   D%Solver1D%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1)
-!               end do
-!             end do
-!           end do
-!         end do
-! 
-!       
-!         !step2' exchange
-!         call MPI_AllToAllV(D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
-!                            D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
-!                            D%Solver1D%mpi%comm, ie)
-!         do k = 1, D%nz
-!           do j = 1, D%ny
-!             do i = 1, D%nx
-!               D%Solver2D%cwork(i,j,k) = D%mpi%tmp1(k,j,i)
-!             end do
-!           end do
-!         end do
-!       else
-!         ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-!         do j = 1, D%ny
-!           do k = 1, D%nz
-!             do i = 1, D%nx
-!               D%Solver1D%rwork(k,j,i) = RHS(i,j,k)
-!             end do
-!           end do
-!         end do
-! 
-!         call Execute(D%Solver1D%forward, D%Solver1D%rwork)
-! 
-!         do k = 1, D%nz
-!           do j = 1, D%ny
-!             do i = 1, D%nx
-!               D%Solver2D%cwork(i,j,k) = D%Solver1D%rwork(k,j,i)
-!             end do
-!           end do
-!         end do
-!       end if
-! 
-!       call Execute_MPI(D%Solver2D%forward)
-! 
-!       do k=1,D%nz
-!         if (k==1.and.D%offz==0) then
-!           do j=2,D%ny
-!             do i=2,D%nx
-!               D%Solver2D%cwork(i,j,k) = D%Solver2D%cwork(i,j,k)&
-!                                               / (D%denomx(i) + D%denomy(j))
-!             end do
-!           end do
-!           do i=2,D%nx
-!               D%Solver2D%cwork(i,1,k) = D%Solver2D%cwork(i,1,k)&
-!                                               / (D%denomx(i))
-!           end do
-!           do j=2,D%ny
-!               D%Solver2D%cwork(1,j,k) = D%Solver2D%cwork(1,j,k)&
-!                                               / (D%denomy(j))
-!           end do
-!           !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
-!           ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
-!           D%Solver2D%cwork(1,1,1) = 0
-! 
-!         else
-! 
-!           do j=1,D%ny
-!             do i=1,D%nx
-!               D%Solver2D%cwork(i,j,k) = D%Solver2D%cwork(i,j,k)&
-!                                               / (D%denomx(i) + D%denomy(j) + D%denomz(k))
-!             end do
-!           end do
-! 
-!         endif
-!       end do
-! 
-!       call Execute_MPI(D%Solver2D%backward)
-! 
-! 
-!       if (D%Solver1D%mpi_transpose_needed) then
-! 
-!         !step1 local transpose
-!         do k = 1, D%nz
-!           do j = 1, D%ny
-!             do i = 1, D%nx
-!               D%mpi%tmp1(k,j,i) = real(D%Solver2D%cwork(i,j,k),RP) / (2 * D%gcnt)
-!             end do
-!           end do
-!         end do
-! 
-!         !step2 exchange
-!         call MPI_AllToAllV(D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
-!                            D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
-!                            D%Solver1D%mpi%comm, ie)
-! 
-!         !step3 local reordering of blocks
-!         do l = 1, D%mpi%np
-!           do k = 0, D%mpi%rnxs(1)-1
-!             do j = 0, D%ny-1
-!               do i = 0, D%mpi%rnzs(l)-1
-!                 D%Solver1D%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1) = &
-!                   D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l))
-!               end do
-!             end do
-!           end do
-!         end do
-!       
-!         ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-!         call Execute(D%Solver1D%backward, D%Solver1D%rwork)
-! 
-!         !step3' local reordering of blocks
-!         do l = 1, D%mpi%np
-!           do k = 0, D%mpi%rnxs(1)-1
-!             do j = 0, D%ny-1
-!               do i = 0, D%mpi%rnzs(l)-1
-!                 D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l)) = &
-!                   D%Solver1D%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1)
-!               end do
-!             end do
-!           end do
-!         end do
-!       
-!         !step2' exchange
-!         call MPI_AllToAllV(D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
-!                            D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
-!                            D%Solver1D%mpi%comm, ie)
-! 
-!         do k = 1, D%nz
-!           do j = 1, D%ny
-!             do i = 1, D%nx
-!               Phi(i,j,k) = D%mpi%tmp1(k,j,i)
-!             end do
-!           end do
-!         end do
-!       else
-!         ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-! 
-!         do k = 1, D%nz
-!           do j = 1, D%ny
-!             do i = 1, D%nx
-!               D%Solver1D%rwork(k,j,i) = real(D%Solver2D%cwork(i,j,k),RP) / (2 * D%gcnt)
-!             end do
-!           end do
-!         end do
-! 
-!         call Execute(D%Solver1D%backward, D%Solver1D%rwork)
-! 
-!         do k = 1, D%nz
-!           do j = 1, D%ny
-!             do i = 1, D%nx
-!               Phi(i,j,k) = D%Solver1D%rwork(k,j,i)
-!             end do
-!           end do
-!         end do
-! 
-!       end if
-!     end subroutine PoisFFT_Solver3D_PPNs
-
-!MANY_VARIANT
-#else
-
-    subroutine PoisFFT_Solver3D_PPNs(D, Phi, RHS)
-      type(PoisFFT_Solver3D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:,:)
-      real(RP), intent(in)  :: RHS(:,:,:)
-      integer i,j,k
-
-      interface
-        subroutine MPI_ALLTOALLV(SENDBUF, SENDCOUNTS, SDISPLS, SENDTYPE, &
-                                 RECVBUF, RECVCOUNTS, RDISPLS, RECVTYPE, COMM, IERROR)
-          import
-          REAL(RP)    SENDBUF(*), RECVBUF(*)
-          INTEGER    SENDCOUNTS(*), SDISPLS(*), SENDTYPE
-          INTEGER    RECVCOUNTS(*), RDISPLS(*), RECVTYPE
-          INTEGER    COMM, IERROR
-        end subroutine
-      end interface
-      integer :: l, ie
-
-      if (D%Solvers1D(1)%mpi_transpose_needed) then
-      
-        do k = 1, D%nz
-          do j = 1, D%ny
-            do i = 1, D%nx
-              D%mpi%tmp1(k,j,i) = RHS(i,j,k)
-            end do
-          end do
-        end do
-
-        
-        !step2 exchange
-        call MPI_AllToAllV(D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
-                           D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
-                           D%Solvers1D(1)%mpi%comm, ie)
-        !step3 local reordering of blocks
-
-        do l = 1, D%mpi%np
-          do k = 0, D%mpi%rnxs(1)-1
-            do j = 0, D%ny-1
-              do i = 0, D%mpi%rnzs(l)-1
-                D%mpi%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1) = &
-                  D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l))
-              end do
-            end do
-          end do
-        end do
-     
-        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-        do k=1,size(D%mpi%rwork,3)
-          do j=1,size(D%mpi%rwork,2)
-            call Execute(D%Solvers1D(1)%forward,D%mpi%rwork(:,j,k))
-          end do
-        end do
-        
-
-        !step3' local reordering of blocks
-        do l = 1, D%mpi%np
-          do k = 0, D%mpi%rnxs(1)-1
-            do j = 0, D%ny-1
-              do i = 0, D%mpi%rnzs(l)-1
-                D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l)) = &
-                  D%mpi%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1)
-              end do
-            end do
-          end do
-        end do
-
-      
-        !step2' exchange
-        call MPI_AllToAllV(D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
-                           D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
-                           D%Solvers1D(1)%mpi%comm, ie)
-        do k = 1, D%nz
-          do j = 1, D%ny
-            do i = 1, D%nx
-              Phi(i,j,k) = D%mpi%tmp1(k,j,i)
-            end do
-          end do
-        end do
-      else
-        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-        do j=1,D%ny
-          do i=1,D%nx
-            D%Solvers1D(1)%rwork = RHS(i,j,:)
-
-
-            call Execute(D%Solvers1D(1)%forward,D%Solvers1D(1)%rwork)
-
-
-            Phi(i,j,:) = D%Solvers1D(1)%rwork
-          end do
-        end do
-      end if
-      
-
-      do k=1,D%nz
-        D%Solvers2D(1)%cwork(1:D%nx,1:D%ny) = cmplx(Phi(1:D%nx,1:D%ny,k),0._RP,CP)
-
-        call Execute_MPI(D%Solvers2D(1)%forward)
-
-        if (k==1.and.D%offz==0) then
-          do j = 1,D%ny
-            do i = max(3-j-D%offx-D%offy,1),D%nx
-              D%Solvers2D(1)%cwork(i,j) = D%Solvers2D(1)%cwork(i,j) / (D%denomx(i) + D%denomy(j))
-            end do
-          end do
-          !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
-          ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
-          if (D%offx==0.and.D%offy==0) D%Solvers2D(1)%cwork(1,1) = 0
-
-        else
-
-          do j=1,D%ny
-            do i=1,D%nx
-              D%Solvers2D(1)%cwork(i,j) = D%Solvers2D(1)%cwork(i,j)&
-                                              / (D%denomx(i) + D%denomy(j) + D%denomz(k))
-            end do
-          end do
-
-        endif
-
-        call Execute_MPI(D%Solvers2D(1)%backward)
-
-        Phi(:,:,k) = real(D%Solvers2D(1)%cwork,RP) / real(2 * D%gcnt,RP)
-
-
-      end do
-
-
-      if (D%Solvers1D(1)%mpi_transpose_needed) then
-
-        !step1 local transpose
-        do k = 1, D%nz
-          do j = 1, D%ny
-            do i = 1, D%nx
-              D%mpi%tmp1(k,j,i) = Phi(i,j,k)
-            end do
-          end do
-        end do
-
-        !step2 exchange
-        call MPI_AllToAllV(D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
-                           D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
-                           D%Solvers1D(1)%mpi%comm, ie)
-
-        !step3 local reordering of blocks
-        do l = 1, D%mpi%np
-          do k = 0, D%mpi%rnxs(1)-1
-            do j = 0, D%ny-1
-              do i = 0, D%mpi%rnzs(l)-1
-                D%mpi%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1) = &
-                  D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l))
-              end do
-            end do
-          end do
-        end do
-      
-        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-        do k=1,size(D%mpi%rwork,3)
-          do j=1,size(D%mpi%rwork,2)
-            call Execute(D%Solvers1D(1)%backward, D%mpi%rwork(:,j,k))
-          end do
-        end do
-
-        !step3' local reordering of blocks
-        do l = 1, D%mpi%np
-          do k = 0, D%mpi%rnxs(1)-1
-            do j = 0, D%ny-1
-              do i = 0, D%mpi%rnzs(l)-1
-                D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l)) = &
-                  D%mpi%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1)
-              end do
-            end do
-          end do
-        end do
-      
-        !step2' exchange
-        call MPI_AllToAllV(D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
-                           D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
-                           D%Solvers1D(1)%mpi%comm, ie)
-
-        do k = 1, D%nz
-          do j = 1, D%ny
-            do i = 1, D%nx
-              Phi(i,j,k) = D%mpi%tmp1(k,j,i)
-            end do
-          end do
-        end do
-      else
-        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-        do j=1,D%ny
-          do i=1,D%nx
-            D%Solvers1D(1)%rwork = Phi(i,j,:)
-
-
-            call Execute(D%Solvers1D(1)%backward,D%Solvers1D(1)%rwork)
-
-
-            Phi(i,j,:) = D%Solvers1D(1)%rwork
-          end do
-        end do
-      end if
-    end subroutine PoisFFT_Solver3D_PPNs
-#endif
     
-#elif defined(MANY_VARIANT)
-
-!     subroutine PoisFFT_Solver3D_PPNs(D, Phi, RHS)
-!       type(PoisFFT_Solver3D), intent(inout) :: D
-!       real(RP), intent(out) :: Phi(:,:,:)
-!       real(RP), intent(in)  :: RHS(:,:,:)
-!       integer i,j,k
-!       integer tid      !thread id
-! 
-! 
-!       !$omp parallel private(tid,i,j,k)
-!       tid = 1
-!       !$ tid = omp_get_thread_num()+1
-! 
-!       ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-!       !$omp do
-!       do j = 1, D%ny
-!         do k = 1, D%nz
-!           do i = 1, D%nx
-!             D%Solver1D%rwork(k,j,i) = RHS(i,j,k)
-!           end do
-!         end do
-!       end do
-!       !$omp end do
-!       !$omp single
-!       call Execute(D%Solver1D%forward, D%Solver1D%rwork)
-!       !$omp end single
-!       !$omp do
-!       do k = 1, D%nz
-!         do j = 1, D%ny
-!           do i = 1, D%nx
-!             D%Solver2D%cwork(i,j,k) = D%Solver1D%rwork(k,j,i)
-!           end do
-!         end do
-!       end do
-!       !$omp end do
-! 
-! 
-!       !$omp single
-!       call Execute(D%Solver2D%forward, D%Solver2D%cwork)
-!       !$omp end single
-!       
-!       !$omp do
-!       do k=1,D%nz
-!         if (k==1.and.D%offz==0) then
-!           do j=2,D%ny
-!             do i=2,D%nx
-!               D%Solver2D%cwork(i,j,k) = D%Solver2D%cwork(i,j,k)&
-!                                               / (D%denomx(i) + D%denomy(j))
-!             end do
-!           end do
-!           do i=2,D%nx
-!               D%Solver2D%cwork(i,1,k) = D%Solver2D%cwork(i,1,k)&
-!                                               / (D%denomx(i))
-!           end do
-!           do j=2,D%ny
-!               D%Solver2D%cwork(1,j,k) = D%Solver2D%cwork(1,j,k)&
-!                                               / (D%denomy(j))
-!           end do
-!           !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
-!           ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
-!           D%Solver2D%cwork(1,1,1) = 0
-! 
-!         else
-! 
-!           do j=1,D%ny
-!             do i=1,D%nx
-!               D%Solver2D%cwork(i,j,k) = D%Solver2D%cwork(i,j,k)&
-!                                               / (D%denomx(i) + D%denomy(j) + D%denomz(k))
-!             end do
-!           end do
-! 
-!         endif
-!       end do
-!       !$omp end do
-!       
-!       !$omp single
-!       call Execute(D%Solver2D%backward, D%Solver2D%cwork)
-!       !$omp end single
-! 
-!       !$omp do
-!       do k = 1, D%nz
-!         do j = 1, D%ny
-!           do i = 1, D%nx
-!             D%Solver1D%rwork(k,j,i) = real(D%Solver2D%cwork(i,j,k),RP) / (2 * D%gcnt)
-!           end do
-!         end do
-!       end do
-!       !$omp end do
-!       !$omp single
-!       call Execute(D%Solver1D%backward, D%Solver1D%rwork)
-!       !$omp end single
-!       !$omp do
-!       do k = 1, D%nz
-!         do j = 1, D%ny
-!           do i = 1, D%nx
-!             Phi(i,j,k) = D%Solver1D%rwork(k,j,i)
-!           end do
-!         end do
-!       end do
-!       !$omp end do
-!       !$omp end parallel
-!     end subroutine PoisFFT_Solver3D_PPNs
     
-#else
-
-    subroutine PoisFFT_Solver3D_PPNs(D, Phi, RHS)
-      type(PoisFFT_Solver3D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:,:)
-      real(RP), intent(in)  :: RHS(:,:,:)
-      integer i,j,k
-      integer tid      !thread id
-
-      !$omp parallel private(tid,i,j,k)
-      tid = 1
-      !$ tid = omp_get_thread_num()+1
-
-      ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-      !$omp do
-      do j=1,D%ny
-        do i=1,D%nx
-          D%Solvers1D(tid)%rwork = RHS(i,j,:)
-
-
-          call Execute(D%Solvers1D(tid)%forward,D%Solvers1D(tid)%rwork)
-
-
-          Phi(i,j,:) = D%Solvers1D(tid)%rwork
-        end do
-      end do
-      !$omp end do
-      
-      
-      !$omp do
-      do k=1,D%nz
-        D%Solvers2D(tid)%cwork(1:D%nx,1:D%ny) = cmplx(Phi(1:D%nx,1:D%ny,k),0._RP,CP)
-
-
-        call Execute(D%Solvers2D(tid)%forward, D%Solvers2D(tid)%cwork)
-
-        if (k==1) then
-          do j=2,D%ny
-            do i=2,D%nx
-              D%Solvers2D(tid)%cwork(i,j) = D%Solvers2D(tid)%cwork(i,j)&
-                                              / (D%denomx(i) + D%denomy(j))
-            end do
-          end do
-          do i=2,D%nx
-              D%Solvers2D(tid)%cwork(i,1) = D%Solvers2D(tid)%cwork(i,1)&
-                                              / (D%denomx(i))
-          end do
-          do j=2,D%ny
-              D%Solvers2D(tid)%cwork(1,j) = D%Solvers2D(tid)%cwork(1,j)&
-                                              / (D%denomy(j))
-          end do
-          !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
-          ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
-          D%Solvers2D(tid)%cwork(1,1) = 0
-
-        else
-
-          do j=1,D%ny
-            do i=1,D%nx
-              D%Solvers2D(tid)%cwork(i,j) = D%Solvers2D(tid)%cwork(i,j)&
-                                              / (D%denomx(i) + D%denomy(j) + D%denomz(k))
-            end do
-          end do
-
-        endif
-
-        call Execute(D%Solvers2D(tid)%backward, D%Solvers2D(tid)%cwork)
-
-        Phi(:,:,k) = real(D%Solvers2D(tid)%cwork,RP) / real(2 * D%gcnt,RP)
-
-
-      end do
-      !$omp end do
-
-      !$omp do
-      do j=1,D%ny
-        do i=1,D%nx
-          D%Solvers1D(tid)%rwork = Phi(i,j,:)
-
-
-          call Execute(D%Solvers1D(tid)%backward,D%Solvers1D(tid)%rwork)
-
-
-          Phi(i,j,:) = D%Solvers1D(tid)%rwork
-        end do
-      end do
-      !$omp end do
-      !$omp end parallel
-    end subroutine PoisFFT_Solver3D_PPNs
-    
-#endif
-
-
 
 
     subroutine PoisFFT_Solver3D_Init(D)
@@ -1479,6 +167,14 @@
       dky = 2 * dky_h
       dkz = 2 * dkz_h
 
+      D%dx = grid_dx(D%gnx, D%Lx, D%BCs(1:2))
+      D%dy = grid_dx(D%gny, D%Ly, D%BCs(3:4))
+      D%dz = grid_dx(D%gnz, D%Lz, D%BCs(5:6))
+      
+      D%norm_factor = norm_factor(D%gnx,D%BCs(1:2)) * &
+                      norm_factor(D%gny,D%BCs(3:4)) * &
+                      norm_factor(D%gnz,D%BCs(5:6))
+      
       allocate(D%denomx(D%nx))
       allocate(D%denomy(D%ny))
       allocate(D%denomz(D%nz))
@@ -1714,16 +410,375 @@
       if (all(D%BCs==D%BCs(1))) then
         !all boundary conditions the same
         if (D%approximation==2) then
-          D%denomx = Eigenvalues_FD2(D%BCs(1:2), D%dx, D%nx, D%gnx, D%offx)
-          D%denomy = Eigenvalues_FD2(D%BCs(2:4), D%dy, D%ny, D%gny, D%offy)
-          D%denomz = Eigenvalues_FD2(D%BCs(5:6), D%dz, D%nz, D%gnz, D%offz)
+          D%denomx = eigenvalues_FD2(D%BCs(1:2), D%dx, D%nx, D%gnx, D%offx)
+          D%denomy = eigenvalues_FD2(D%BCs(2:4), D%dy, D%ny, D%gny, D%offy)
+          D%denomz = eigenvalues_FD2(D%BCs(5:6), D%dz, D%nz, D%gnz, D%offz)
         else
-          D%denomx = Eigenvalues_Spectral(D%BCs(1:2), D%dx, D%nx, D%gnx, D%offx)
-          D%denomy = Eigenvalues_Spectral(D%BCs(2:4), D%dy, D%ny, D%gny, D%offy)
-          D%denomz = Eigenvalues_Spectral(D%BCs(5:6), D%dz, D%nz, D%gnz, D%offz)
+          D%denomx = eigenvalues_Spectral(D%BCs(1:2), D%dx, D%nx, D%gnx, D%offx)
+          D%denomy = eigenvalues_Spectral(D%BCs(2:4), D%dy, D%ny, D%gny, D%offy)
+          D%denomz = eigenvalues_Spectral(D%BCs(5:6), D%dz, D%nz, D%gnz, D%offz)
         end if
       end if
     end subroutine PoisFFT_Solver3D_Init
+    
+    
+
+
+    subroutine PoisFFT_Solver3D_Execute(D,Phi,RHS)
+      type(PoisFFT_Solver3D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+
+      integer   :: ngPhi(3), ngRHS(3)
+
+      ngPhi = (ubound(Phi)-[D%nx,D%ny,D%nz])/2
+      ngRHS = (ubound(RHS)-[D%nx,D%ny,D%nz])/2
+
+      if (all(D%BCs==PoisFFT_Periodic)) then
+
+        call PoisFFT_Solver3D_FullPeriodic(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny,&
+                     ngPhi(3)+1:ngPhi(3)+D%nz),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny,&
+                     ngRHS(3)+1:ngRHS(3)+D%nz))
+
+      else if (all(D%BCs==PoisFFT_Dirichlet) .or. &
+               all(D%BCs==PoisFFT_DirichletStag)) then
+
+        call PoisFFT_Solver3D_FullDirichlet(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny,&
+                     ngPhi(3)+1:ngPhi(3)+D%nz),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny,&
+                     ngRHS(3)+1:ngRHS(3)+D%nz))
+
+      else if (all(D%BCs==PoisFFT_Neumann) .or. &
+               all(D%BCs==PoisFFT_NeumannStag)) then
+
+        call PoisFFT_Solver3D_FullNeumann(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny,&
+                     ngPhi(3)+1:ngPhi(3)+D%nz),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny,&
+                     ngRHS(3)+1:ngRHS(3)+D%nz))
+
+      else if (all(D%BCs(1:4)==PoisFFT_Periodic).and.all(D%BCs(5:6)==PoisFFT_NeumannStag)) then
+
+        call PoisFFT_Solver3D_PPNs(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny,&
+                     ngPhi(3)+1:ngPhi(3)+D%nz),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny,&
+                     ngRHS(3)+1:ngRHS(3)+D%nz))
+
+      endif
+
+    end subroutine PoisFFT_Solver3D_Execute
+    
+    
+    
+    
+    subroutine PoisFFT_Solver3D_Finalize(D)
+      type(PoisFFT_Solver3D), intent(inout) :: D
+      integer :: i
+
+      call Destroy(D%forward)
+      call Destroy(D%backward)
+
+      if (associated(D%rwork)) call data_deallocate(D%rwork)
+      if (associated(D%cwork)) call data_deallocate(D%cwork)
+
+      if (allocated(D%Solvers1D)) then
+        do i=1,size(D%Solvers1D)
+          call Finalize(D%Solvers1D(i))
+        end do
+      endif
+
+      if (allocated(D%Solvers2D)) then
+        do i=1,size(D%Solvers2D)
+          call Finalize(D%Solvers2D(i))
+        end do
+      endif
+
+!       if (allocated(D%Solver1D)) call Finalize(D%Solver1D)
+! 
+!       if (allocated(D%Solver2D)) call Finalize(D%Solver2D)
+
+    endsubroutine PoisFFT_Solver3D_Finalize
+
+
+
+
+
+
+
+    function PoisFFT_Solver1D_From3D(D3D,direction) result(D)
+      type(PoisFFT_Solver1D)             :: D
+      type(PoisFFT_Solver3D), intent(in) :: D3D
+      integer, intent(in)                :: direction
+#ifdef MPI
+      integer :: ie, dims
+      
+      call MPI_Cartdim_get(D3D%mpi%comm, dims, ie)
+      if (ie/=0) stop "Error executing MPI_Cartdim_get."
+
+      if (dims==2) then
+        !We see the dimensions reversed in Fortran!
+        if (direction==1) then
+          D%mpi%comm = MPI_COMM_SELF
+        else if (direction==2) then
+          call MPI_Cart_sub(D3D%mpi%comm, [.false.,.true.], D%mpi%comm, ie)
+          if (ie/=0) stop "Error executing MPI_Cart_sub."
+          call MPI_Comm_size(D%mpi%comm, D%mpi%np, ie)
+          D%mpi_transpose_needed = D%mpi%np > 1
+        else
+          call MPI_Cart_sub(D3D%mpi%comm, [.true.,.false.], D%mpi%comm, ie)
+          if (ie/=0) stop "Error executing MPI_Cart_sub."
+          call MPI_Comm_size(D%mpi%comm, D%mpi%np, ie)
+          D%mpi_transpose_needed = D%mpi%np > 1
+        end if
+      else
+        stop "Not implemented."
+      end if
+      
+#endif
+
+      if (direction==1) then
+        D%dx = D3D%dx
+        D%nx = D3D%nx
+        D%gnx = D3D%gnx
+        D%offx = D3D%offx
+        D%BCs = D3D%BCs(1:2)
+      else if (direction==2) then
+        D%dx = D3D%dy
+        D%nx = D3D%ny
+        D%gnx = D3D%gny
+        D%offx = D3D%offy
+        D%BCs = D3D%BCs(3:4)
+      else
+        D%dx = D3D%dz
+        D%nx = D3D%nz
+        D%gnx = D3D%gnz
+        D%offx = D3D%offz
+        D%BCs = D3D%BCs(5:6)
+      endif
+      
+      D%nxyz = [D%nx]
+
+      D%cnt = D%nx
+      
+      D%gcnt = int(D%gnx, kind(D%gcnt))
+    end function PoisFFT_Solver1D_From3D
+
+
+!     function PoisFFT_Solver1D_Many_From3D(D3D,direction) result(D)
+!       type(PoisFFT_Solver1D_Many)        :: D
+!       type(PoisFFT_Solver3D), intent(in) :: D3D
+!       integer, intent(in)                :: direction
+! #ifdef MPI
+!       integer :: ie, dims
+!       
+!       call MPI_Cartdim_get(D3D%mpi%comm, dims, ie)
+!       if (ie/=0) stop "Error executing MPI_Cartdim_get."
+! 
+!       if (dims==2) then
+!         !We see the dimensions reversed in Fortran!
+!         if (direction==1) then
+!           D%mpi%comm = MPI_COMM_SELF
+!         else if (direction==2) then
+!           call MPI_Cart_sub(D3D%mpi%comm, [.false.,.true.], D%mpi%comm, ie)
+!           if (ie/=0) stop "Error executing MPI_Cart_sub."
+!           call MPI_Comm_size(D%mpi%comm, D%mpi%np, ie)
+!           D%mpi_transpose_needed = D%mpi%np > 1
+!         else
+!           call MPI_Cart_sub(D3D%mpi%comm, [.true.,.false.], D%mpi%comm, ie)
+!           if (ie/=0) stop "Error executing MPI_Cart_sub."
+!           call MPI_Comm_size(D%mpi%comm, D%mpi%np, ie)
+!           D%mpi_transpose_needed = D%mpi%np > 1
+!         end if
+!       else
+!         stop "Not implemented."
+!       end if
+!       
+! #endif
+! 
+!       if (direction==1) then
+!         D%dx = D3D%dx
+!         D%nx = D3D%nx
+!         D%gnx = D3D%gnx
+!         D%offx = D3D%offx
+!         D%BCs = D3D%BCs(1:2)
+!         D%howmany = D3D%ny * D3D%nz
+!         D%workdims = [D3D%nx, D3D%ny, D3D%nz]
+!       else if (direction==2) then
+!         D%dx = D3D%dy
+!         D%nx = D3D%ny
+!         D%gnx = D3D%gny
+!         D%offx = D3D%offy
+!         D%BCs = D3D%BCs(3:4)
+!         D%howmany = D3D%nx * D3D%nz
+!         D%workdims = [D3D%ny, D3D%nx, D3D%nz]
+!       else
+!         D%dx = D3D%dz
+!         D%nx = D3D%nz
+!         D%gnx = D3D%gnz
+!         D%offx = D3D%offz
+!         D%BCs = D3D%BCs(5:6)
+!         D%howmany = D3D%nx * D3D%ny
+!         D%workdims = [D3D%nz, D3D%ny, D3D%nx]
+!       endif
+! 
+!       D%nxyz = [D%nx]
+!         
+!       D%cnt = D%nx
+!       
+!       D%gcnt = int(D%gnx, kind(D%gcnt))
+!     end function PoisFFT_Solver1D_Many_From3D
+
+
+    function PoisFFT_Solver2D_From3D(D3D,direction) result(D)
+      type(PoisFFT_Solver2D)             :: D
+      type(PoisFFT_Solver3D), intent(in) :: D3D
+      integer, intent(in)                :: direction
+#ifdef MPI
+      integer :: ie, dims
+      
+      call MPI_Cartdim_get(D3D%mpi%comm, dims, ie)
+      if (ie/=0) stop "Error executing MPI_Cartdim_get."
+      
+      if (dims==2) then
+        !We see the dimensions reversed in Fortran!
+        if (direction==1) then
+          D%mpi%comm = D3D%mpi%comm
+        else if (direction==2) then
+          call MPI_Cart_sub(D3D%mpi%comm, [.true.,.false.], D%mpi%comm, ie)
+          if (ie/=0) stop "Error executing MPI_Cart_sub."
+        else
+          call MPI_Cart_sub(D3D%mpi%comm, [.false.,.true.], D%mpi%comm, ie)
+          if (ie/=0) stop "Error executing MPI_Cart_sub."
+        end if
+      else
+        stop "Not implemented."
+      end if
+      
+#endif
+
+      if (direction==1) then
+        D%dx = D3D%dy
+        D%nx = D3D%ny
+        D%gnx = D3D%gny
+        D%offx = D3D%offy
+        D%dy = D3D%dz
+        D%ny = D3D%nz
+        D%gny = D3D%gnz
+        D%offy = D3D%offz
+        D%BCs = D3D%BCs(3:6)
+      else if (direction==2) then
+        D%dx = D3D%dx
+        D%nx = D3D%nx
+        D%gnx = D3D%gnx
+        D%offx = D3D%offx
+        D%dy = D3D%dz
+        D%ny = D3D%nz
+        D%gny = D3D%gnz
+        D%offy = D3D%offz
+        D%BCs = D3D%BCs([1,2,5,6])
+      else
+        D%dx = D3D%dx
+        D%nx = D3D%nx
+        D%gnx = D3D%gnx
+        D%offx = D3D%offx
+        D%dy = D3D%dy
+        D%ny = D3D%ny
+        D%gny = D3D%gny
+        D%offy = D3D%offy
+        D%BCs = D3D%BCs(1:4)
+      endif
+
+      D%nxyz = [D%nx, D%ny]
+
+      D%cnt = D%nx * D%ny
+      
+      D%gcnt = int(D%gnx, kind(D%gcnt)) * int(D%gny, kind(D%gcnt))
+    end function PoisFFT_Solver2D_From3D
+
+
+!     function PoisFFT_Solver2D_Many_From3D(D3D,direction) result(D)
+!       type(PoisFFT_Solver2D_Many)        :: D
+!       type(PoisFFT_Solver3D), intent(in) :: D3D
+!       integer, intent(in)                :: direction
+! #ifdef MPI
+!       integer :: ie, dims
+!       
+!       call MPI_Cartdim_get(D3D%mpi%comm, dims, ie)
+!       if (ie/=0) stop "Error executing MPI_Cartdim_get."
+!       
+!       if (dims==2) then
+!         !We see the dimensions reversed in Fortran!
+!         if (direction==1) then
+!           D%mpi%comm = D3D%mpi%comm
+!         else if (direction==2) then
+!           call MPI_Cart_sub(D3D%mpi%comm, [.true.,.false.], D%mpi%comm, ie)
+!           if (ie/=0) stop "Error executing MPI_Cart_sub."
+!         else
+!           call MPI_Cart_sub(D3D%mpi%comm, [.false.,.true.], D%mpi%comm, ie)
+!           if (ie/=0) stop "Error executing MPI_Cart_sub."
+!         end if
+!       else
+!         stop "Not implemented."
+!       end if
+!       
+! #endif
+! 
+!       if (direction==1) then
+!         D%dx = D3D%dy
+!         D%nx = D3D%ny
+!         D%gnx = D3D%gny
+!         D%offx = D3D%offy
+!         D%dy = D3D%dz
+!         D%ny = D3D%nz
+!         D%gny = D3D%gnz
+!         D%offy = D3D%offz
+!         D%BCs = D3D%BCs(3:6)
+!         D%howmany = D3D%nx
+!         D%workdims = [D3D%ny, D3D%nz, D3D%nx]
+!       else if (direction==2) then
+!         D%dx = D3D%dx
+!         D%nx = D3D%nx
+!         D%gnx = D3D%gnx
+!         D%offx = D3D%offx
+!         D%dy = D3D%dz
+!         D%ny = D3D%nz
+!         D%gny = D3D%gnz
+!         D%offy = D3D%offz
+!         D%BCs = D3D%BCs([1,2,5,6])
+!         D%howmany = D3D%ny
+!         D%workdims = [D3D%nx, D3D%nz, D3D%ny]
+!       else
+!         D%dx = D3D%dx
+!         D%nx = D3D%nx
+!         D%gnx = D3D%gnx
+!         D%offx = D3D%offx
+!         D%dy = D3D%dy
+!         D%ny = D3D%ny
+!         D%gny = D3D%gny
+!         D%offy = D3D%offy
+!         D%BCs = D3D%BCs(1:4)
+!         D%howmany = D3D%nz
+!         D%workdims = [D3D%nx, D3D%ny, D3D%nz]
+!       endif
+!       
+!       D%nxyz = [D%nx, D%ny]
+! 
+!       D%cnt = D%nx * D%ny
+!       
+!       D%gcnt = int(D%gnx, kind(D%gcnt)) * int(D%gny, kind(D%gcnt))
+!     end function PoisFFT_Solver2D_Many_From3D
 
 
 
@@ -1734,25 +789,12 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-    function PoisFFT_Solver2D_New(nxyz,dxyz,BCs,approximation, &
+    function PoisFFT_Solver2D_New(nxyz,Lxyz,BCs,approximation, &
                                   gnxyz,offs,mpi_comm,nthreads) result(D)
       type(PoisFFT_Solver2D) :: D
 
       integer, intent(in)   :: nxyz(2)
-      real(RP), intent(in)  :: dxyz(2)
+      real(RP), intent(in)  :: Lxyz(2)
       integer, intent(in)   :: bcs(4)
       integer, intent(in), optional :: approximation
       integer, intent(in), optional :: gnxyz(2)
@@ -1762,8 +804,8 @@
 
       D%nxyz = nxyz
 
-      D%dx = dxyz(1)
-      D%dy = dxyz(2)
+      D%Lx = Lxyz(1)
+      D%Ly = Lxyz(2)
 
       D%nx = nxyz(1)
       D%ny = nxyz(2)
@@ -1803,218 +845,17 @@
 
 
 
-    subroutine PoisFFT_Solver2D_Execute(D,Phi,RHS)
-      type(PoisFFT_Solver2D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:)
-      real(RP), intent(in)  :: RHS(:,:)
-
-      integer   :: ngPhi(2), ngRHS(2)
-
-
-      ngPhi = (ubound(Phi)-[D%nx,D%ny])/2
-      ngRHS = (ubound(RHS)-[D%nx,D%ny])/2
-
-
-      if (all(D%BCs==PoisFFT_Periodic)) then
-
-        call PoisFFT_Solver2D_FullPeriodic(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
-                     ngPhi(2)+1:ngPhi(2)+D%ny),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
-                     ngRHS(2)+1:ngRHS(2)+D%ny))
-
-      else if (all(D%BCs==PoisFFT_Dirichlet)) then
-
-        call PoisFFT_Solver2D_FullDirichlet(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
-                     ngPhi(2)+1:ngPhi(2)+D%ny),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
-                     ngRHS(2)+1:ngRHS(2)+D%ny))
-
-      else if (all(D%BCs==PoisFFT_DirichletStag)) then
-
-        call PoisFFT_Solver2D_FullDirichletStag(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
-                     ngPhi(2)+1:ngPhi(2)+D%ny),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
-                     ngRHS(2)+1:ngRHS(2)+D%ny))
-
-      else if (all(D%BCs==PoisFFT_Neumann)) then
-
-        call PoisFFT_Solver2D_FullNeumann(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
-                     ngPhi(2)+1:ngPhi(2)+D%ny),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
-                     ngRHS(2)+1:ngRHS(2)+D%ny))
-
-      else if (all(D%BCs==PoisFFT_NeumannStag)) then
-
-        call PoisFFT_Solver2D_FullNeumannStag(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
-                     ngPhi(2)+1:ngPhi(2)+D%ny),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
-                     ngRHS(2)+1:ngRHS(2)+D%ny))
-      endif
-
-    end subroutine PoisFFT_Solver2D_Execute
-
-
-
-
-
-    subroutine PoisFFT_Solver2D_FullPeriodic(D, Phi, RHS)
-      type(PoisFFT_Solver2D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:)
-      real(RP), intent(in)  :: RHS(:,:)
-      integer i,j
-
-      ! Forward FFT of RHS
-      D%cwork = cmplx(RHS,0._RP,CP)
-
-
-#ifdef MPI
-      call Execute_MPI(D%forward)
-#else
-      call Execute(D%forward, D%cwork)
-#endif
-
-
-      if (D%offx==0.and.D%offy==0) D%cwork(1,1) = 0
-
-      do j = 1,D%ny
-        do i = max(3-j-D%offx-D%offy,1),D%nx
-          D%cwork(i,j) = D%cwork(i,j) / (D%denomx(i) + D%denomy(j))
-        end do
-      end do
-
-#ifdef MPI
-      call Execute_MPI(D%backward)
-#else
-      call Execute(D%backward, D%cwork)
-#endif
-
-      Phi = real(D%cwork,RP) / real(D%gcnt,RP)
-
-    end subroutine PoisFFT_Solver2D_FullPeriodic
-
-
-
-    subroutine PoisFFT_Solver2D_FullDirichlet(D, Phi, RHS)
-      type(PoisFFT_Solver2D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:)
-      real(RP), intent(in)  :: RHS(:,:)
-      integer i,j
-
-      ! Forward FFT of RHS
-      D%rwork = RHS
-
-
-      call Execute(D%forward, D%rwork)
-
-
-      do j = 1,D%ny
-        do i = 1,D%nx
-          D%rwork(i,j) = D%rwork(i,j) / (D%denomx(i) + D%denomy(j))
-        end do
-      end do
-
-      call Execute(D%backward, D%rwork)
-
-      Phi = D%rwork / (4*(D%nx+1)*(D%ny+1))
-
-    end subroutine PoisFFT_Solver2D_FullDirichlet
-
-
-
-    subroutine PoisFFT_Solver2D_FullDirichletStag(D, Phi, RHS)
-      type(PoisFFT_Solver2D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:)
-      real(RP), intent(in)  :: RHS(:,:)
-      integer i,j
-
-      ! Forward FFT of RHS
-      D%rwork = RHS
-
-
-      call Execute(D%forward, D%rwork)
-
-
-      do j = 1,D%ny
-        do i = 1,D%nx
-          D%rwork(i,j) = D%rwork(i,j) / (D%denomx(i) + D%denomy(j))
-        end do
-      end do
-
-      call Execute(D%backward, D%rwork)
-
-      Phi = D%rwork / (4*D%nx*D%ny)
-
-    end subroutine PoisFFT_Solver2D_FullDirichletStag
-
-
-
-    subroutine PoisFFT_Solver2D_FullNeumann(D, Phi, RHS)
-      type(PoisFFT_Solver2D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:)
-      real(RP), intent(in)  :: RHS(:,:)
-      integer i,j
-
-      ! Forward FFT of RHS
-      D%rwork = RHS
-
-
-      call Execute(D%forward, D%rwork)
-
-
-      D%rwork(1,1) = 0
-
-      do j = 1,D%ny
-        do i = max(3-j,1),D%nx
-          D%rwork(i,j) = D%rwork(i,j) / (D%denomx(i) + D%denomy(j))
-        end do
-      end do
-
-      call Execute(D%backward, D%rwork)
-
-      Phi = D%rwork / (4*(D%nx-1)*(D%ny-1))
-
-    end subroutine PoisFFT_Solver2D_FullNeumann
-
-
-
-    subroutine PoisFFT_Solver2D_FullNeumannStag(D, Phi, RHS)
-      type(PoisFFT_Solver2D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:)
-      real(RP), intent(in)  :: RHS(:,:)
-      integer i,j
-
-      ! Forward FFT of RHS
-      D%rwork = RHS
-
-
-      call Execute(D%forward, D%rwork)
-
-
-      D%rwork(1,1) = 0
-
-      do j = 1,D%ny
-        do i = max(3-j,1),D%nx
-          D%rwork(i,j) = D%rwork(i,j) / (D%denomx(i) + D%denomy(j))
-        end do
-      end do
-
-      call Execute(D%backward, D%rwork)
-
-      Phi = D%rwork / (4*D%nx*D%ny)
-
-    end subroutine PoisFFT_Solver2D_FullNeumannStag
-
-
 
     subroutine Poisfft_Solver2D_Init(D)
       type(PoisFFT_Solver2D), intent(inout) :: D
       integer :: i
         
+      D%dx = grid_dx(D%gnx, D%Lx, D%BCs(1:2))
+      D%dy = grid_dx(D%gny, D%Ly, D%BCs(3:4))
+      
+      D%norm_factor = norm_factor(D%gnx,D%BCs(1:2)) * &
+                      norm_factor(D%gny,D%BCs(3:4))
+      
       allocate(D%denomx(D%nx))
       allocate(D%denomy(D%ny))
 
@@ -2057,17 +898,73 @@
       endif
       
       if (D%approximation==2) then
-        D%denomx = Eigenvalues_FD2(D%BCs(1:2), D%dx, D%nx, D%gnx, D%offx)
-        D%denomy = Eigenvalues_FD2(D%BCs(2:4), D%dy, D%ny, D%gny, D%offy)
+        D%denomx = eigenvalues_FD2(D%BCs(1:2), D%dx, D%nx, D%gnx, D%offx)
+        D%denomy = eigenvalues_FD2(D%BCs(2:4), D%dy, D%ny, D%gny, D%offy)
       else
-        D%denomx = Eigenvalues_Spectral(D%BCs(1:2), D%dx, D%nx, D%gnx, D%offx)
-        D%denomy = Eigenvalues_Spectral(D%BCs(2:4), D%dy, D%ny, D%gny, D%offy)
+        D%denomx = eigenvalues_Spectral(D%BCs(1:2), D%dx, D%nx, D%gnx, D%offx)
+        D%denomy = eigenvalues_Spectral(D%BCs(2:4), D%dy, D%ny, D%gny, D%offy)
       end if
     end subroutine PoisFFT_Solver2D_Init
 
 
 
 
+    subroutine PoisFFT_Solver2D_Execute(D,Phi,RHS)
+      type(PoisFFT_Solver2D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:)
+      real(RP), intent(in)  :: RHS(:,:)
+
+      integer   :: ngPhi(2), ngRHS(2)
+
+
+      ngPhi = (ubound(Phi)-[D%nx,D%ny])/2
+      ngRHS = (ubound(RHS)-[D%nx,D%ny])/2
+
+
+      if (all(D%BCs==PoisFFT_Periodic)) then
+
+        call PoisFFT_Solver2D_FullPeriodic(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny))
+
+      else if (all(D%BCs==PoisFFT_Dirichlet) .or. &
+               all(D%BCs==PoisFFT_DirichletStag)) then
+
+        call PoisFFT_Solver2D_FullDirichlet(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny))
+
+      else if (all(D%BCs==PoisFFT_Neumann) .or. &
+               all(D%BCs==PoisFFT_NeumannStag)) then
+
+        call PoisFFT_Solver2D_FullNeumann(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny))
+
+      endif
+
+    end subroutine PoisFFT_Solver2D_Execute
+
+
+
+
+
+    subroutine PoisFFT_Solver2D_Finalize(D)
+      type(PoisFFT_Solver2D), intent(inout) :: D
+
+      call Destroy(D%forward)
+      call Destroy(D%backward)
+
+      if (associated(D%rwork)) call data_deallocate(D%rwork)
+      if (associated(D%cwork)) call data_deallocate(D%cwork)
+
+    endsubroutine PoisFFT_Solver2D_Finalize
 
 
 
@@ -2086,12 +983,16 @@
 
 
 
-    function PoisFFT_Solver1D_New(nxyz,dxyz,BCs,approximation, &
+
+
+
+
+    function PoisFFT_Solver1D_New(nxyz,Lxyz,BCs,approximation, &
                                   gnxyz,offs,mpi_comm,nthreads) result(D)
       type(PoisFFT_Solver1D) :: D
 
       integer, intent(in)   :: nxyz(1)
-      real(RP), intent(in)  :: dxyz(1)
+      real(RP), intent(in)  :: Lxyz(1)
       integer, intent(in)   :: bcs(2)
       integer, intent(in), optional :: approximation
       integer, intent(in), optional :: gnxyz(1)
@@ -2103,7 +1004,7 @@
 #endif
       D%nxyz = nxyz
       
-      D%dx = dxyz(1)
+      D%Lx = Lxyz(1)
 
       D%nx = nxyz(1)
 
@@ -2144,246 +1045,13 @@
 
 
 
-    subroutine PoisFFT_Solver1D_Execute(D,Phi,RHS)
-      type(PoisFFT_Solver1D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:)
-      real(RP), intent(in)  :: RHS(:)
-
-      integer   :: ngPhi(1), ngRHS(1)
-
-
-      ngPhi = (ubound(Phi)-D%nx)/2
-      ngRHS = (ubound(RHS)-D%nx)/2
-
-
-      if (all(D%BCs==PoisFFT_Periodic)) then
-
-        call PoisFFT_Solver1D_FullPeriodic(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
-
-      else if (all(D%BCs==PoisFFT_DirichletStag)) then
-
-        call PoisFFT_Solver1D_FullDirichletStag(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
-
-      else if (all(D%BCs==PoisFFT_Dirichlet)) then
-
-        call PoisFFT_Solver1D_FullDirichlet(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
-
-      else if (all(D%BCs==PoisFFT_Neumann)) then
-
-        call PoisFFT_Solver1D_FullNeumann(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
-                 
-      else if (all(D%BCs==PoisFFT_NeumannStag)) then
-
-        call PoisFFT_Solver1D_FullNeumannStag(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
-                 
-      endif
-
-    end subroutine PoisFFT_Solver1D_Execute
-
-
-
-
-
-    subroutine PoisFFT_Solver1D_FullPeriodic(D, Phi, RHS)
-      type(PoisFFT_Solver1D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:)
-      real(RP), intent(in)  :: RHS(:)
-      integer i
-#ifdef MPI
-      interface
-        subroutine MPI_GATHER(SENDBUF, SENDCOUNT, SENDTYPE, RECVBUF, RECVCOUNT, &
-                              RECVTYPE, ROOT, COMM, IERROR)
-           INTEGER    SENDBUF, RECVBUF(*)
-           INTEGER    SENDCOUNT, SENDTYPE, RECVCOUNT, RECVTYPE, ROOT
-           INTEGER    COMM, IERROR
-        end subroutine
-        subroutine MPI_GATHERV(SENDBUF, SENDCOUNT, SENDTYPE, RECVBUF, RECVCOUNTS, &
-                               DISPLS, RECVTYPE, ROOT, COMM, IERROR)
-          import
-          real(RP)    SENDBUF(*), RECVBUF(*)
-          INTEGER    SENDCOUNT, SENDTYPE, RECVCOUNTS(*), DISPLS(*)
-          INTEGER    RECVTYPE, ROOT, COMM, IERROR
-        end subroutine
-        subroutine MPI_SCATTERV(SENDBUF, SENDCOUNTS, DISPLS, SENDTYPE, RECVBUF, &
-                                RECVCOUNT, RECVTYPE, ROOT, COMM, IERROR)
-          import
-          real(RP)    SENDBUF(*), RECVBUF(*)
-          INTEGER    SENDCOUNTS(*), DISPLS(*), SENDTYPE
-          INTEGER    RECVCOUNT, RECVTYPE, ROOT, COMM, IERROR
-        end subroutine
-      end interface
-      integer, allocatable :: displs(:), counts(:)
-      real(RP),allocatable :: tmp(:)
-      integer :: ie
-
-      if (D%mpi_transpose_needed) then
-        call MPI_Comm_rank(D%mpi%comm, D%mpi%rank, ie)
-        call MPI_Comm_size(D%mpi%comm, D%mpi%np, ie)
-        allocate(displs(D%mpi%np))
-        allocate(counts(D%mpi%np))
-        if (D%mpi%rank==0) then
-          allocate(tmp(1:D%gnx))
-        else
-          allocate(tmp(1))
-        end if
-
-        call MPI_Gather(D%offx, 1, MPI_INTEGER, &
-                        displs, 1, MPI_INTEGER, 0, &
-                        D%mpi%comm, ie)
-
-        call MPI_Gather(D%nx, 1, MPI_INTEGER, &
-                         counts, 1, MPI_INTEGER, 0, &
-                         D%mpi%comm, ie)
-
-        call MPI_Gatherv(RHS, D%nx, MPI_RP, &
-                         tmp, counts, displs, MPI_RP, 0, &
-                         D%mpi%comm, ie)
-        if (ie/=0) stop "Error in MPI_Gatherv!"
-        
-        if (D%mpi%rank==0) D%cwork = cmplx(tmp,0._RP,CP)
-      
-        if (D%mpi%rank==0) then
-          call Execute(D%forward, D%cwork)
-        
-          if (D%offx==0) D%cwork(1) = 0
-          
-          forall(i=2:D%gnx) &
-            D%cwork(i) = D%cwork(i) / D%denomx(i)
-
-          call Execute(D%backward, D%cwork)
-        end if
-      
-        tmp = real(D%cwork,RP) / (D%nx)
-        
-        call MPI_Scatterv(tmp, counts, displs, MPI_RP, &
-                          Phi, D%nx, MPI_RP, 0, &
-                          D%mpi%comm, ie)
-      end if
-#else
-      ! Forward FFT of RHS
-      D%cwork = cmplx(RHS,0._RP,CP)
-
-      call Execute(D%forward, D%cwork)
-
-      forall(i=2:D%nx) &
-        D%cwork(i) = D%cwork(i) / D%denomx(i)
-
-      call Execute(D%backward, D%cwork)
-      
-      Phi = real(D%cwork,RP) / (D%nx)
-#endif
-
-    end subroutine PoisFFT_Solver1D_FullPeriodic
-
-
-
-
-
-    subroutine PoisFFT_Solver1D_FullDirichlet(D, Phi, RHS)
-      type(PoisFFT_Solver1D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:)
-      real(RP), intent(in)  :: RHS(:)
-      integer i
-
-      ! Forward FFT of RHS
-      D%rwork = RHS
-
-      call Execute(D%forward, D%rwork)
-
-      forall(i=1:D%nx) &
-        D%rwork(i) = D%rwork(i) / D%denomx(i)
-
-      call Execute(D%backward, D%rwork)
-
-      Phi = D%rwork / real(2*(D%nx+1),RP)
-
-    end subroutine PoisFFT_Solver1D_FullDirichlet
-
-
-
-
-    subroutine PoisFFT_Solver1D_FullDirichletStag(D, Phi, RHS)
-      type(PoisFFT_Solver1D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:)
-      real(RP), intent(in)  :: RHS(:)
-      integer i
-
-      ! Forward FFT of RHS
-      D%rwork = RHS
-
-      call Execute(D%forward, D%rwork)
-
-      forall(i=1:D%nx) &
-        D%rwork(i) = D%rwork(i) / D%denomx(i)
-
-      call Execute(D%backward, D%rwork)
-
-      Phi = D%rwork / real(2*D%nx,RP)
-
-    end subroutine PoisFFT_Solver1D_FullDirichletStag
-
-
-
-
-    subroutine PoisFFT_Solver1D_FullNeumann(D, Phi, RHS)
-      type(PoisFFT_Solver1D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:)
-      real(RP), intent(in)  :: RHS(:)
-      integer i
-
-      ! Forward FFT of RHS
-      D%rwork = RHS
-
-      call Execute(D%forward, D%rwork)
-
-      D%rwork(1) = 0
-      forall(i=2:D%nx) &
-        D%rwork(i) = D%rwork(i) / D%denomx(i)
-
-      call Execute(D%backward, D%rwork)
-
-      Phi = D%rwork / real(2*(D%nx-1),RP)
-
-    end subroutine PoisFFT_Solver1D_FullNeumann
-
-
-    
-
-    subroutine PoisFFT_Solver1D_FullNeumannStag(D, Phi, RHS)
-      type(PoisFFT_Solver1D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:)
-      real(RP), intent(in)  :: RHS(:)
-      integer i
-
-      ! Forward FFT of RHS
-      D%rwork = RHS
-
-      call Execute(D%forward, D%rwork)
-
-      D%rwork(1) = 0
-      forall(i=2:D%nx) &
-        D%rwork(i) = D%rwork(i) / D%denomx(i)
-
-      call Execute(D%backward, D%rwork)
-
-      Phi = D%rwork / real(2*D%nx,RP)
-
-    end subroutine PoisFFT_Solver1D_FullNeumannStag
-
-
 
     subroutine Poisfft_Solver1D_Init(D)
       type(PoisFFT_Solver1D), intent(inout) :: D
+      
+      D%dx = grid_dx(D%gnx, D%Lx, D%BCs(1:2))
+
+      D%norm_factor = norm_factor(D%gnx,D%BCs(1:2))
       
       allocate(D%denomx(D%gnx))
 
@@ -2425,9 +1093,9 @@
       endif
       
       if (D%approximation==2) then
-        D%denomx = Eigenvalues_FD2(D%BCs(1:2), D%dx, D%gnx, D%gnx, D%offx)
+        D%denomx = eigenvalues_FD2(D%BCs(1:2), D%dx, D%gnx, D%gnx, D%offx)
       else
-        D%denomx = Eigenvalues_Spectral(D%BCs(1:2), D%dx, D%gnx, D%gnx, D%offx)
+        D%denomx = eigenvalues_Spectral(D%BCs(1:2), D%dx, D%gnx, D%gnx, D%offx)
       end if
 
     end subroutine PoisFFT_Solver1D_Init
@@ -2435,7 +1103,67 @@
     
     
     
-    function Eigenvalues_Spectral(BCs, dx, n, gn, off) result(res)
+    subroutine PoisFFT_Solver1D_Execute(D,Phi,RHS)
+      type(PoisFFT_Solver1D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:)
+      real(RP), intent(in)  :: RHS(:)
+
+      integer   :: ngPhi(1), ngRHS(1)
+
+
+      ngPhi = (ubound(Phi)-D%nx)/2
+      ngRHS = (ubound(RHS)-D%nx)/2
+
+
+      if (all(D%BCs==PoisFFT_Periodic)) then
+
+        call PoisFFT_Solver1D_FullPeriodic(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
+
+      else if (all(D%BCs==PoisFFT_Dirichlet) .or. &
+               all(D%BCs==PoisFFT_DirichletStag)) then
+
+        call PoisFFT_Solver1D_FullDirichlet(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
+
+      else if (all(D%BCs==PoisFFT_Neumann) .or. &
+               all(D%BCs==PoisFFT_NeumannStag)) then
+
+        call PoisFFT_Solver1D_FullNeumann(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
+                 
+      endif
+
+    end subroutine PoisFFT_Solver1D_Execute
+
+
+
+
+    subroutine PoisFFT_Solver1D_Finalize(D)
+      type(PoisFFT_Solver1D), intent(inout) :: D
+
+      call Destroy(D%forward)
+      call Destroy(D%backward)
+
+      if (associated(D%rwork)) call data_deallocate(D%rwork)
+      if (associated(D%cwork)) call data_deallocate(D%cwork)
+
+    endsubroutine PoisFFT_Solver1D_Finalize
+
+
+
+
+
+#include "poisfft-solvers-inc.f90"
+
+
+
+
+
+    function eigenvalues_Spectral(BCs, dx, n, gn, off) result(res)
       integer, intent(in) :: BCs(2)
       real(RP), intent(in) :: dx
       integer, intent(in) :: n, gn, off
@@ -2468,7 +1196,7 @@
     
     
 
-    function Eigenvalues_FD2(BCs, dx, n, gn, off) result(res)
+    function eigenvalues_FD2(BCs, dx, n, gn, off) result(res)
       integer, intent(in) :: BCs(2)
       real(RP), intent(in) :: dx
       integer, intent(in) :: n, gn, off
@@ -2489,6 +1217,47 @@
         forall(i=1:n) res(i) = 2 * (cos((i-1+off)*pi/(gn-1))-1.0_RP) / dx**2
       else if (all(BCs==PoisFFT_NeumannStag)) then
         forall(i=1:n) res(i) = 2 * (cos((i-1+off)*dkx_h)-1.0_RP) / dx**2
+      end if
+    end function
+    
+    function grid_dx(gn, L, BCs) result(res)
+      real(RP) :: res
+      integer, intent(in) :: gn
+      real(RP), intent(in) :: L
+      integer, intent(in) :: BCs(2)
+      
+      if (all(BCs==PoisFFT_Periodic)) then
+        res = L / gn
+      else if (all(BCs==PoisFFT_Dirichlet)) then
+        res = L / (gn+1)
+      else if (all(BCs==PoisFFT_DirichletStag)) then
+        res = L / gn
+      else if (all(BCs==PoisFFT_Neumann)) then
+        res = L / (gn-1)
+      else if (all(BCs==PoisFFT_NeumannStag)) then
+        res = L / gn
+      else
+        res = 0
+      end if
+    end function
+
+    function norm_factor(gn,BCs) result(res)
+      real(RP) :: res
+      integer, intent(in) :: gn
+      integer, intent(in) :: BCs(2)
+      
+      if (all(BCs==PoisFFT_Periodic)) then
+        res = gn
+      else if (all(BCs==PoisFFT_Dirichlet)) then
+        res = 2 * (gn+1)
+      else if (all(BCs==PoisFFT_DirichletStag)) then
+        res = 2 * gn
+      else if (all(BCs==PoisFFT_Neumann)) then
+        res = 2 * (gn-1)
+      else if (all(BCs==PoisFFT_NeumannStag)) then
+        res = 2 *  gn
+      else
+        res = 0
       end if
     end function
 

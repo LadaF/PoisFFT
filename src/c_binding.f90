@@ -16,7 +16,7 @@ module PoisFFT_C_binding
 contains
 
 #define rp c_double
-  subroutine poisfft_solver1d_new(D, nxyz, dxyz, BCs, approximation, &
+  subroutine poisfft_solver1d_new(D, nxyz, Lxyz, BCs, approximation, &
                                   gnxyz, offs, mpi_comm, nthreads) &
     bind(C, name="poisfft_solver1d_new")
 #define dims 1
@@ -26,7 +26,7 @@ contains
 #undef dims
   end subroutine
   
-  subroutine poisfft_solver2d_new(D, nxyz, dxyz, BCs, approximation, &
+  subroutine poisfft_solver2d_new(D, nxyz, Lxyz, BCs, approximation, &
                                   gnxyz, offs, mpi_comm, nthreads) &
     bind(C, name="poisfft_solver2d_new")
 #define dims 2
@@ -36,7 +36,7 @@ contains
 #undef dims
   end subroutine
   
-  subroutine poisfft_solver3d_new(D, nxyz, dxyz, BCs, approximation, &
+  subroutine poisfft_solver3d_new(D, nxyz, Lxyz, BCs, approximation, &
                                   gnxyz, offs, mpi_comm, nthreads) &
     bind(C, name="poisfft_solver3d_new")
 #define dims 3
@@ -48,7 +48,7 @@ contains
 #undef rp
   
 #define rp c_float
-  subroutine poisfft_solver1d_f_new(D, nxyz, dxyz, BCs, approximation, &
+  subroutine poisfft_solver1d_f_new(D, nxyz, Lxyz, BCs, approximation, &
                                     gnxyz, offs, mpi_comm, nthreads) &
     bind(C, name="poisfft_solver1d_f_new")
 #define dims 1
@@ -58,7 +58,7 @@ contains
 #undef dims
   end subroutine
   
-  subroutine poisfft_solver2d_f_new(D, nxyz, dxyz, BCs, approximation, &
+  subroutine poisfft_solver2d_f_new(D, nxyz, Lxyz, BCs, approximation, &
                                     gnxyz, offs, mpi_comm, nthreads) &
     bind(C, name="poisfft_solver2d_f_new")
 #define dims 2
@@ -68,7 +68,7 @@ contains
 #undef dims
   end subroutine
   
-  subroutine poisfft_solver3d_f_new(D, nxyz, dxyz, BCs, approximation, &
+  subroutine poisfft_solver3d_f_new(D, nxyz, Lxyz, BCs, approximation, &
                                     gnxyz, offs, mpi_comm, nthreads) &
     bind(C, name="poisfft_solver3d_f_new")
 #define dims 3

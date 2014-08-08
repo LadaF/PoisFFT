@@ -5,8 +5,9 @@
 
 const double pi = 3.14159265358979323846;
 
-void init_rhs(const int ns[3], const double ds[3], const double Ls[3], double* a){
 #define IND(i,j,k) (i)*(ns[1]*ns[2])+(j)*(ns[2])+k
+
+void init_rhs(const int ns[3], const double ds[3], const double Ls[3], double* a){
   int i,j,k;
   for (i=0;i<ns[0];i++){
     for (j=0;j<ns[1];j++){
@@ -21,7 +22,6 @@ void init_rhs(const int ns[3], const double ds[3], const double Ls[3], double* a
 }
 
 void check_solution(const int ns[3], const double ds[3], const double Ls[3], double* a){
-#define IND(i,j,k) (i)*(ns[1]*ns[2])+(j)*(ns[2])+k
   int i,j,k;
   double sum = 0;
   for (i=0;i<ns[0];i++){
@@ -59,9 +59,10 @@ int main(){
   // distances between gridpoints
   double ds[3];
   
-  const int BCs[6] = {POISFFT_DIRICHLET_STAG, POISFFT_DIRICHLET_STAG, 
-                      POISFFT_DIRICHLET_STAG, POISFFT_DIRICHLET_STAG,
-                      POISFFT_DIRICHLET_STAG, POISFFT_DIRICHLET_STAG};
+  //boundary conditions
+  const int BCs[6] = {PoisFFT::DIRICHLET_STAG, PoisFFT::DIRICHLET_STAG, 
+                      PoisFFT::DIRICHLET_STAG, PoisFFT::DIRICHLET_STAG,
+                      PoisFFT::DIRICHLET_STAG, PoisFFT::DIRICHLET_STAG};
   
   int i;
   
@@ -78,8 +79,8 @@ int main(){
   // set the right-hand side
   init_rhs(ns, ds, Ls, RHS);
   
-  // create solver object
-  PoisFFT::Solver<3, double> S(ns, ds, BCs);
+  // create solver object, 3 dimensions, double precision
+  PoisFFT::Solver<3, double> S(ns, Ls, BCs);
   
   //run the solver, can be run many times for different right-hand sides
   S.execute(arr, RHS);
