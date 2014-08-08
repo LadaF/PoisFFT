@@ -1,0 +1,105 @@
+Then using PoisFFT from Fortran you must use the modules. The module files are 
+created by the compiler in the `bin` directory. You can move them to the directory 
+where you store the library and then use the options of your compiler to point to 
+the directory, or set the right include path environment variable, if it is 
+supported by 
+your compiler. 
+
+In gfortran you can use the flag `-I`, in ifort it is `-module` or `-I`. See the
+ manual of your compiler.
+
+You can also include the source files of PoisFFT directly to your project.
+
+You enable PoisFFT in your source by
+
+  use PoisFFT
+
+There are two flavours of solvers for single and double precision, they have 
+suffixes_SP and _DP. You can use the renaming feature of Fotran when using the 
+module to simplify the names
+
+  use PoisFFT, PoisFFT_Solver1D => PoisFFT_Solver1D_DP, &
+               PoisFFT_Solver2D => PoisFFT_Solver2D_DP, &
+               PoisFFT_Solver3D => PoisFFT_Solver3D_DP  
+
+or even
+
+  use PoisFFT, Solver_type => PoisFFT_Solver3D_DP
+
+if you need just one type.
+
+
+There are generic interfaces to the required procedures. No type-bound procedures are
+ used yet, but that may change in the future. Therefore do not use the `only` clause
+  when using the module `PoisFFT`.
+
+The simplest usage is like this
+
+    type(Solver_type) :: Solver
+
+    Solver = PoisFFT_Solver3D([nx,ny,nz],[Lx,Ly,Lz],[(PoisFFT_Periodic, i = 1,6)])
+
+    call Execute(Solver, Phi, RHS)
+
+    call Finalize(Solver)
+
+The first function initializes the solver. The first argument is the array with
+number of points in each directions. Then an array with the physical dimensions of
+the grid. The third array argument specifies the boundary conditions on each outside
+boundary. Only limited number of combinations is supported, namely when all types 
+are equal.
+
+You can choose from these types of boundary conditions:
+
+  PoisFFT_Periodic
+  PoisFFT_Dirichlet
+  PoisFFT_Neumann
+  PoisFFT_DirichletStag
+  PoisFFT_NeumannStag
+
+They use different types of grid. In regular grid the boundary lies on one of the 
+points (point `0` for Dirichlet and point `1` for periodic and Neumann). With 
+staggered the boundary lies between the points `0` and `1`. The points with the 
+solution start from point `1` and end at point `n`. They may be ghost points like 
+`0` and `n+1` in the array.
+
+There are other (optional) arguments for the initializer:
+
+      integer, intent(in), optional :: approximation
+      integer, intent(in), optional :: gnxyz(3)
+      integer, intent(in), optional :: offs(3)
+      integer, intent(in), optional :: mpi_comm
+      integer, intent(in), optional :: nthreads
+
+`approximation` can change the spectral approximation of the Poisson equation to the 
+2nd order central finite difference, if it is equal to `PoisFFT_FiniteDifference2` 
+or `2`.
+
+`gnxyz` contains the full number of all points when using MPI distributed grid
+
+`offs` contains offsets from the first point in the MPI distributed grid
+
+`mpi_comm` contains the MPI communicator
+
+`nthreads` contains the number of threads requested. By default OpenMP uses full number 
+of threads available. It can be used to disable threading too, or when using POSIX 
+threads.
+
+The call to the initializer can take much longer than the subsequent calls to 
+`Execute()`.
+
+
+    call Execute(Solver, Phi3D, RHS3D)
+
+This procedure calls the solution procedure. It can be called many times for 
+different arrays. Array `Phi` will contain the solution after the call. `RHS` 
+contains the right-hand side. Both arrays can be extended in any direction by any 
+number of "ghost points", but the number must be equal for the opposite sides.
+
+
+    call Finalize(Solver)
+
+This procedure releases all the memory occupied by the internal structures of the 
+solver.
+
+

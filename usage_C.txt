@@ -1,0 +1,89 @@
+Then using PoisFFT from Fortran you must include the header "poisfft.h" which is
+placed in the "src" directory. You can place it somewhere, whene your system's
+include path points or adjust the environment variable.
+
+You enable PoisFFT in your source by
+
+  #include "poisfft.h"
+
+
+The solver is a struct containing a pointer to the Fortran object. There are two flavours available
+
+typedef struct... poisfft_solver;
+
+typedef struct... poisfft_solver_f;
+
+four `double` and `float` floating point types.
+
+
+The simplest usage is like this
+
+  // create solver object
+  poisfft_solver S = poisfft_solver_new(3, ns, Ls, BCs, POISFFT_SPECTRAL,
+                                        NULL, NULL, NULL, 0);
+
+  //run the solver, can be run many times for different right-hand sides
+  poisfft_solver_execute(S, Phi, RHS, NULL, NULL);
+
+  // free the memory of the solver
+  poisfft_solver_finalize(&S);
+
+The first statement initializes the solver. The first argument is the array with 
+number of points in each directions. Then an array with the physical dimensions of 
+the grid. The third array argument specifies the boundary conditions on each outside 
+boundary. Only limited number of combinations is supported, namely when all types are 
+equal.
+
+You can choose from these types of boundary conditions:
+
+  PoisFFT::PERIODIC
+  PoisFFT::DIRICHLET
+  PoisFFT::NEUMANN
+  PoisFFT::DIRICHLET_STAG
+  PoisFFT::NEUMANN_STAG
+
+They use different types of grid. In regular grid the boundary lies on one of the 
+points (point `-1` for Dirichlet and point `0` for periodic and Neumann). With 
+staggered the boundary lies between the points `-1` and `0`. The points with the 
+solution start from point `0` and end at point `n-1`. There may be ghost points like 
+`-1` and `n` in the array.
+
+There are other (optional) arguments for the initializer:
+
+`approximation` can change the spectral approximation of the Poisson equation to the 
+2nd order central finite difference, if it is equal to `PoisFFT_FINITE_DIFFERENCE_2` 
+or `2`. For default use `0` or `POISFFT_SPECTRAL`.
+
+`gnxyz` contains the full number of all points when using MPI distributed grid
+
+`offs` contains offsets from the first point in the MPI distributed grid
+
+`mpi_comm` contains the MPI communicator
+
+`nthreads` contains the number of threads requested. By default OpenMP uses full 
+number of threads available. It can be used to disable threading too, or when using 
+POSIX threads.
+
+The call to the initializer can take much longer than the subsequent calls to 
+`poisfft_solver_execute()`.
+
+
+    poisfft_solver_execute(S, Phi, RHS, NULL, NULL);
+
+This statement calls the solution procedure. It can be called many times for 
+different arrays. Array `Phi` will contain the solution after the call. `RHS` 
+contains the right-hand side. Both arrays can be extended in any direction by any 
+number of "ghost points", but the number must be equal for the opposite sides.
+The number of ghost points must be passed in the (optional) arguments
+
+    const int *ngPhi, const int *ngRHS
+    
+which have the same size as the number of dimensions of the solver and contains
+the number of the ghost points in each direction (e.g. {ngx, ngy, ngz}).
+
+poisfft_solver_finalize(&S);
+
+This statements releases all the memory occupied by the internal structures of the 
+solver.
+
+
