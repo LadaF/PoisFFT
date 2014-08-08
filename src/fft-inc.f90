@@ -84,6 +84,7 @@
     integer(c_size_t) :: gcnt
     integer(c_int), dimension(2) :: BCs
     real(RP), allocatable, dimension(:) :: denomx
+    integer :: approximation = 0
     
     type(PoisFFT_Plan1D) :: forward, backward
     complex(CP), dimension(:), &
@@ -112,6 +113,7 @@
     integer(C_size_t), dimension(3) :: workdims
     integer(c_int), dimension(2) :: BCs
     real(RP), allocatable, dimension(:) :: denomx
+    integer :: approximation = 0
     
     type(PoisFFT_Plan1D_Many) :: forward, backward
     complex(CP), dimension(:,:,:), &
@@ -144,6 +146,7 @@
     integer(c_size_t) :: gcnt
     integer(c_int), dimension(4) :: BCs
     real(RP), allocatable, dimension(:) :: denomx, denomy
+    integer :: approximation = 0
     
     type(PoisFFT_Plan2D) :: forward, backward
     complex(CP), dimension(:,:), &
@@ -171,6 +174,7 @@
     integer(c_size_t), dimension(3) :: workdims
     integer(c_int), dimension(4) :: BCs
     real(RP), allocatable, dimension(:) :: denomx, denomy
+    integer :: approximation = 0
     
     type(PoisFFT_Plan2D_Many) :: forward, backward
     complex(CP), dimension(:,:,:), &
@@ -204,6 +208,7 @@
     integer(c_size_t) :: gcnt
     integer(c_int), dimension(6) :: BCs
     real(RP), allocatable, dimension(:) :: denomx, denomy, denomz
+    integer :: approximation = 0
     
     type(PoisFFT_Plan3D) :: forward, backward
     complex(CP), dimension(:,:,:), &

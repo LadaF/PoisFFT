@@ -2,10 +2,10 @@
     type(c_ptr), intent(out) :: D
     integer(c_int) :: nxyz(dims), BCs(2*dims)
     real(rp) :: dxyz(dims)
-    integer(c_int), optional :: gnxyz(dims), offs(dims)
+    integer(c_int), optional :: approximation, gnxyz(dims), offs(dims)
     type(c_ptr), value :: mpi_comm
     integer(c_int), value :: nthreads
-    integer :: f_comm
+    integer :: f_comm, appr
     integer, parameter :: idxs(6) = [2,1,4,3,6,5]
     
 #ifdef MPI
@@ -15,11 +15,18 @@
     allocate(f_D)
     
     if (nthreads <1) nthreads = 1
+    
+    if (present(approximation)) then
+      appr = int(approximation)
+    else
+      appr = 0
+    end if
 
     if (present(gnxyz).and.present(offs)) then
       f_D = solver(int(nxyz(dims:1:-1)), &
                    dxyz(dims:1:-1), &
                    int(BCs(idxs(2*dims:1:-1))), &
+                   appr, &
                    int(gnxyz(dims:1:-1)), &
                    int(offs(dims:1:-1)), &
                    f_comm, &
@@ -28,6 +35,7 @@
       f_D = solver(int(nxyz(dims:1:-1)), &
                    dxyz(dims:1:-1), &
                    int(BCs(idxs(2*dims:1:-1))), &
+                   appr, &
                    nthreads=int(nthreads))
     end if
 

@@ -16,7 +16,8 @@ module PoisFFT_C_binding
 contains
 
 #define rp c_double
-  subroutine poisfft_solver1d_new(D, nxyz, dxyz, BCs, gnxyz, offs, mpi_comm, nthreads) &
+  subroutine poisfft_solver1d_new(D, nxyz, dxyz, BCs, approximation, &
+                                  gnxyz, offs, mpi_comm, nthreads) &
     bind(C, name="poisfft_solver1d_new")
 #define dims 1
 #define solver PoisFFT_Solver1D_DP
@@ -25,7 +26,8 @@ contains
 #undef dims
   end subroutine
   
-  subroutine poisfft_solver2d_new(D, nxyz, dxyz, BCs, gnxyz, offs, mpi_comm, nthreads) &
+  subroutine poisfft_solver2d_new(D, nxyz, dxyz, BCs, approximation, &
+                                  gnxyz, offs, mpi_comm, nthreads) &
     bind(C, name="poisfft_solver2d_new")
 #define dims 2
 #define solver PoisFFT_Solver2D_DP
@@ -34,7 +36,8 @@ contains
 #undef dims
   end subroutine
   
-  subroutine poisfft_solver3d_new(D, nxyz, dxyz, BCs, gnxyz, offs, mpi_comm, nthreads) &
+  subroutine poisfft_solver3d_new(D, nxyz, dxyz, BCs, approximation, &
+                                  gnxyz, offs, mpi_comm, nthreads) &
     bind(C, name="poisfft_solver3d_new")
 #define dims 3
 #define solver PoisFFT_Solver3D_DP
@@ -45,7 +48,8 @@ contains
 #undef rp
   
 #define rp c_float
-  subroutine poisfft_solver1d_f_new(D, nxyz, dxyz, BCs, gnxyz, offs, mpi_comm, nthreads) &
+  subroutine poisfft_solver1d_f_new(D, nxyz, dxyz, BCs, approximation, &
+                                    gnxyz, offs, mpi_comm, nthreads) &
     bind(C, name="poisfft_solver1d_f_new")
 #define dims 1
 #define solver PoisFFT_Solver1D_SP
@@ -54,7 +58,8 @@ contains
 #undef dims
   end subroutine
   
-  subroutine poisfft_solver2d_f_new(D, nxyz, dxyz, BCs, gnxyz, offs, mpi_comm, nthreads) &
+  subroutine poisfft_solver2d_f_new(D, nxyz, dxyz, BCs, approximation, &
+                                    gnxyz, offs, mpi_comm, nthreads) &
     bind(C, name="poisfft_solver2d_f_new")
 #define dims 2
 #define solver PoisFFT_Solver2D_SP
@@ -63,7 +68,8 @@ contains
 #undef dims
   end subroutine
   
-  subroutine poisfft_solver3d_f_new(D, nxyz, dxyz, BCs, gnxyz, offs, mpi_comm, nthreads) &
+  subroutine poisfft_solver3d_f_new(D, nxyz, dxyz, BCs, approximation, &
+                                    gnxyz, offs, mpi_comm, nthreads) &
     bind(C, name="poisfft_solver3d_f_new")
 #define dims 3
 #define solver PoisFFT_Solver3D_SP

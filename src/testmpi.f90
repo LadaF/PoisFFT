@@ -821,7 +821,11 @@ program testpoisson_MPI
 
   if (command_argument_count()>=1) then
     call get_command_argument(1,value=ch50)
-    read(ch50,*) npxyz
+    read(ch50,*,iostat=ie) npxyz
+    if (ie/=0) then
+      write(*,*) "The process grid should be provided as 'npx,npy,npz' where nxp,npy and npz are integers."
+      stop
+    end if
   else
     npxyz(1) = 1
     npxyz(2) = nint(sqrt(real(nims)))
@@ -959,7 +963,8 @@ contains
 
     if (master) write (*,*) "R1:",R
 
-    Solver3D = PoisFFT_Solver3D([nx,ny,nz],[dx,dy,dz],BCs,int(ng),int(off),cart_comm)
+    Solver3D = PoisFFT_Solver3D([nx,ny,nz],[dx,dy,dz],BCs,PoisFFT_FiniteDifference2, &
+                                int(ng),int(off),cart_comm)
 
     do i=1,2
       call system_clock(count=t1)
@@ -1003,7 +1008,8 @@ contains
 
     if (master) write (*,*) "R1:",R
 
-    Solver2D = PoisFFT_Solver2D([nx,ny],[dx,dy],BCs,int(ng(1:2)),int(off(1:2)),sub_comm)
+    Solver2D = PoisFFT_Solver2D([nx,ny],[dx,dy],BCs,PoisFFT_FiniteDifference2, &
+                                int(ng(1:2)),int(off(1:2)),sub_comm)
 
     do i=1,1
       call system_clock(count=t1)
@@ -1046,7 +1052,8 @@ contains
 
     if (master) write (*,*) "R1:",R
 
-    Solver1D = PoisFFT_Solver1D([ny],[dy],BCs,int(ng(2:2)),int(off(2:2)),sub_comm)
+    Solver1D = PoisFFT_Solver1D([ny],[dy],BCs,PoisFFT_FiniteDifference2, &
+                                int(ng(2:2)),int(off(2:2)),sub_comm)
 
     do i=1,1
       call system_clock(count=t1)
