@@ -10,6 +10,9 @@
     
 #ifdef MPI
     f_comm = MPI_Comm_c2f(mpi_comm)
+#else
+    !to avoid unused variable warning
+    if (c_associated(mpi_comm)) f_comm = 0
 #endif
 
     allocate(f_D)
