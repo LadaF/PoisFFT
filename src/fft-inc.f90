@@ -75,7 +75,6 @@
   end type
 
   type PoisFFT_Solver1D
-    real(RP) :: dx
     real(RP) :: Lx
     integer(c_int) :: nxyz(1)
     integer(c_int) :: nx
@@ -100,11 +99,11 @@
 #endif
                        pointer :: rwork => null()
     logical :: mpi_transpose_needed = .false.
+    integer :: nthreads = 1
     type(mpi_vars_1D) :: mpi
   end type PoisFFT_Solver1D
 
   type PoisFFT_Solver1D_Many
-    real(RP) :: dx
     real(RP) :: Lx
     integer(c_int) :: nxyz(1)
     integer(c_int) :: nx
@@ -131,6 +130,7 @@
 #endif
                        pointer :: rwork => null()
     logical :: mpi_transpose_needed = .false.
+    integer :: nthreads = 1
     type(mpi_vars_1D) :: mpi
   end type PoisFFT_Solver1D_Many
   
@@ -141,7 +141,6 @@
   end type
 
   type PoisFFT_Solver2D
-    real(RP) :: dx, dy
     real(RP) :: Lx, Ly
     integer(c_int) :: nxyz(2)
     integer(c_int) :: nx, ny
@@ -165,11 +164,11 @@
     contiguous, &
 #endif
                        pointer :: rwork => null()
+    integer :: nthreads = 1
     type(mpi_vars_2D) :: mpi
   end type PoisFFT_Solver2D
 
   type PoisFFT_Solver2D_Many
-    real(RP) :: dx, dy
     real(RP) :: Lx, Ly
     integer(c_int) :: nxyz(2)
     integer(c_int) :: nx, ny
@@ -195,6 +194,7 @@
     contiguous, &
 #endif
                        pointer :: rwork => null()
+    integer :: nthreads = 1
     type(mpi_vars_2D) :: mpi
   end type PoisFFT_Solver2D_Many
   
@@ -207,7 +207,6 @@
   end type
 
   type PoisFFT_Solver3D
-    real(RP) :: dx, dy, dz
     real(RP) :: Lx, Ly, Lz
     integer(c_int) :: nxyz(3)
     integer(c_int) :: nx, ny, nz

@@ -115,13 +115,13 @@
       
       if (present(approximation)) D%approximation = approximation
       
-#ifdef MPI      
       if (present(mpi_comm)) then
         D%mpi%comm = mpi_comm
+#ifdef MPI      
       else
         stop "No PFFT comm present in PoisFFT_Solver3D_New."
-      end if
 #endif
+      end if
 
       if (present(nthreads)) then
         D%nthreads = nthreads
@@ -138,8 +138,7 @@
 
     subroutine PoisFFT_Solver3D_Init(D)
       type(PoisFFT_Solver3D), intent(inout) :: D
-      integer :: i, j, k
-      real(RP) :: dkx, dky, dkz, dkx_h, dky_h, dkz_h
+      integer :: i
 #ifdef MPI
       integer :: ie
       
@@ -159,18 +158,6 @@
       !$omp end single
       !$omp end parallel
 
-      dkx_h = pi/(D%gnx)
-      dky_h = pi/(D%gny)
-      dkz_h = pi/(D%gnz)
-      
-      dkx = 2 * dkx_h
-      dky = 2 * dky_h
-      dkz = 2 * dkz_h
-
-      D%dx = grid_dx(D%gnx, D%Lx, D%BCs(1:2))
-      D%dy = grid_dx(D%gny, D%Ly, D%BCs(3:4))
-      D%dz = grid_dx(D%gnz, D%Lz, D%BCs(5:6))
-      
       D%norm_factor = norm_factor(D%gnx,D%BCs(1:2)) * &
                       norm_factor(D%gny,D%BCs(3:4)) * &
                       norm_factor(D%gnz,D%BCs(5:6))
@@ -402,22 +389,17 @@
 !MANY_VARIANT
 #endif
 
-        forall(i=1:D%nx)  D%denomx(i) = 2 * (cos((i-1+D%offx)*dkx)-1.0_RP) / D%dx**2
-        forall(j=1:D%ny)  D%denomy(j) = 2 * (cos((j-1+D%offy)*dky)-1.0_RP) / D%dy**2
-        forall(k=1:D%nz)  D%denomz(k) = 2 * (cos((k-1+D%offz)*pi/D%gnz)-1.0_RP) / D%dz**2
       endif
 
-      if (all(D%BCs==D%BCs(1))) then
-        !all boundary conditions the same
-        if (D%approximation==2) then
-          D%denomx = eigenvalues_FD2(D%BCs(1:2), D%dx, D%nx, D%gnx, D%offx)
-          D%denomy = eigenvalues_FD2(D%BCs(2:4), D%dy, D%ny, D%gny, D%offy)
-          D%denomz = eigenvalues_FD2(D%BCs(5:6), D%dz, D%nz, D%gnz, D%offz)
-        else
-          D%denomx = eigenvalues_Spectral(D%BCs(1:2), D%dx, D%nx, D%gnx, D%offx)
-          D%denomy = eigenvalues_Spectral(D%BCs(2:4), D%dy, D%ny, D%gny, D%offy)
-          D%denomz = eigenvalues_Spectral(D%BCs(5:6), D%dz, D%nz, D%gnz, D%offz)
-        end if
+
+      if (D%approximation==2) then
+        D%denomx = eigenvalues_FD2(D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
+        D%denomy = eigenvalues_FD2(D%BCs(2:4), D%Ly, D%ny, D%gny, D%offy)
+        D%denomz = eigenvalues_FD2(D%BCs(5:6), D%Lz, D%nz, D%gnz, D%offz)
+      else
+        D%denomx = eigenvalues_spectral(D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
+        D%denomy = eigenvalues_spectral(D%BCs(2:4), D%Ly, D%ny, D%gny, D%offy)
+        D%denomz = eigenvalues_spectral(D%BCs(5:6), D%Lz, D%nz, D%gnz, D%offz)
       end if
     end subroutine PoisFFT_Solver3D_Init
     
@@ -549,19 +531,16 @@
 #endif
 
       if (direction==1) then
-        D%dx = D3D%dx
         D%nx = D3D%nx
         D%gnx = D3D%gnx
         D%offx = D3D%offx
         D%BCs = D3D%BCs(1:2)
       else if (direction==2) then
-        D%dx = D3D%dy
         D%nx = D3D%ny
         D%gnx = D3D%gny
         D%offx = D3D%offy
         D%BCs = D3D%BCs(3:4)
       else
-        D%dx = D3D%dz
         D%nx = D3D%nz
         D%gnx = D3D%gnz
         D%offx = D3D%offz
@@ -608,7 +587,6 @@
 ! #endif
 ! 
 !       if (direction==1) then
-!         D%dx = D3D%dx
 !         D%nx = D3D%nx
 !         D%gnx = D3D%gnx
 !         D%offx = D3D%offx
@@ -616,7 +594,6 @@
 !         D%howmany = D3D%ny * D3D%nz
 !         D%workdims = [D3D%nx, D3D%ny, D3D%nz]
 !       else if (direction==2) then
-!         D%dx = D3D%dy
 !         D%nx = D3D%ny
 !         D%gnx = D3D%gny
 !         D%offx = D3D%offy
@@ -624,7 +601,6 @@
 !         D%howmany = D3D%nx * D3D%nz
 !         D%workdims = [D3D%ny, D3D%nx, D3D%nz]
 !       else
-!         D%dx = D3D%dz
 !         D%nx = D3D%nz
 !         D%gnx = D3D%gnz
 !         D%offx = D3D%offz
@@ -669,31 +645,25 @@
 #endif
 
       if (direction==1) then
-        D%dx = D3D%dy
         D%nx = D3D%ny
         D%gnx = D3D%gny
         D%offx = D3D%offy
-        D%dy = D3D%dz
         D%ny = D3D%nz
         D%gny = D3D%gnz
         D%offy = D3D%offz
         D%BCs = D3D%BCs(3:6)
       else if (direction==2) then
-        D%dx = D3D%dx
         D%nx = D3D%nx
         D%gnx = D3D%gnx
         D%offx = D3D%offx
-        D%dy = D3D%dz
         D%ny = D3D%nz
         D%gny = D3D%gnz
         D%offy = D3D%offz
         D%BCs = D3D%BCs([1,2,5,6])
       else
-        D%dx = D3D%dx
         D%nx = D3D%nx
         D%gnx = D3D%gnx
         D%offx = D3D%offx
-        D%dy = D3D%dy
         D%ny = D3D%ny
         D%gny = D3D%gny
         D%offy = D3D%offy
@@ -736,11 +706,9 @@
 ! #endif
 ! 
 !       if (direction==1) then
-!         D%dx = D3D%dy
 !         D%nx = D3D%ny
 !         D%gnx = D3D%gny
 !         D%offx = D3D%offy
-!         D%dy = D3D%dz
 !         D%ny = D3D%nz
 !         D%gny = D3D%gnz
 !         D%offy = D3D%offz
@@ -748,11 +716,9 @@
 !         D%howmany = D3D%nx
 !         D%workdims = [D3D%ny, D3D%nz, D3D%nx]
 !       else if (direction==2) then
-!         D%dx = D3D%dx
 !         D%nx = D3D%nx
 !         D%gnx = D3D%gnx
 !         D%offx = D3D%offx
-!         D%dy = D3D%dz
 !         D%ny = D3D%nz
 !         D%gny = D3D%gnz
 !         D%offy = D3D%offz
@@ -760,11 +726,9 @@
 !         D%howmany = D3D%ny
 !         D%workdims = [D3D%nx, D3D%nz, D3D%ny]
 !       else
-!         D%dx = D3D%dx
 !         D%nx = D3D%nx
 !         D%gnx = D3D%gnx
 !         D%offx = D3D%offx
-!         D%dy = D3D%dy
 !         D%ny = D3D%ny
 !         D%gny = D3D%gny
 !         D%offy = D3D%offy
@@ -831,13 +795,19 @@
 
       if (present(approximation)) D%approximation = approximation
       
-#ifdef MPI      
       if (present(mpi_comm)) then
         D%mpi%comm = mpi_comm
+#ifdef MPI      
       else
         stop "No PFFT comm present in PoisFFT_Solver2D_New."
-      end if
 #endif
+      end if
+
+      if (present(nthreads)) then
+        D%nthreads = nthreads
+      else
+        D%nthreads = 1
+      endif
 
       !create fftw plans and allocate working array
       call Init(D)
@@ -850,9 +820,6 @@
       type(PoisFFT_Solver2D), intent(inout) :: D
       integer :: i
         
-      D%dx = grid_dx(D%gnx, D%Lx, D%BCs(1:2))
-      D%dy = grid_dx(D%gny, D%Ly, D%BCs(3:4))
-      
       D%norm_factor = norm_factor(D%gnx,D%BCs(1:2)) * &
                       norm_factor(D%gny,D%BCs(3:4))
       
@@ -898,11 +865,11 @@
       endif
       
       if (D%approximation==2) then
-        D%denomx = eigenvalues_FD2(D%BCs(1:2), D%dx, D%nx, D%gnx, D%offx)
-        D%denomy = eigenvalues_FD2(D%BCs(2:4), D%dy, D%ny, D%gny, D%offy)
+        D%denomx = eigenvalues_FD2(D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
+        D%denomy = eigenvalues_FD2(D%BCs(2:4), D%Ly, D%ny, D%gny, D%offy)
       else
-        D%denomx = eigenvalues_Spectral(D%BCs(1:2), D%dx, D%nx, D%gnx, D%offx)
-        D%denomy = eigenvalues_Spectral(D%BCs(2:4), D%dy, D%ny, D%gny, D%offy)
+        D%denomx = eigenvalues_spectral(D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
+        D%denomy = eigenvalues_spectral(D%BCs(2:4), D%Ly, D%ny, D%gny, D%offy)
       end if
     end subroutine PoisFFT_Solver2D_Init
 
@@ -1026,20 +993,26 @@
 
       if (present(approximation)) D%approximation = approximation
 
-#ifdef MPI
       if (present(mpi_comm)) then
         D%mpi%comm = mpi_comm
+#ifdef MPI
+        call MPI_Cartdim_get(D%mpi%comm, dims, ie)
+        if (ie/=0) stop "Error executing MPI_Cartdim_get."
+        D%mpi_transpose_needed = dims > 0
       else
         stop "No PFFT comm present in PoisFFT_Solver1D_New."
+#endif
       end if
       
       
-      call MPI_Cartdim_get(D%mpi%comm, dims, ie)
-      if (ie/=0) stop "Error executing MPI_Cartdim_get."
-      D%mpi_transpose_needed = dims > 0
-#endif
       
-      !create fftw plans and allocate working array
+     if (present(nthreads)) then
+        D%nthreads = nthreads
+      else
+        D%nthreads = 1
+      endif
+
+       !create fftw plans and allocate working array
       call Init(D)
     end function PoisFFT_Solver1D_New
 
@@ -1049,8 +1022,6 @@
     subroutine Poisfft_Solver1D_Init(D)
       type(PoisFFT_Solver1D), intent(inout) :: D
       
-      D%dx = grid_dx(D%gnx, D%Lx, D%BCs(1:2))
-
       D%norm_factor = norm_factor(D%gnx,D%BCs(1:2))
       
       allocate(D%denomx(D%gnx))
@@ -1093,9 +1064,9 @@
       endif
       
       if (D%approximation==2) then
-        D%denomx = eigenvalues_FD2(D%BCs(1:2), D%dx, D%gnx, D%gnx, D%offx)
+        D%denomx = eigenvalues_FD2(D%BCs(1:2), D%Lx, D%gnx, D%gnx, D%offx)
       else
-        D%denomx = eigenvalues_Spectral(D%BCs(1:2), D%dx, D%gnx, D%gnx, D%offx)
+        D%denomx = eigenvalues_spectral(D%BCs(1:2), D%Lx, D%gnx, D%gnx, D%offx)
       end if
 
     end subroutine PoisFFT_Solver1D_Init
@@ -1163,9 +1134,9 @@
 
 
 
-    function eigenvalues_Spectral(BCs, dx, n, gn, off) result(res)
+    function eigenvalues_spectral(BCs, L, n, gn, off) result(res)
       integer, intent(in) :: BCs(2)
-      real(RP), intent(in) :: dx
+      real(RP), intent(in) :: L
       integer, intent(in) :: n, gn, off
       real(RP) :: res(n)
       integer :: i
@@ -1177,28 +1148,30 @@
       if (all(BCs==PoisFFT_Periodic)) then
         do i = 1, n
           if (i+off<gn/2) then
-            res(i) = -4*pi**2*(i-1+off)**2 / (gn*dx)**2
+            res(i) = -4*pi**2*(i-1+off)**2
           else
-            res(i) = -4*pi**2*(gn-i+1+off)**2 / (gn*dx)**2
+            res(i) = -4*pi**2*(gn-i+1+off)**2
           end if
         end do
       else if (all(BCs==PoisFFT_Dirichlet)) then
-        forall(i=1:n) res(i) = -pi**2*(i+off)**2 / ((gn+1)*dx)**2
+        forall(i=1:n) res(i) = -pi**2*(i+off)**2
       else if (all(BCs==PoisFFT_DirichletStag)) then
-        forall(i=1:n) res(i) = -pi**2*(i+off)**2 / (gn*dx)**2
+        forall(i=1:n) res(i) = -pi**2*(i+off)**2
       else if (all(BCs==PoisFFT_Neumann)) then
-        forall(i=1:n) res(i) = -pi**2*(i-1+off)**2 / ((gn-1)*dx)**2
+        forall(i=1:n) res(i) = -pi**2*(i-1+off)**2
       else if (all(BCs==PoisFFT_NeumannStag)) then
-        forall(i=1:n) res(i) = -pi**2*(i-1+off)**2 / (gn*dx)**2
+        forall(i=1:n) res(i) = -pi**2*(i-1+off)**2
       endif
+      
+      res = res / L**2
     end function
 
     
     
 
-    function eigenvalues_FD2(BCs, dx, n, gn, off) result(res)
+    function eigenvalues_FD2(BCs, L, n, gn, off) result(res)
       integer, intent(in) :: BCs(2)
-      real(RP), intent(in) :: dx
+      real(RP), intent(in) :: L
       integer, intent(in) :: n, gn, off
       real(RP) :: res(n)
       integer :: i
@@ -1208,16 +1181,18 @@
       dkx = 2 * dkx_h
       
       if (all(BCs==PoisFFT_Periodic)) then
-        forall(i=1:n) res(i) = 2 * (cos((i-1+off)*dkx)-1.0_RP) / dx**2
+        forall(i=1:n) res(i) = 2 * (cos((i-1+off)*dkx)-1.0_RP)
       else if (all(BCs==PoisFFT_Dirichlet)) then
-        forall(i=1:n) res(i) = 2 * (cos((i+off)*pi/(gn+1))-1.0_RP) / dx**2
+        forall(i=1:n) res(i) = 2 * (cos((i+off)*pi/(gn+1))-1.0_RP)
       else if (all(BCs==PoisFFT_DirichletStag)) then
-        forall(i=1:n) res(i) = 2 * (cos((i+off)*dkx_h)-1.0_RP) / dx**2
+        forall(i=1:n) res(i) = 2 * (cos((i+off)*dkx_h)-1.0_RP)
       else if (all(BCs==PoisFFT_Neumann)) then
-        forall(i=1:n) res(i) = 2 * (cos((i-1+off)*pi/(gn-1))-1.0_RP) / dx**2
+        forall(i=1:n) res(i) = 2 * (cos((i-1+off)*pi/(gn-1))-1.0_RP)
       else if (all(BCs==PoisFFT_NeumannStag)) then
-        forall(i=1:n) res(i) = 2 * (cos((i-1+off)*dkx_h)-1.0_RP) / dx**2
+        forall(i=1:n) res(i) = 2 * (cos((i-1+off)*dkx_h)-1.0_RP)
       end if
+      
+      res = res / (grid_dx(gn, L, BCs))**2
     end function
     
     function grid_dx(gn, L, BCs) result(res)
