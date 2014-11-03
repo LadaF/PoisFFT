@@ -783,7 +783,7 @@ program testpoisson_MPI
 
   integer(c_intptr_t) :: ng(3) = [131, 123, 127]![21,32,25]!
   real(RP), dimension(:,:,:), allocatable :: Phi, RHS
-  real(RP) :: dx,dy,dz
+  real(RP) :: dx,dy,dz, Ls(3)
   integer i,j,k
   real(RP) :: R,x,y,z
   integer(8) :: t1,t2,trate
@@ -868,7 +868,10 @@ program testpoisson_MPI
   ny = nxyz(2)
   nz = nxyz(3)
  
-  dx=2*pi/ng(1);dy=2*pi/ng(2);dz=2*pi/ng(3)
+  Ls = [2*pi, 2*pi, 2*pi]
+  dx = Ls(1)/ng(1)
+  dy = Ls(2)/ng(2)
+  dz = Ls(3)/ng(3)
   
   allocate(RHS(nx,ny,nz),stat=ie)
   if (ie/=0) call error_stop(50)
@@ -963,7 +966,7 @@ contains
 
     if (master) write (*,*) "R1:",R
 
-    Solver3D = PoisFFT_Solver3D([nx,ny,nz],[dx,dy,dz],BCs,PoisFFT_FiniteDifference2, &
+    Solver3D = PoisFFT_Solver3D([nx,ny,nz],Ls,BCs,PoisFFT_FiniteDifference2, &
                                 int(ng),int(off),cart_comm)
 
     do i=1,2
@@ -1008,7 +1011,7 @@ contains
 
     if (master) write (*,*) "R1:",R
 
-    Solver2D = PoisFFT_Solver2D([nx,ny],[dx,dy],BCs,PoisFFT_FiniteDifference2, &
+    Solver2D = PoisFFT_Solver2D([nx,ny],Ls(1:2),BCs,PoisFFT_FiniteDifference2, &
                                 int(ng(1:2)),int(off(1:2)),sub_comm)
 
     do i=1,1
@@ -1052,7 +1055,7 @@ contains
 
     if (master) write (*,*) "R1:",R
 
-    Solver1D = PoisFFT_Solver1D([ny],[dy],BCs,PoisFFT_FiniteDifference2, &
+    Solver1D = PoisFFT_Solver1D([ny],Ls(1:1),BCs,PoisFFT_FiniteDifference2, &
                                 int(ng(2:2)),int(off(2:2)),sub_comm)
 
     do i=1,1
