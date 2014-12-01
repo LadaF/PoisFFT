@@ -176,8 +176,8 @@
 
         call data_allocate_complex(D)
 
-        D%forward = PoisFFT_Plan3D_Create(D, [FFT_Complex, FFTW_FORWARD])
-        D%backward = PoisFFT_Plan3D_Create(D, [FFT_Complex, FFTW_BACKWARD])
+        D%forward = PoisFFT_Plan3D(D, [FFT_Complex, FFTW_FORWARD])
+        D%backward = PoisFFT_Plan3D(D, [FFT_Complex, FFTW_BACKWARD])
         
       else if (all(D%BCs==PoisFFT_Dirichlet)) then
 
@@ -185,8 +185,8 @@
 
         call data_allocate_real(D)
 
-        D%forward = PoisFFT_Plan3D_Create(D, [(FFT_RealOdd00, i=1,3)])
-        D%backward = PoisFFT_Plan3D_Create(D, [(FFT_RealOdd00, i=1,3)])
+        D%forward = PoisFFT_Plan3D(D, [(FFT_RealOdd00, i=1,3)])
+        D%backward = PoisFFT_Plan3D(D, [(FFT_RealOdd00, i=1,3)])
       
       else if (all(D%BCs==PoisFFT_DirichletStag)) then
 
@@ -194,8 +194,8 @@
 
         call data_allocate_real(D)
 
-        D%forward = PoisFFT_Plan3D_Create(D, [(FFT_RealOdd10, i=1,3)])
-        D%backward = PoisFFT_Plan3D_Create(D, [(FFT_RealOdd01, i=1,3)])
+        D%forward = PoisFFT_Plan3D(D, [(FFT_RealOdd10, i=1,3)])
+        D%backward = PoisFFT_Plan3D(D, [(FFT_RealOdd01, i=1,3)])
       
       else if (all(D%BCs==PoisFFT_Neumann)) then
 
@@ -203,8 +203,8 @@
 
         call data_allocate_real(D)
 
-        D%forward = PoisFFT_Plan3D_Create(D, [(FFT_RealEven00, i=1,3)])
-        D%backward = PoisFFT_Plan3D_Create(D, [(FFT_RealEven00, i=1,3)])
+        D%forward = PoisFFT_Plan3D(D, [(FFT_RealEven00, i=1,3)])
+        D%backward = PoisFFT_Plan3D(D, [(FFT_RealEven00, i=1,3)])
 
       else if (all(D%BCs==PoisFFT_NeumannStag)) then
 
@@ -212,8 +212,8 @@
 
         call data_allocate_real(D)
 
-        D%forward = PoisFFT_Plan3D_Create(D, [(FFT_RealEven10, i=1,3)])
-        D%backward = PoisFFT_Plan3D_Create(D, [(FFT_RealEven01, i=1,3)])
+        D%forward = PoisFFT_Plan3D(D, [(FFT_RealEven10, i=1,3)])
+        D%backward = PoisFFT_Plan3D(D, [(FFT_RealEven01, i=1,3)])
 
       else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
                all(D%BCs(5:6)==PoisFFT_NeumannStag)) then
@@ -280,13 +280,13 @@
 ! 
 !         call data_allocate_real(D%Solver1D)
 ! 
-!         D%Solver1D%forward = PoisFFT_Plan1D_Many_Create(D%Solver1D, [FFT_RealEven10])
-!         D%Solver1D%backward = PoisFFT_Plan1D_Many_Create(D%Solver1D, [FFT_RealEven01])
+!         D%Solver1D%forward = PoisFFT_Plan1D_Many(D%Solver1D, [FFT_RealEven10])
+!         D%Solver1D%backward = PoisFFT_Plan1D_Many(D%Solver1D, [FFT_RealEven01])
 ! 
 !         call data_allocate_complex(D%Solver2D)
 ! 
-!         D%Solver2D%forward = PoisFFT_Plan2D_Many_Create(D%Solver2D, [FFT_Complex, FFTW_FORWARD])
-!         D%Solver2D%backward = PoisFFT_Plan2D_Many_Create(D%Solver2D, [FFT_Complex, FFTW_BACKWARD])
+!         D%Solver2D%forward = PoisFFT_Plan2D_Many(D%Solver2D, [FFT_Complex, FFTW_FORWARD])
+!         D%Solver2D%backward = PoisFFT_Plan2D_Many(D%Solver2D, [FFT_Complex, FFTW_BACKWARD])
 
 
 
@@ -301,8 +301,8 @@
 
         call data_allocate_real(D%Solvers1D(1))
 
-        D%Solvers1D(1)%forward = PoisFFT_Plan1D_Create(D%Solvers1D(1), [FFT_RealEven10])
-        D%Solvers1D(1)%backward = PoisFFT_Plan1D_Create(D%Solvers1D(1), [FFT_RealEven01])
+        D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_RealEven10])
+        D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_RealEven01])
 
         do i=2,D%nthreads
           D%Solvers1D(i) = D%Solvers1D(1)
@@ -317,8 +317,8 @@
 
         call data_allocate_complex(D%Solvers2D(1))
 
-        D%Solvers2D(1)%forward = PoisFFT_Plan2D_Create(D%Solvers2D(1), [FFT_Complex, FFTW_FORWARD])
-        D%Solvers2D(1)%backward = PoisFFT_Plan2D_Create(D%Solvers2D(1), [FFT_Complex, FFTW_BACKWARD])
+        D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_FORWARD])
+        D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_BACKWARD])
 
         do i=2,D%nthreads
 #ifdef MPI
@@ -330,8 +330,8 @@
 #endif
           call data_allocate_complex(D%Solvers2D(i))
 #ifdef MPI
-          D%Solvers2D(i)%forward = PoisFFT_Plan2D_Create(D%Solvers2D(i), [FFT_Complex, FFTW_FORWARD])
-          D%Solvers2D(i)%backward = PoisFFT_Plan2D_Create(D%Solvers2D(i), [FFT_Complex, FFTW_BACKWARD])
+          D%Solvers2D(i)%forward = PoisFFT_Plan2D(D%Solvers2D(i), [FFT_Complex, FFTW_FORWARD])
+          D%Solvers2D(i)%backward = PoisFFT_Plan2D(D%Solvers2D(i), [FFT_Complex, FFTW_BACKWARD])
 #endif
         end do
         
@@ -397,8 +397,8 @@
 
         call data_allocate_complex(D%Solvers1D(1))
 
-        D%Solvers1D(1)%forward = PoisFFT_Plan1D_Create(D%Solvers1D(1), [FFT_Complex, FFTW_FORWARD])
-        D%Solvers1D(1)%backward = PoisFFT_Plan1D_Create(D%Solvers1D(1), [FFT_Complex, FFTW_BACKWARD])
+        D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_Complex, FFTW_FORWARD])
+        D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_Complex, FFTW_BACKWARD])
 
         do i=2,D%nthreads
           D%Solvers1D(i) = D%Solvers1D(1)
@@ -413,8 +413,8 @@
 
         call data_allocate_real(D%Solvers2D(1))
 
-        D%Solvers2D(1)%forward = PoisFFT_Plan2D_Create(D%Solvers2D(1), [FFT_RealEven10,FFT_RealEven10])
-        D%Solvers2D(1)%backward = PoisFFT_Plan2D_Create(D%Solvers2D(1), [FFT_RealEven01,FFT_RealEven01])
+        D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_RealEven10,FFT_RealEven10])
+        D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_RealEven01,FFT_RealEven01])
 
         do i=2,D%nthreads
           D%Solvers2D(i) = D%Solvers2D(1)
@@ -878,37 +878,37 @@
 
         call data_allocate_complex(D)
 
-        D%forward = PoisFFT_Plan2D_Create(D, [FFT_Complex, FFTW_FORWARD])
-        D%backward = PoisFFT_Plan2D_Create(D, [FFT_Complex, FFTW_BACKWARD])
+        D%forward = PoisFFT_Plan2D(D, [FFT_Complex, FFTW_FORWARD])
+        D%backward = PoisFFT_Plan2D(D, [FFT_Complex, FFTW_BACKWARD])
 
       else if (all(D%BCs==PoisFFT_Dirichlet)) then
 
         call data_allocate_real(D)
 
-        D%forward = PoisFFT_Plan2D_Create(D, [(FFT_RealOdd00, i=1,2)])
-        D%backward = PoisFFT_Plan2D_Create(D, [(FFT_RealOdd00, i=1,2)])
+        D%forward = PoisFFT_Plan2D(D, [(FFT_RealOdd00, i=1,2)])
+        D%backward = PoisFFT_Plan2D(D, [(FFT_RealOdd00, i=1,2)])
 
        else if (all(D%BCs==PoisFFT_DirichletStag)) then
 
         call data_allocate_real(D)
 
-        D%forward = PoisFFT_Plan2D_Create(D, [(FFT_RealOdd10, i=1,2)])
-        D%backward = PoisFFT_Plan2D_Create(D, [(FFT_RealOdd01, i=1,2)])
+        D%forward = PoisFFT_Plan2D(D, [(FFT_RealOdd10, i=1,2)])
+        D%backward = PoisFFT_Plan2D(D, [(FFT_RealOdd01, i=1,2)])
 
       else if (all(D%BCs==PoisFFT_Neumann)) then
 
         call data_allocate_real(D)
 
-        D%forward = PoisFFT_Plan2D_Create(D, [(FFT_RealEven00, i=1,2)])
+        D%forward = PoisFFT_Plan2D(D, [(FFT_RealEven00, i=1,2)])
 
-        D%backward = PoisFFT_Plan2D_Create(D, [(FFT_RealEven00, i=1,2)])
+        D%backward = PoisFFT_Plan2D(D, [(FFT_RealEven00, i=1,2)])
 
       else if (all(D%BCs==PoisFFT_NeumannStag)) then
 
         call data_allocate_real(D)
 
-        D%forward = PoisFFT_Plan2D_Create(D, [(FFT_RealEven10, i=1,2)])
-        D%backward = PoisFFT_Plan2D_Create(D, [(FFT_RealEven01, i=1,2)])
+        D%forward = PoisFFT_Plan2D(D, [(FFT_RealEven10, i=1,2)])
+        D%backward = PoisFFT_Plan2D(D, [(FFT_RealEven01, i=1,2)])
 
       endif
       
@@ -1078,36 +1078,36 @@
 
         call data_allocate_complex(D)
 
-        D%forward = PoisFFT_Plan1D_Create(D, [FFT_Complex, FFTW_FORWARD])
-        D%backward = PoisFFT_Plan1D_Create(D, [FFT_Complex, FFTW_BACKWARD])
+        D%forward = PoisFFT_Plan1D(D, [FFT_Complex, FFTW_FORWARD])
+        D%backward = PoisFFT_Plan1D(D, [FFT_Complex, FFTW_BACKWARD])
 
       else if (all(D%BCs==PoisFFT_Dirichlet)) then
 
         call data_allocate_real(D)
 
-        D%forward = PoisFFT_Plan1D_Create(D, [FFT_RealOdd00])
-        D%backward = PoisFFT_Plan1D_Create(D, [FFT_RealOdd00])
+        D%forward = PoisFFT_Plan1D(D, [FFT_RealOdd00])
+        D%backward = PoisFFT_Plan1D(D, [FFT_RealOdd00])
         
       else if (all(D%BCs==PoisFFT_DirichletStag)) then
 
         call data_allocate_real(D)
 
-        D%forward = PoisFFT_Plan1D_Create(D, [FFT_RealOdd10])
-        D%backward = PoisFFT_Plan1D_Create(D, [FFT_RealOdd01])
+        D%forward = PoisFFT_Plan1D(D, [FFT_RealOdd10])
+        D%backward = PoisFFT_Plan1D(D, [FFT_RealOdd01])
         
       else if (all(D%BCs==PoisFFT_Neumann)) then
 
         call data_allocate_real(D)
 
-        D%forward = PoisFFT_Plan1D_Create(D, [FFT_RealEven00])
-        D%backward = PoisFFT_Plan1D_Create(D, [FFT_RealEven00])
+        D%forward = PoisFFT_Plan1D(D, [FFT_RealEven00])
+        D%backward = PoisFFT_Plan1D(D, [FFT_RealEven00])
         
       else if (all(D%BCs==PoisFFT_NeumannStag)) then
 
         call data_allocate_real(D)
 
-        D%forward = PoisFFT_Plan1D_Create(D, [FFT_RealEven10])
-        D%backward = PoisFFT_Plan1D_Create(D, [FFT_RealEven01])
+        D%forward = PoisFFT_Plan1D(D, [FFT_RealEven10])
+        D%backward = PoisFFT_Plan1D(D, [FFT_RealEven01])
         
       endif
       

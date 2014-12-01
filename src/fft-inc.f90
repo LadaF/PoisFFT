@@ -292,70 +292,57 @@
     module procedure PoisFFT_Plan3D_Finalize
   end interface
 
+  interface PoisFFT_Plan1D
+    module procedure PoisFFT_Plan1D_New
+  end interface
+  interface PoisFFT_Plan2D
+    module procedure PoisFFT_Plan2D_New
+  end interface
+  interface PoisFFT_Plan3D
+    module procedure PoisFFT_Plan3D_New
+  end interface
 
+  interface PoisFFT_Plan1D_Many
+    module procedure PoisFFT_Plan1D_Many_New
+  end interface
+  interface PoisFFT_Plan2D_Many
+    module procedure PoisFFT_Plan2D_Many_New
+  end interface
 
 
   contains
 
 
-    function PoisFFT_Plan1D_QuickCreate(D, plantypes) result(plan)
-      type(PoisFFT_Plan1D) :: plan
-      type(PoisFFT_Solver1D) :: D
-      integer(c_int),intent(in) :: plantypes(:)
-
-      plan = PoisFFT_Plan1D_Create(D, plantypes)
-    end function PoisFFT_Plan1D_QuickCreate
-
-    function PoisFFT_Plan2D_QuickCreate(D, plantypes) result(plan)
-      type(PoisFFT_Plan2D) :: plan
-      type(PoisFFT_Solver2D) :: D
-      integer(c_int),intent(in) :: plantypes(:)
-
-      plan = PoisFFT_Plan2D_Create(D, plantypes)
-    end function PoisFFT_Plan2D_QuickCreate
-
-    function PoisFFT_Plan3D_QuickCreate(D, plantypes) result(plan)
-      type(PoisFFT_Plan3D) :: plan
-      type(PoisFFT_Solver3D) :: D
-      integer(c_int),intent(in) :: plantypes(:)
-
-      plan = PoisFFT_Plan3D_Create(D, plantypes)
-    end function PoisFFT_Plan3D_QuickCreate
-
-
-
-
-
-    function PoisFFT_Plan1D_Create(D, plantypes) result(plan)
+    function PoisFFT_Plan1D_New(D, plantypes) result(plan)
 #define dimensions 1
-#include "plan_create.f90"
+#include "plan_new-inc.f90"
 #undef dimensions
     end function
 
-    function PoisFFT_Plan2D_Create(D, plantypes) result(plan)
+    function PoisFFT_Plan2D_New(D, plantypes) result(plan)
 #define dimensions 2
-#include "plan_create.f90"
+#include "plan_new-inc.f90"
 #undef dimensions
     end function
 
-    function PoisFFT_Plan3D_Create(D, plantypes) result(plan)
+    function PoisFFT_Plan3D_New(D, plantypes) result(plan)
 #define dimensions 3
-#include "plan_create.f90"
+#include "plan_new-inc.f90"
 #undef dimensions
     end function
 
 
 
 
-    function PoisFFT_Plan1D_Many_Create(D, plantypes) result(plan)
+    function PoisFFT_Plan1D_Many_New(D, plantypes) result(plan)
 #define dimensions 1
-#include "plan_create_many.f90"
+#include "plan_new_many-inc.f90"
 #undef dimensions
     end function
 
-    function PoisFFT_Plan2D_Many_Create(D, plantypes) result(plan)
+    function PoisFFT_Plan2D_Many_New(D, plantypes) result(plan)
 #define dimensions 2
-#include "plan_create_many.f90"
+#include "plan_new_many-inc.f90"
 #undef dimensions
     end function
 
