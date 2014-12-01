@@ -1047,3 +1047,70 @@
 
 
 
+    subroutine PoisFFT_Solver3D_PNsNs(D, Phi, RHS)
+      type(PoisFFT_Solver3D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      integer i,j,k
+      integer tid      !thread id
+
+      !$omp parallel private(tid,i,j,k)
+      tid = 1
+      !$ tid = omp_get_thread_num()+1
+
+      ! Forward FFT of RHS in x dimension
+      !$omp do
+      do i = 1, D%nx
+        D%Solvers2D(tid)%rwork = RHS(i,:,:)
+#ifdef MPI
+        call Execute_MPI(D%Solvers2D(1)%forward)
+#else
+        call Execute(D%Solvers2D(tid)%forward,D%Solvers2D(tid)%rwork)
+#endif
+        Phi(i,:,:) = D%Solvers2D(tid)%rwork
+      end do
+      !$omp end do
+
+      !$omp do
+      do k = 1, D%nz
+        do j = 1, D%ny
+        
+          D%Solvers1D(tid)%cwork = cmplx(Phi(:,j,k),0._RP,CP)
+
+          call Execute(D%Solvers1D(tid)%forward, D%Solvers1D(tid)%cwork)
+
+
+          do i = max(3-j-k-D%offx-D%offy,1),D%nx
+            D%Solvers1D(tid)%cwork(i) = D%Solvers1D(tid)%cwork(i) &
+                                             / (D%denomx(i) + D%denomy(j) + D%denomz(k))
+          end do
+          !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
+          ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
+          if (D%offx==0.and.D%offy==0.and.j==1.and.k==1) D%Solvers1D(tid)%cwork(1) = 0
+
+          call Execute(D%Solvers1D(tid)%backward, D%Solvers1D(tid)%cwork)
+
+          Phi(:,j,k) = real(D%Solvers1D(tid)%cwork,RP) / D%norm_factor
+
+        end do
+      end do
+      !$omp end do
+
+      !$omp do
+      do i = 1, D%nx
+        D%Solvers2D(tid)%rwork = Phi(i,:,:)
+
+#ifdef MPI
+        call Execute_MPI(D%Solvers2D(1)%forward)
+#else
+        call Execute(D%Solvers2D(tid)%backward,D%Solvers2D(tid)%rwork)
+#endif
+
+        Phi(i,:,:) = D%Solvers2D(tid)%rwork
+      end do
+      !$omp end do
+      !$omp end parallel
+
+    end subroutine PoisFFT_Solver3D_PNsNs
+    
+    

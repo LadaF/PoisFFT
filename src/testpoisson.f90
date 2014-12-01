@@ -1042,4 +1042,9 @@ program testpoisson
   dz = Lz / nz
   call Test3D([(PoisFFT_PERIODIC, i = 1,4),(PoisFFT_NeumannStag, i = 5,6)])
 
+  dx = Lx / nx
+  dy = Ly / ny
+  dz = Lz / nz
+  call Test3D([(PoisFFT_PERIODIC, i = 1,2),(PoisFFT_NeumannStag, i = 3,6)])
+
 end program testpoisson

@@ -58,7 +58,7 @@
       else
 
         if (size(plantypes)< dimensions ) then
-          write (*,*) "Error: not enough flags when creating PoisFFT_PlanXD"
+          write (*,*) "Error: not enough flags when creating PoisFFT_PlanXD, there must be one per dimension."
           STOP
         endif
 

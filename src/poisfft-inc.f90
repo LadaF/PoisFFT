@@ -166,6 +166,10 @@
       allocate(D%denomy(D%ny))
       allocate(D%denomz(D%nz))
       
+#ifndef MPI
+      if (D%nthreads>1) call PoisFFT_InitThreads(1)
+#endif
+
       if (all(D%BCs==PoisFFT_Periodic)) then
 
         if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
@@ -211,13 +215,11 @@
         D%forward = PoisFFT_Plan3D_Create(D, [(FFT_RealEven10, i=1,3)])
         D%backward = PoisFFT_Plan3D_Create(D, [(FFT_RealEven01, i=1,3)])
 
-      else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. all(D%BCs(5:6)==PoisFFT_NeumannStag)) then
+      else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
+               all(D%BCs(5:6)==PoisFFT_NeumannStag)) then
       
 #ifdef MANY_VARIANT
 
-! #ifndef MPI
-!         if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
-! #endif
 !         allocate(D%Solver1D)
 !         allocate(D%Solver2D)
 ! 
@@ -293,9 +295,6 @@
 
 
 
-#ifndef MPI
-        if (D%nthreads>1) call PoisFFT_InitThreads(1)
-#endif
         allocate(D%Solvers1D(D%nthreads))
 
         D%Solvers1D(1) = PoisFFT_Solver1D_From3D(D,3)
@@ -389,16 +388,53 @@
 !MANY_VARIANT
 #endif
 
+      else if (all(D%BCs(1:2)==PoisFFT_Periodic) .and. &
+               all(D%BCs(3:6)==PoisFFT_NeumannStag)) then
+               
+        allocate(D%Solvers1D(D%nthreads))
+
+        D%Solvers1D(1) = PoisFFT_Solver1D_From3D(D,1)
+
+        call data_allocate_complex(D%Solvers1D(1))
+
+        D%Solvers1D(1)%forward = PoisFFT_Plan1D_Create(D%Solvers1D(1), [FFT_Complex, FFTW_FORWARD])
+        D%Solvers1D(1)%backward = PoisFFT_Plan1D_Create(D%Solvers1D(1), [FFT_Complex, FFTW_BACKWARD])
+
+        do i=2,D%nthreads
+          D%Solvers1D(i) = D%Solvers1D(1)
+          D%Solvers1D(i)%forward%planowner = .false.
+          D%Solvers1D(i)%backward%planowner = .false.
+          call data_allocate_complex(D%Solvers1D(i))
+        end do
+
+        allocate(D%Solvers2D(D%nthreads))
+
+        D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,1)
+
+        call data_allocate_real(D%Solvers2D(1))
+
+        D%Solvers2D(1)%forward = PoisFFT_Plan2D_Create(D%Solvers2D(1), [FFT_RealEven10,FFT_RealEven10])
+        D%Solvers2D(1)%backward = PoisFFT_Plan2D_Create(D%Solvers2D(1), [FFT_RealEven01,FFT_RealEven01])
+
+        do i=2,D%nthreads
+          D%Solvers2D(i) = D%Solvers2D(1)
+          D%Solvers2D(i)%forward%planowner = .false.
+          D%Solvers2D(i)%backward%planowner = .false.
+
+          call data_allocate_real(D%Solvers2D(i))
+
+        end do
+
       endif
 
 
       if (D%approximation==2) then
         D%denomx = eigenvalues_FD2(D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
-        D%denomy = eigenvalues_FD2(D%BCs(2:4), D%Ly, D%ny, D%gny, D%offy)
+        D%denomy = eigenvalues_FD2(D%BCs(3:4), D%Ly, D%ny, D%gny, D%offy)
         D%denomz = eigenvalues_FD2(D%BCs(5:6), D%Lz, D%nz, D%gnz, D%offz)
       else
         D%denomx = eigenvalues_spectral(D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
-        D%denomy = eigenvalues_spectral(D%BCs(2:4), D%Ly, D%ny, D%gny, D%offy)
+        D%denomy = eigenvalues_spectral(D%BCs(3:4), D%Ly, D%ny, D%gny, D%offy)
         D%denomz = eigenvalues_spectral(D%BCs(5:6), D%Lz, D%nz, D%gnz, D%offz)
       end if
     end subroutine PoisFFT_Solver3D_Init
@@ -448,9 +484,21 @@
                      ngRHS(2)+1:ngRHS(2)+D%ny,&
                      ngRHS(3)+1:ngRHS(3)+D%nz))
 
-      else if (all(D%BCs(1:4)==PoisFFT_Periodic).and.all(D%BCs(5:6)==PoisFFT_NeumannStag)) then
+      else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
+               all(D%BCs(5:6)==PoisFFT_NeumannStag)) then
 
         call PoisFFT_Solver3D_PPNs(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny,&
+                     ngPhi(3)+1:ngPhi(3)+D%nz),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny,&
+                     ngRHS(3)+1:ngRHS(3)+D%nz))
+
+      else if (all(D%BCs(1:2)==PoisFFT_Periodic) .and. &
+               all(D%BCs(3:6)==PoisFFT_NeumannStag)) then
+
+        call PoisFFT_Solver3D_PNsNs(D,&
                  Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
                      ngPhi(2)+1:ngPhi(2)+D%ny,&
                      ngPhi(3)+1:ngPhi(3)+D%nz),&
@@ -1191,7 +1239,7 @@
       else if (all(BCs==PoisFFT_NeumannStag)) then
         forall(i=1:n) res(i) = 2 * (cos((i-1+off)*dkx_h)-1.0_RP)
       end if
-      
+
       res = res / (grid_dx(gn, L, BCs))**2
     end function
     
