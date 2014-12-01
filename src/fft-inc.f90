@@ -239,29 +239,29 @@
     type(mpi_vars_3D) :: mpi
  end type PoisFFT_Solver3D
 
-  interface data_deallocate
-    module procedure data_deallocate_1D_complex
-    module procedure data_deallocate_1D_real
-    module procedure data_deallocate_2D_complex
-    module procedure data_deallocate_2D_real
-    module procedure data_deallocate_3D_complex
-    module procedure data_deallocate_3D_real
+  interface deallocate_fftw
+    module procedure deallocate_fftw_1D_complex
+    module procedure deallocate_fftw_1D_real
+    module procedure deallocate_fftw_2D_complex
+    module procedure deallocate_fftw_2D_real
+    module procedure deallocate_fftw_3D_complex
+    module procedure deallocate_fftw_3D_real
   end interface
 
-  interface data_allocate_real
-    module procedure data_allocate_1D_real
-    module procedure data_allocate_2D_real
-    module procedure data_allocate_3D_real
-    module procedure data_allocate_1D_many_real
-    module procedure data_allocate_2D_many_real
+  interface allocate_fftw_real
+    module procedure allocate_fftw_1D_real
+    module procedure allocate_fftw_2D_real
+    module procedure allocate_fftw_3D_real
+    module procedure allocate_fftw_1D_many_real
+    module procedure allocate_fftw_2D_many_real
   end interface
 
-  interface data_allocate_complex
-    module procedure data_allocate_1D_complex
-    module procedure data_allocate_2D_complex
-    module procedure data_allocate_3D_complex
-    module procedure data_allocate_1D_many_complex
-    module procedure data_allocate_2D_many_complex
+  interface allocate_fftw_complex
+    module procedure allocate_fftw_1D_complex
+    module procedure allocate_fftw_2D_complex
+    module procedure allocate_fftw_3D_complex
+    module procedure allocate_fftw_1D_many_complex
+    module procedure allocate_fftw_2D_many_complex
   end interface
 
   interface Execute
@@ -286,10 +286,10 @@
  end interface
 #endif
 
-  interface Destroy
-    module procedure PoisFFT_Plan1D_Destroy
-    module procedure PoisFFT_Plan2D_Destroy
-    module procedure PoisFFT_Plan3D_Destroy
+  interface Finalize
+    module procedure PoisFFT_Plan1D_Finalize
+    module procedure PoisFFT_Plan2D_Finalize
+    module procedure PoisFFT_Plan3D_Finalize
   end interface
 
 
@@ -362,105 +362,105 @@
 
 
 
-    subroutine data_allocate_1D_complex(D)
+    subroutine allocate_fftw_1D_complex(D)
 #define dimensions 1
 #define realcomplex 2
 
-#include "data_allocate.f90"
+#include "allocate_fftw-inc.f90"
 
 #undef dimensions
 #undef realcomplex
     end subroutine
 
-    subroutine data_allocate_1D_real(D)
+    subroutine allocate_fftw_1D_real(D)
 #define dimensions 1
 #define realcomplex 1
 
-#include "data_allocate.f90"
+#include "allocate_fftw-inc.f90"
 
 #undef dimensions
 #undef realcomplex
     end subroutine
 
 
-    subroutine data_allocate_1D_many_complex(D)
+    subroutine allocate_fftw_1D_many_complex(D)
 #define dimensions 1
 #define realcomplex 2
 
-#include "data_allocate_many.f90"
+#include "allocate_fftw_many-inc.f90"
 
 #undef dimensions
 #undef realcomplex
     end subroutine
 
-    subroutine data_allocate_1D_many_real(D)
+    subroutine allocate_fftw_1D_many_real(D)
 #define dimensions 1
 #define realcomplex 1
 
-#include "data_allocate_many.f90"
+#include "allocate_fftw_many-inc.f90"
 
 #undef dimensions
 #undef realcomplex
     end subroutine
 
 
-    subroutine data_allocate_2D_complex(D)
+    subroutine allocate_fftw_2D_complex(D)
 #define dimensions 2
 #define realcomplex 2
 
-#include "data_allocate.f90"
+#include "allocate_fftw-inc.f90"
 
 #undef dimensions
 #undef realcomplex
     end subroutine
 
-    subroutine data_allocate_2D_real(D)
+    subroutine allocate_fftw_2D_real(D)
 #define dimensions 2
 #define realcomplex 1
 
-#include "data_allocate.f90"
+#include "allocate_fftw-inc.f90"
 
 #undef dimensions
 #undef realcomplex
     end subroutine
 
     
-    subroutine data_allocate_2D_many_complex(D)
+    subroutine allocate_fftw_2D_many_complex(D)
 #define dimensions 2
 #define realcomplex 2
 
-#include "data_allocate_many.f90"
+#include "allocate_fftw_many-inc.f90"
 
 #undef dimensions
 #undef realcomplex
     end subroutine
 
-    subroutine data_allocate_2D_many_real(D)
+    subroutine allocate_fftw_2D_many_real(D)
 #define dimensions 2
 #define realcomplex 1
 
-#include "data_allocate_many.f90"
+#include "allocate_fftw_many-inc.f90"
 
 #undef dimensions
 #undef realcomplex
     end subroutine
     
 
-    subroutine data_allocate_3D_complex(D)
+    subroutine allocate_fftw_3D_complex(D)
 #define dimensions 3
 #define realcomplex 2
 
-#include "data_allocate.f90"
+#include "allocate_fftw-inc.f90"
 
 #undef dimensions
 #undef realcomplex
     end subroutine
 
-    subroutine data_allocate_3D_real(D)
+    subroutine allocate_fftw_3D_real(D)
 #define dimensions 3
 #define realcomplex 1
 
-#include "data_allocate.f90"
+#include "allocate_fftw-inc.f90"
 
 #undef dimensions
 #undef realcomplex
@@ -633,7 +633,7 @@
     
     
 
-    subroutine data_deallocate_1D_complex(data)
+    subroutine deallocate_fftw_1D_complex(data)
       complex(CP), dimension(:), pointer &
 #ifndef NO_CONTIGUOUS
                                , contiguous &
@@ -644,9 +644,9 @@
       p = c_loc(data(1))
       call fftw_free(p)
       nullify(data)
-    end subroutine data_deallocate_1D_complex
+    end subroutine deallocate_fftw_1D_complex
 
-    subroutine data_deallocate_1D_real(data)
+    subroutine deallocate_fftw_1D_real(data)
       real(RP), dimension(:), pointer &
 #ifndef NO_CONTIGUOUS
                                , contiguous &
@@ -657,9 +657,9 @@
       p = c_loc(data(1))
       call fftw_free(p)
       nullify(data)
-    end subroutine data_deallocate_1D_real
+    end subroutine deallocate_fftw_1D_real
 
-    subroutine data_deallocate_2D_complex(data)
+    subroutine deallocate_fftw_2D_complex(data)
       complex(CP), dimension(:,:), pointer &
 #ifndef NO_CONTIGUOUS
                                , contiguous &
@@ -670,9 +670,9 @@
       p = c_loc(data(1,1))
       call fftw_free(p)
       nullify(data)
-    end subroutine data_deallocate_2D_complex
+    end subroutine deallocate_fftw_2D_complex
 
-    subroutine data_deallocate_2D_real(data)
+    subroutine deallocate_fftw_2D_real(data)
       real(RP), dimension(:,:), pointer &
 #ifndef NO_CONTIGUOUS
                                , contiguous &
@@ -683,9 +683,9 @@
       p = c_loc(data(1,1))
       call fftw_free(p)
       nullify(data)
-    end subroutine data_deallocate_2D_real
+    end subroutine deallocate_fftw_2D_real
 
-    subroutine data_deallocate_3D_complex(data)
+    subroutine deallocate_fftw_3D_complex(data)
       complex(CP), dimension(:,:,:), pointer &
 #ifndef NO_CONTIGUOUS
                                , contiguous &
@@ -696,10 +696,10 @@
       p = c_loc(data(1,1,1))
       call fftw_free(p)
       nullify(data)
-    end subroutine data_deallocate_3D_complex
+    end subroutine deallocate_fftw_3D_complex
 
 
-    subroutine data_deallocate_3D_real(data)
+    subroutine deallocate_fftw_3D_real(data)
       real(RP), dimension(:,:,:), pointer &
 #ifndef NO_CONTIGUOUS
                                , contiguous &
@@ -710,21 +710,21 @@
       p = c_loc(data(1,1,1))
       call fftw_free(p)
       nullify(data)
-    end subroutine data_deallocate_3D_real
+    end subroutine deallocate_fftw_3D_real
 
 
 
 
 
-    subroutine PoisFFT_Plan1D_Destroy(plan)
+    subroutine PoisFFT_Plan1D_Finalize(plan)
       type(PoisFFT_Plan1D) :: plan
 
       if (c_associated(plan%planptr).and.plan%planowner)  &
         call fftw_destroy_plan(plan%planptr)
       plan%planptr = c_null_ptr
-    end subroutine PoisFFT_Plan1D_Destroy
+    end subroutine PoisFFT_Plan1D_Finalize
 
-    subroutine PoisFFT_Plan2D_Destroy(plan)
+    subroutine PoisFFT_Plan2D_Finalize(plan)
       type(PoisFFT_Plan2D) :: plan
 
       if (c_associated(plan%planptr).and.plan%planowner)  &
@@ -734,9 +734,9 @@
         call fftw_destroy_plan(plan%planptr)
 #endif
       plan%planptr = c_null_ptr
-    end subroutine PoisFFT_Plan2D_Destroy
+    end subroutine PoisFFT_Plan2D_Finalize
 
-    subroutine PoisFFT_Plan3D_Destroy(plan)
+    subroutine PoisFFT_Plan3D_Finalize(plan)
       type(PoisFFT_Plan3D) :: plan
       
       if (c_associated(plan%planptr).and.plan%planowner)  &
@@ -746,7 +746,7 @@
         call fftw_destroy_plan(plan%planptr)
 #endif
       plan%planptr = c_null_ptr
-    end subroutine PoisFFT_Plan3D_Destroy
+    end subroutine PoisFFT_Plan3D_Finalize
 
 
     subroutine PoisFFT_InitThreads(nthreads)  !instructs fftw to plan to use nthreads threads

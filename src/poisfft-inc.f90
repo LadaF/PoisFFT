@@ -517,8 +517,8 @@
       type(PoisFFT_Solver3D), intent(inout) :: D
       integer :: i
 
-      call Destroy(D%forward)
-      call Destroy(D%backward)
+      call Finalize(D%forward)
+      call Finalize(D%backward)
 
       if (associated(D%rwork)) call data_deallocate(D%rwork)
       if (associated(D%cwork)) call data_deallocate(D%cwork)
@@ -973,8 +973,8 @@
     subroutine PoisFFT_Solver2D_Finalize(D)
       type(PoisFFT_Solver2D), intent(inout) :: D
 
-      call Destroy(D%forward)
-      call Destroy(D%backward)
+      call Finalize(D%forward)
+      call Finalize(D%backward)
 
       if (associated(D%rwork)) call data_deallocate(D%rwork)
       if (associated(D%cwork)) call data_deallocate(D%cwork)
@@ -1164,8 +1164,8 @@
     subroutine PoisFFT_Solver1D_Finalize(D)
       type(PoisFFT_Solver1D), intent(inout) :: D
 
-      call Destroy(D%forward)
-      call Destroy(D%backward)
+      call Finalize(D%forward)
+      call Finalize(D%backward)
 
       if (associated(D%rwork)) call data_deallocate(D%rwork)
       if (associated(D%cwork)) call data_deallocate(D%cwork)
