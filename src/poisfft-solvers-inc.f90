@@ -1047,209 +1047,229 @@
 
 
 #ifdef MPI
-!     subroutine PoisFFT_Solver3D_PNsNs(D, Phi, RHS)
-!       type(PoisFFT_Solver3D), intent(inout) :: D
-!       real(RP), intent(out) :: Phi(:,:,:)
-!       real(RP), intent(in)  :: RHS(:,:,:)
-!       integer i,j,k
-! 
-!       interface
-!         subroutine MPI_ALLTOALLV(SENDBUF, SENDCOUNTS, SDISPLS, SENDTYPE, &
-!                                  RECVBUF, RECVCOUNTS, RDISPLS, RECVTYPE, COMM, IERROR)
-!           import
-!           REAL(RP)    SENDBUF(*), RECVBUF(*)
-!           INTEGER    SENDCOUNTS(*), SDISPLS(*), SENDTYPE
-!           INTEGER    RECVCOUNTS(*), RDISPLS(*), RECVTYPE
-!           INTEGER    COMM, IERROR
-!         end subroutine
-!       end interface
-!       integer :: l, ie
-! 
-!       if (D%Solvers1D(1)%mpi_transpose_needed) then
-!       
-!         do k = 1, D%nz
-!           do j = 1, D%ny
-!             do i = 1, D%nx
-!               D%mpi%tmp1(k,j,i) = RHS(i,j,k)
-!             end do
-!           end do
-!         end do
-! 
-!         
-!         !step2 exchange
-!         call MPI_AllToAllV(D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
-!                            D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
-!                            D%Solvers1D(1)%mpi%comm, ie)
-!         !step3 local reordering of blocks
-! 
-!         do l = 1, D%mpi%np
-!           do k = 0, D%mpi%rnxs(1)-1
-!             do j = 0, D%ny-1
-!               do i = 0, D%mpi%rnzs(l)-1
-!                 D%mpi%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1) = &
-!                   D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l))
-!               end do
-!             end do
-!           end do
-!         end do
-!      
-!         ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-!         do k=1,size(D%mpi%rwork,3)
-!           do j=1,size(D%mpi%rwork,2)
-!             call Execute(D%Solvers1D(1)%forward,D%mpi%rwork(:,j,k))
-!           end do
-!         end do
-!         
-! 
-!         !step3' local reordering of blocks
-!         do l = 1, D%mpi%np
-!           do k = 0, D%mpi%rnxs(1)-1
-!             do j = 0, D%ny-1
-!               do i = 0, D%mpi%rnzs(l)-1
-!                 D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l)) = &
-!                   D%mpi%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1)
-!               end do
-!             end do
-!           end do
-!         end do
-! 
-!       
-!         !step2' exchange
-!         call MPI_AllToAllV(D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
-!                            D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
-!                            D%Solvers1D(1)%mpi%comm, ie)
-!         do k = 1, D%nz
-!           do j = 1, D%ny
-!             do i = 1, D%nx
-!               Phi(i,j,k) = D%mpi%tmp1(k,j,i)
-!             end do
-!           end do
-!         end do
-!       else
-!         ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-!         do j=1,D%ny
-!           do i=1,D%nx
-!             D%Solvers1D(1)%rwork = RHS(i,j,:)
-! 
-! 
-!             call Execute(D%Solvers1D(1)%forward,D%Solvers1D(1)%rwork)
-! 
-! 
-!             Phi(i,j,:) = D%Solvers1D(1)%rwork
-!           end do
-!         end do
-!       end if
-!       
-! 
-!       do k=1,D%nz
-!         D%Solvers2D(1)%cwork(1:D%nx,1:D%ny) = cmplx(Phi(1:D%nx,1:D%ny,k),0._RP,CP)
-! 
-!         call Execute_MPI(D%Solvers2D(1)%forward)
-! 
-!         if (k==1.and.D%offz==0) then
-!           do j = 1,D%ny
-!             do i = max(3-j-D%offx-D%offy,1),D%nx
-!               D%Solvers2D(1)%cwork(i,j) = D%Solvers2D(1)%cwork(i,j) / (D%denomx(i) + D%denomy(j))
-!             end do
-!           end do
-!           !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
-!           ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
-!           if (D%offx==0.and.D%offy==0) D%Solvers2D(1)%cwork(1,1) = 0
-! 
-!         else
-! 
-!           do j=1,D%ny
-!             do i=1,D%nx
-!               D%Solvers2D(1)%cwork(i,j) = D%Solvers2D(1)%cwork(i,j)&
-!                                               / (D%denomx(i) + D%denomy(j) + D%denomz(k))
-!             end do
-!           end do
-! 
-!         endif
-! 
-!         call Execute_MPI(D%Solvers2D(1)%backward)
-! 
-!         Phi(:,:,k) = real(D%Solvers2D(1)%cwork,RP) / D%norm_factor
-! 
-! 
-!       end do
-! 
-! 
-!       if (D%Solvers1D(1)%mpi_transpose_needed) then
-! 
-!         !step1 local transpose
-!         do k = 1, D%nz
-!           do j = 1, D%ny
-!             do i = 1, D%nx
-!               D%mpi%tmp1(k,j,i) = Phi(i,j,k)
-!             end do
-!           end do
-!         end do
-! 
-!         !step2 exchange
-!         call MPI_AllToAllV(D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
-!                            D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
-!                            D%Solvers1D(1)%mpi%comm, ie)
-! 
-!         !step3 local reordering of blocks
-!         do l = 1, D%mpi%np
-!           do k = 0, D%mpi%rnxs(1)-1
-!             do j = 0, D%ny-1
-!               do i = 0, D%mpi%rnzs(l)-1
-!                 D%mpi%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1) = &
-!                   D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l))
-!               end do
-!             end do
-!           end do
-!         end do
-!       
-!         ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-!         do k=1,size(D%mpi%rwork,3)
-!           do j=1,size(D%mpi%rwork,2)
-!             call Execute(D%Solvers1D(1)%backward, D%mpi%rwork(:,j,k))
-!           end do
-!         end do
-! 
-!         !step3' local reordering of blocks
-!         do l = 1, D%mpi%np
-!           do k = 0, D%mpi%rnxs(1)-1
-!             do j = 0, D%ny-1
-!               do i = 0, D%mpi%rnzs(l)-1
-!                 D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l)) = &
-!                   D%mpi%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1)
-!               end do
-!             end do
-!           end do
-!         end do
-!       
-!         !step2' exchange
-!         call MPI_AllToAllV(D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
-!                            D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
-!                            D%Solvers1D(1)%mpi%comm, ie)
-! 
-!         do k = 1, D%nz
-!           do j = 1, D%ny
-!             do i = 1, D%nx
-!               Phi(i,j,k) = D%mpi%tmp1(k,j,i)
-!             end do
-!           end do
-!         end do
-!       else
-!         ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-!         do j=1,D%ny
-!           do i=1,D%nx
-!             D%Solvers1D(1)%rwork = Phi(i,j,:)
-! 
-! 
-!             call Execute(D%Solvers1D(1)%backward,D%Solvers1D(1)%rwork)
-! 
-! 
-!             Phi(i,j,:) = D%Solvers1D(1)%rwork
-!           end do
-!         end do
-!       end if
-!     end subroutine PoisFFT_Solver3D_PNsNs
+    subroutine PoisFFT_Solver3D_PNsNs(D, Phi, RHS)
+      type(PoisFFT_Solver3D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      integer i,j,k
+
+      interface
+        subroutine MPI_ALLTOALLV(SENDBUF, SENDCOUNTS, SDISPLS, SENDTYPE, &
+                                 RECVBUF, RECVCOUNTS, RDISPLS, RECVTYPE, COMM, IERROR)
+          import
+          REAL(RP)    SENDBUF(*), RECVBUF(*)
+          INTEGER    SENDCOUNTS(*), SDISPLS(*), SENDTYPE
+          INTEGER    RECVCOUNTS(*), RDISPLS(*), RECVTYPE
+          INTEGER    COMM, IERROR
+        end subroutine
+      end interface
+      integer :: l, ie
+
+      if (D%Solvers1D(3)%mpi_transpose_needed) then
+      
+        do k = 1, D%nz
+          do j = 1, D%ny
+            do i = 1, D%nx
+              D%mpi%tmp1(k,j,i) = RHS(i,j,k)
+            end do
+          end do
+        end do
+
+        
+        !step2 exchange
+        call MPI_AllToAllV(D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
+                           D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
+                           D%Solvers1D(3)%mpi%comm, ie)
+        !step3 local reordering of blocks
+
+        do l = 1, D%mpi%np
+          do k = 0, D%mpi%rnxs(1)-1
+            do j = 0, D%ny-1
+              do i = 0, D%mpi%rnzs(l)-1
+                D%mpi%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1) = &
+                  D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l))
+              end do
+            end do
+          end do
+        end do
+     
+        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
+        do k = 1, size(D%mpi%rwork,3)
+          do j = 1, size(D%mpi%rwork,2)
+            call Execute(D%Solvers1D(3)%forward,D%mpi%rwork(:,j,k))
+          end do
+        end do
+        
+
+        !step3' local reordering of blocks
+        do l = 1, D%mpi%np
+          do k = 0, D%mpi%rnxs(1)-1
+            do j = 0, D%ny-1
+              do i = 0, D%mpi%rnzs(l)-1
+                D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l)) = &
+                  D%mpi%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1)
+              end do
+            end do
+          end do
+        end do
+
+      
+        !step2' exchange
+        call MPI_AllToAllV(D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
+                           D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
+                           D%Solvers1D(3)%mpi%comm, ie)
+        do k = 1, D%nz
+          do j = 1, D%ny
+            do i = 1, D%nx
+              Phi(i,j,k) = D%mpi%tmp1(k,j,i)
+            end do
+          end do
+        end do
+      else
+        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
+        do j = 1, D%ny
+          do i = 1, D%nx
+            D%Solvers1D(3)%rwork = RHS(i,j,:)
+
+
+            call Execute(D%Solvers1D(3)%forward,D%Solvers1D(3)%rwork)
+
+
+            Phi(i,j,:) = D%Solvers1D(3)%rwork
+          end do
+        end do
+      end if
+      
+
+      if (D%Solvers1D(2)%mpi_transpose_needed) then
+        stop "Not impemented."
+      else
+        do k = 1, D%nz
+          do i = 1, D%nx
+            D%Solvers1D(2)%rwork = Phi(i,:,k)
+
+            call Execute(D%Solvers1D(2)%forward, D%Solvers1D(2)%rwork)
+            
+            Phi(i,:,k) = D%Solvers1D(2)%rwork
+          end do
+        end do
+      end if
+
+      do k = 1, D%nz
+        do j = 1, D%ny
+        
+          D%Solvers1D(1)%cwork = cmplx(Phi(:,j,k),0._RP,CP)
+
+          call Execute(D%Solvers1D(1)%forward, D%Solvers1D(1)%cwork)
+
+
+          do i = max(4-j-k-D%offy-D%offz,1),D%nx
+            D%Solvers1D(1)%cwork(i) = D%Solvers1D(1)%cwork(i) &
+                                             / (D%denomx(i) + D%denomy(j) + D%denomz(k))
+          end do
+          !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
+          ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
+          if (D%offy==0.and.D%offz==0.and.j==1.and.k==1) D%Solvers1D(1)%cwork(1) = 0
+
+          call Execute(D%Solvers1D(1)%backward, D%Solvers1D(1)%cwork)
+
+          Phi(:,j,k) = real(D%Solvers1D(1)%cwork,RP) / D%norm_factor
+
+        end do
+      end do
+
+      if (D%Solvers1D(2)%mpi_transpose_needed) then
+        stop "Not impemented."
+      else
+        do k = 1, D%nz
+          do i = 1, D%nx
+            D%Solvers1D(2)%rwork = Phi(i,:,k)
+
+            call Execute(D%Solvers1D(2)%backward, D%Solvers1D(2)%rwork)
+            
+            Phi(i,:,k) = D%Solvers1D(2)%rwork
+          end do
+        end do
+      end if
+
+
+      if (D%Solvers1D(3)%mpi_transpose_needed) then
+
+        !step1 local transpose
+        do k = 1, D%nz
+          do j = 1, D%ny
+            do i = 1, D%nx
+              D%mpi%tmp1(k,j,i) = Phi(i,j,k)
+            end do
+          end do
+        end do
+
+        !step2 exchange
+        call MPI_AllToAllV(D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
+                           D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
+                           D%Solvers1D(3)%mpi%comm, ie)
+
+        !step3 local reordering of blocks
+        do l = 1, D%mpi%np
+          do k = 0, D%mpi%rnxs(1)-1
+            do j = 0, D%ny-1
+              do i = 0, D%mpi%rnzs(l)-1
+                D%mpi%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1) = &
+                  D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l))
+              end do
+            end do
+          end do
+        end do
+      
+        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
+        do k=1,size(D%mpi%rwork,3)
+          do j=1,size(D%mpi%rwork,2)
+            call Execute(D%Solvers1D(3)%backward, D%mpi%rwork(:,j,k))
+          end do
+        end do
+
+        !step3' local reordering of blocks
+        do l = 1, D%mpi%np
+          do k = 0, D%mpi%rnxs(1)-1
+            do j = 0, D%ny-1
+              do i = 0, D%mpi%rnzs(l)-1
+                D%mpi%tmp2(i + j*D%mpi%rnzs(l) + k*(D%ny*D%mpi%rnzs(l)) + D%mpi%rdispls(l)) = &
+                  D%mpi%rwork(i+sum(D%mpi%rnzs(1:l-1))+1, j+1, k+1)
+              end do
+            end do
+          end do
+        end do
+      
+        !step2' exchange
+        call MPI_AllToAllV(D%mpi%tmp2, D%mpi%rcounts, D%mpi%rdispls, MPI_RP, &
+                           D%mpi%tmp1, D%mpi%scounts, D%mpi%sdispls, MPI_RP, &
+                           D%Solvers1D(3)%mpi%comm, ie)
+
+        do k = 1, D%nz
+          do j = 1, D%ny
+            do i = 1, D%nx
+              Phi(i,j,k) = D%mpi%tmp1(k,j,i)
+            end do
+          end do
+        end do
+      else
+        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
+        do j=1,D%ny
+          do i=1,D%nx
+            D%Solvers1D(3)%rwork = Phi(i,j,:)
+
+
+            call Execute(D%Solvers1D(3)%backward,D%Solvers1D(3)%rwork)
+
+
+            Phi(i,j,:) = D%Solvers1D(3)%rwork
+          end do
+        end do
+      end if
+    end subroutine PoisFFT_Solver3D_PNsNs
+    !MPI
 #else
+    !threads
     subroutine PoisFFT_Solver3D_PNsNs(D, Phi, RHS)
       type(PoisFFT_Solver3D), intent(inout) :: D
       real(RP), intent(out) :: Phi(:,:,:)
@@ -1281,13 +1301,13 @@
           call Execute(D%Solvers1D(tid)%forward, D%Solvers1D(tid)%cwork)
 
 
-          do i = max(3-j-k-D%offx-D%offy,1),D%nx
+          do i = max(4-j-k-D%offy-D%offz,1),D%nx
             D%Solvers1D(tid)%cwork(i) = D%Solvers1D(tid)%cwork(i) &
                                              / (D%denomx(i) + D%denomy(j) + D%denomz(k))
           end do
           !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
           ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
-          if (D%offx==0.and.D%offy==0.and.j==1.and.k==1) D%Solvers1D(tid)%cwork(1) = 0
+          if (D%offy==0.and.D%offz==0.and.j==1.and.k==1) D%Solvers1D(tid)%cwork(1) = 0
 
           call Execute(D%Solvers1D(tid)%backward, D%Solvers1D(tid)%cwork)
 

@@ -400,8 +400,8 @@
         D%Solvers1D(3) = PoisFFT_Solver1D_From3D(D,3)
         
         !HACK
-        if (D%Solver1D(2)%mpi_transpose_needed)&
-          stop "These boundary conditions require process grid only in dimension 3 (dimension 1 in C).".
+        if (D%Solvers1D(2)%mpi_transpose_needed)&
+          stop "These boundary conditions require process grid only in dimension 3 (dimension 1 in C)."
         
         call allocate_fftw_complex(D%Solvers1D(1))
         call allocate_fftw_real(D%Solvers1D(2))
@@ -409,11 +409,56 @@
         
         D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_Complex, FFTW_FORWARD])
         D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_Complex, FFTW_BACKWARD])
-        D%Solvers1D(2)%forward = PoisFFT_Plan2D(D%Solvers1D(2), [FFT_RealEven10,FFT_RealEven10])
-        D%Solvers1D(2)%backward = PoisFFT_Plan2D(D%Solvers1D(2), [FFT_RealEven01,FFT_RealEven01])
-        D%Solvers1D(3)%forward = PoisFFT_Plan2D(D%Solvers1D(3), [FFT_RealEven10,FFT_RealEven10])
-        D%Solvers1D(3)%backward = PoisFFT_Plan2D(D%Solvers1D(3), [FFT_RealEven01,FFT_RealEven01])
+        D%Solvers1D(2)%forward = PoisFFT_Plan1D(D%Solvers1D(2), [FFT_RealEven10,FFT_RealEven10])
+        D%Solvers1D(2)%backward = PoisFFT_Plan1D(D%Solvers1D(2), [FFT_RealEven01,FFT_RealEven01])
+        D%Solvers1D(3)%forward = PoisFFT_Plan1D(D%Solvers1D(3), [FFT_RealEven10,FFT_RealEven10])
+        D%Solvers1D(3)%backward = PoisFFT_Plan1D(D%Solvers1D(3), [FFT_RealEven01,FFT_RealEven01])
+        
+        
+        call MPI_Comm_rank(D%Solvers1D(3)%mpi%comm, D%mpi%rank, ie)
+        call MPI_Comm_size(D%Solvers1D(3)%mpi%comm, D%mpi%np, ie)
+        allocate(D%mpi%snxs(D%mpi%np))
+        allocate(D%mpi%snzs(D%mpi%np))
+        allocate(D%mpi%rnxs(D%mpi%np))
+        allocate(D%mpi%rnzs(D%mpi%np))
+        allocate(D%mpi%sdispls(D%mpi%np))
+        allocate(D%mpi%scounts(D%mpi%np))
+        allocate(D%mpi%rdispls(D%mpi%np))
+        allocate(D%mpi%rcounts(D%mpi%np))
+        
+        D%mpi%snxs(1:D%mpi%np-1) = (D%nx / D%mpi%np)
+        D%mpi%snxs(D%mpi%np) = D%nx - sum(D%mpi%snxs(1:D%mpi%np-1))
+        D%mpi%snzs = D%nz
+        D%mpi%scounts = D%mpi%snxs*D%ny*D%nz
+        D%mpi%sdispls(1) = 0
+        do i = 2, D%mpi%np
+          D%mpi%sdispls(i) = D%mpi%sdispls(i-1) + D%mpi%scounts(i-1)
+        end do
 
+        call MPI_AllToAll(D%mpi%snxs, 1, MPI_INTEGER, &
+                          D%mpi%rnxs, 1, MPI_INTEGER, &
+                          D%Solvers1D(3)%mpi%comm, ie)
+        if (.not.all(D%mpi%rnxs(2:D%mpi%np)==D%mpi%rnxs(1))) &
+          stop "PoisFFT internal error: .not.all(D%mpi%rnxs(2:D%mpi%np)==D%mpi%rnxs(1))"
+        call MPI_AllToAll(D%mpi%snzs, 1, MPI_INTEGER, &
+                          D%mpi%rnzs, 1, MPI_INTEGER, &
+                          D%Solvers1D(3)%mpi%comm, ie)
+        call MPI_AllToAll(D%mpi%scounts, 1, MPI_INTEGER, &
+                          D%mpi%rcounts, 1, MPI_INTEGER, &
+                          D%Solvers1D(3)%mpi%comm, ie)
+
+        call MPI_AllToAll(D%mpi%sdispls, 1, MPI_INTEGER, &
+                          D%mpi%rdispls, 1, MPI_INTEGER, &
+                          D%Solvers1D(3)%mpi%comm, ie)
+
+        D%mpi%rdispls(1) = 0
+        do i = 2, D%mpi%np
+          D%mpi%rdispls(i) = D%mpi%rdispls(i-1) + D%mpi%rcounts(i-1)
+        end do
+        !step1 local transpose
+        allocate(D%mpi%tmp1(1:D%nz,1:D%ny,1:D%nx))
+        allocate(D%mpi%tmp2(0:sum(D%mpi%rcounts)-1))
+        allocate(D%mpi%rwork(sum(D%mpi%rnzs), D%ny, D%mpi%rnxs(1)))
 #else
         allocate(D%Solvers1D(D%nthreads))
 
