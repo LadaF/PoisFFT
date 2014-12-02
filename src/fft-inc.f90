@@ -71,6 +71,8 @@
   type mpi_vars_1d
     integer :: rank
     integer :: np
+    integer,dimension(:),allocatable :: snxs, snzs, rnxs, rnzs, sdispls, scounts, rdispls, rcounts
+    real(RP), allocatable :: tmp1(:,:,:), tmp2(:), rwork(:,:,:)
     integer :: comm = -1
   end type
 
@@ -199,10 +201,6 @@
   end type PoisFFT_Solver2D_Many
   
   type mpi_vars_3D
-    integer :: rank
-    integer :: np
-    integer,dimension(:),allocatable :: snxs, snzs, rnxs, rnzs, sdispls, scounts, rdispls, rcounts
-    real(RP), allocatable :: tmp1(:,:,:), tmp2(:), rwork(:,:,:)
     integer :: comm = -1
   end type
 
