@@ -174,7 +174,7 @@
 
         if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
 
-        call data_allocate_complex(D)
+        call allocate_fftw_complex(D)
 
         D%forward = PoisFFT_Plan3D(D, [FFT_Complex, FFTW_FORWARD])
         D%backward = PoisFFT_Plan3D(D, [FFT_Complex, FFTW_BACKWARD])
@@ -183,7 +183,7 @@
 
         if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
 
-        call data_allocate_real(D)
+        call allocate_fftw_real(D)
 
         D%forward = PoisFFT_Plan3D(D, [(FFT_RealOdd00, i=1,3)])
         D%backward = PoisFFT_Plan3D(D, [(FFT_RealOdd00, i=1,3)])
@@ -192,7 +192,7 @@
 
         if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
 
-        call data_allocate_real(D)
+        call allocate_fftw_real(D)
 
         D%forward = PoisFFT_Plan3D(D, [(FFT_RealOdd10, i=1,3)])
         D%backward = PoisFFT_Plan3D(D, [(FFT_RealOdd01, i=1,3)])
@@ -201,7 +201,7 @@
 
         if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
 
-        call data_allocate_real(D)
+        call allocate_fftw_real(D)
 
         D%forward = PoisFFT_Plan3D(D, [(FFT_RealEven00, i=1,3)])
         D%backward = PoisFFT_Plan3D(D, [(FFT_RealEven00, i=1,3)])
@@ -210,7 +210,7 @@
 
         if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
 
-        call data_allocate_real(D)
+        call allocate_fftw_real(D)
 
         D%forward = PoisFFT_Plan3D(D, [(FFT_RealEven10, i=1,3)])
         D%backward = PoisFFT_Plan3D(D, [(FFT_RealEven01, i=1,3)])
@@ -278,12 +278,12 @@
 ! 
 ! 
 ! 
-!         call data_allocate_real(D%Solver1D)
+!         call allocate_fftw_real(D%Solver1D)
 ! 
 !         D%Solver1D%forward = PoisFFT_Plan1D_Many(D%Solver1D, [FFT_RealEven10])
 !         D%Solver1D%backward = PoisFFT_Plan1D_Many(D%Solver1D, [FFT_RealEven01])
 ! 
-!         call data_allocate_complex(D%Solver2D)
+!         call allocate_fftw_complex(D%Solver2D)
 ! 
 !         D%Solver2D%forward = PoisFFT_Plan2D_Many(D%Solver2D, [FFT_Complex, FFTW_FORWARD])
 !         D%Solver2D%backward = PoisFFT_Plan2D_Many(D%Solver2D, [FFT_Complex, FFTW_BACKWARD])
@@ -299,7 +299,7 @@
 
         D%Solvers1D(1) = PoisFFT_Solver1D_From3D(D,3)
 
-        call data_allocate_real(D%Solvers1D(1))
+        call allocate_fftw_real(D%Solvers1D(1))
 
         D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_RealEven10])
         D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_RealEven01])
@@ -308,14 +308,14 @@
           D%Solvers1D(i) = D%Solvers1D(1)
           D%Solvers1D(i)%forward%planowner = .false.
           D%Solvers1D(i)%backward%planowner = .false.
-          call data_allocate_real(D%Solvers1D(i))
+          call allocate_fftw_real(D%Solvers1D(i))
         end do
 
         allocate(D%Solvers2D(D%nthreads))
 
         D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
 
-        call data_allocate_complex(D%Solvers2D(1))
+        call allocate_fftw_complex(D%Solvers2D(1))
 
         D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_FORWARD])
         D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_BACKWARD])
@@ -328,7 +328,7 @@
           D%Solvers2D(i)%forward%planowner = .false.
           D%Solvers2D(i)%backward%planowner = .false.
 #endif
-          call data_allocate_complex(D%Solvers2D(i))
+          call allocate_fftw_complex(D%Solvers2D(i))
 #ifdef MPI
           D%Solvers2D(i)%forward = PoisFFT_Plan2D(D%Solvers2D(i), [FFT_Complex, FFTW_FORWARD])
           D%Solvers2D(i)%backward = PoisFFT_Plan2D(D%Solvers2D(i), [FFT_Complex, FFTW_BACKWARD])
@@ -361,7 +361,8 @@
         call MPI_AllToAll(D%mpi%snxs, 1, MPI_INTEGER, &
                           D%mpi%rnxs, 1, MPI_INTEGER, &
                           D%Solvers1D(1)%mpi%comm, ie)
-        if (.not.all(D%mpi%rnxs(2:D%mpi%np)==D%mpi%rnxs(1))) stop "????"
+        if (.not.all(D%mpi%rnxs(2:D%mpi%np)==D%mpi%rnxs(1))) &
+          stop "PoisFFT internal error: .not.all(D%mpi%rnxs(2:D%mpi%np)==D%mpi%rnxs(1))"
         call MPI_AllToAll(D%mpi%snzs, 1, MPI_INTEGER, &
                           D%mpi%rnzs, 1, MPI_INTEGER, &
                           D%Solvers1D(1)%mpi%comm, ie)
@@ -390,12 +391,35 @@
 
       else if (all(D%BCs(1:2)==PoisFFT_Periodic) .and. &
                all(D%BCs(3:6)==PoisFFT_NeumannStag)) then
-               
+#ifdef MPI
+        !1..x, 2..y, 3..z, not different threads, but directions
+        allocate(D%Solvers1D(3))
+
+        D%Solvers1D(1) = PoisFFT_Solver1D_From3D(D,1)
+        D%Solvers1D(2) = PoisFFT_Solver1D_From3D(D,2)
+        D%Solvers1D(3) = PoisFFT_Solver1D_From3D(D,3)
+        
+        !HACK
+        if (D%Solver1D(2)%mpi_transpose_needed)&
+          stop "These boundary conditions require process grid only in dimension 3 (dimension 1 in C).".
+        
+        call allocate_fftw_complex(D%Solvers1D(1))
+        call allocate_fftw_real(D%Solvers1D(2))
+        call allocate_fftw_real(D%Solvers1D(3))
+        
+        D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_Complex, FFTW_FORWARD])
+        D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_Complex, FFTW_BACKWARD])
+        D%Solvers1D(2)%forward = PoisFFT_Plan2D(D%Solvers1D(2), [FFT_RealEven10,FFT_RealEven10])
+        D%Solvers1D(2)%backward = PoisFFT_Plan2D(D%Solvers1D(2), [FFT_RealEven01,FFT_RealEven01])
+        D%Solvers1D(3)%forward = PoisFFT_Plan2D(D%Solvers1D(3), [FFT_RealEven10,FFT_RealEven10])
+        D%Solvers1D(3)%backward = PoisFFT_Plan2D(D%Solvers1D(3), [FFT_RealEven01,FFT_RealEven01])
+
+#else
         allocate(D%Solvers1D(D%nthreads))
 
         D%Solvers1D(1) = PoisFFT_Solver1D_From3D(D,1)
 
-        call data_allocate_complex(D%Solvers1D(1))
+        call allocate_fftw_complex(D%Solvers1D(1))
 
         D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_Complex, FFTW_FORWARD])
         D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_Complex, FFTW_BACKWARD])
@@ -404,14 +428,14 @@
           D%Solvers1D(i) = D%Solvers1D(1)
           D%Solvers1D(i)%forward%planowner = .false.
           D%Solvers1D(i)%backward%planowner = .false.
-          call data_allocate_complex(D%Solvers1D(i))
+          call allocate_fftw_complex(D%Solvers1D(i))
         end do
 
         allocate(D%Solvers2D(D%nthreads))
 
         D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,1)
 
-        call data_allocate_real(D%Solvers2D(1))
+        call allocate_fftw_real(D%Solvers2D(1))
 
         D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_RealEven10,FFT_RealEven10])
         D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_RealEven01,FFT_RealEven01])
@@ -421,10 +445,10 @@
           D%Solvers2D(i)%forward%planowner = .false.
           D%Solvers2D(i)%backward%planowner = .false.
 
-          call data_allocate_real(D%Solvers2D(i))
+          call allocate_fftw_real(D%Solvers2D(i))
 
         end do
-
+#endif
       endif
 
 
@@ -520,8 +544,8 @@
       call Finalize(D%forward)
       call Finalize(D%backward)
 
-      if (associated(D%rwork)) call data_deallocate(D%rwork)
-      if (associated(D%cwork)) call data_deallocate(D%cwork)
+      if (associated(D%rwork)) call deallocate_fftw(D%rwork)
+      if (associated(D%cwork)) call deallocate_fftw(D%cwork)
 
       if (allocated(D%Solvers1D)) then
         do i=1,size(D%Solvers1D)
@@ -876,28 +900,28 @@
 
       if (all(D%BCs==PoisFFT_Periodic)) then
 
-        call data_allocate_complex(D)
+        call allocate_fftw_complex(D)
 
         D%forward = PoisFFT_Plan2D(D, [FFT_Complex, FFTW_FORWARD])
         D%backward = PoisFFT_Plan2D(D, [FFT_Complex, FFTW_BACKWARD])
 
       else if (all(D%BCs==PoisFFT_Dirichlet)) then
 
-        call data_allocate_real(D)
+        call allocate_fftw_real(D)
 
         D%forward = PoisFFT_Plan2D(D, [(FFT_RealOdd00, i=1,2)])
         D%backward = PoisFFT_Plan2D(D, [(FFT_RealOdd00, i=1,2)])
 
        else if (all(D%BCs==PoisFFT_DirichletStag)) then
 
-        call data_allocate_real(D)
+        call allocate_fftw_real(D)
 
         D%forward = PoisFFT_Plan2D(D, [(FFT_RealOdd10, i=1,2)])
         D%backward = PoisFFT_Plan2D(D, [(FFT_RealOdd01, i=1,2)])
 
       else if (all(D%BCs==PoisFFT_Neumann)) then
 
-        call data_allocate_real(D)
+        call allocate_fftw_real(D)
 
         D%forward = PoisFFT_Plan2D(D, [(FFT_RealEven00, i=1,2)])
 
@@ -905,7 +929,7 @@
 
       else if (all(D%BCs==PoisFFT_NeumannStag)) then
 
-        call data_allocate_real(D)
+        call allocate_fftw_real(D)
 
         D%forward = PoisFFT_Plan2D(D, [(FFT_RealEven10, i=1,2)])
         D%backward = PoisFFT_Plan2D(D, [(FFT_RealEven01, i=1,2)])
@@ -976,8 +1000,8 @@
       call Finalize(D%forward)
       call Finalize(D%backward)
 
-      if (associated(D%rwork)) call data_deallocate(D%rwork)
-      if (associated(D%cwork)) call data_deallocate(D%cwork)
+      if (associated(D%rwork)) call deallocate_fftw(D%rwork)
+      if (associated(D%cwork)) call deallocate_fftw(D%cwork)
 
     endsubroutine PoisFFT_Solver2D_Finalize
 
@@ -1076,35 +1100,35 @@
 
       if (all(D%BCs==PoisFFT_Periodic)) then
 
-        call data_allocate_complex(D)
+        call allocate_fftw_complex(D)
 
         D%forward = PoisFFT_Plan1D(D, [FFT_Complex, FFTW_FORWARD])
         D%backward = PoisFFT_Plan1D(D, [FFT_Complex, FFTW_BACKWARD])
 
       else if (all(D%BCs==PoisFFT_Dirichlet)) then
 
-        call data_allocate_real(D)
+        call allocate_fftw_real(D)
 
         D%forward = PoisFFT_Plan1D(D, [FFT_RealOdd00])
         D%backward = PoisFFT_Plan1D(D, [FFT_RealOdd00])
         
       else if (all(D%BCs==PoisFFT_DirichletStag)) then
 
-        call data_allocate_real(D)
+        call allocate_fftw_real(D)
 
         D%forward = PoisFFT_Plan1D(D, [FFT_RealOdd10])
         D%backward = PoisFFT_Plan1D(D, [FFT_RealOdd01])
         
       else if (all(D%BCs==PoisFFT_Neumann)) then
 
-        call data_allocate_real(D)
+        call allocate_fftw_real(D)
 
         D%forward = PoisFFT_Plan1D(D, [FFT_RealEven00])
         D%backward = PoisFFT_Plan1D(D, [FFT_RealEven00])
         
       else if (all(D%BCs==PoisFFT_NeumannStag)) then
 
-        call data_allocate_real(D)
+        call allocate_fftw_real(D)
 
         D%forward = PoisFFT_Plan1D(D, [FFT_RealEven10])
         D%backward = PoisFFT_Plan1D(D, [FFT_RealEven01])
@@ -1167,8 +1191,8 @@
       call Finalize(D%forward)
       call Finalize(D%backward)
 
-      if (associated(D%rwork)) call data_deallocate(D%rwork)
-      if (associated(D%cwork)) call data_deallocate(D%cwork)
+      if (associated(D%rwork)) call deallocate_fftw(D%rwork)
+      if (associated(D%cwork)) call deallocate_fftw(D%cwork)
 
     endsubroutine PoisFFT_Solver1D_Finalize
 
