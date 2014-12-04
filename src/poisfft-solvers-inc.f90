@@ -645,87 +645,16 @@
 #else
 
     subroutine PoisFFT_Solver3D_PPNs(D, Phi, RHS)
-      type(PoisFFT_Solver3D), intent(inout), target :: D
+      type(PoisFFT_Solver3D), intent(inout) :: D
       real(RP), intent(out) :: Phi(:,:,:)
       real(RP), intent(in)  :: RHS(:,:,:)
       integer i,j,k
 
-      interface
-        subroutine MPI_ALLTOALLV(SENDBUF, SENDCOUNTS, SDISPLS, SENDTYPE, &
-                                 RECVBUF, RECVCOUNTS, RDISPLS, RECVTYPE, COMM, IERROR)
-          import
-          REAL(RP)    SENDBUF(*), RECVBUF(*)
-          INTEGER    SENDCOUNTS(*), SDISPLS(*), SENDTYPE
-          INTEGER    RECVCOUNTS(*), RDISPLS(*), RECVTYPE
-          INTEGER    COMM, IERROR
-        end subroutine
-      end interface
-      integer :: l, ie
-      type(mpi_vars_1d), pointer :: mpi3
-
-
-      mpi3 => D%Solvers1D(3)%mpi
       
       if (D%Solvers1D(3)%mpi_transpose_needed) then
       
-        do k = 1, D%nz
-          do j = 1, D%ny
-            do i = 1, D%nx
-              mpi3%tmp1(k,j,i) = RHS(i,j,k)
-            end do
-          end do
-        end do
-
-        
-        !step2 exchange
-        call MPI_AllToAllV(mpi3%tmp1, mpi3%scounts, mpi3%sdispls, MPI_RP, &
-                           mpi3%tmp2, mpi3%rcounts, mpi3%rdispls, MPI_RP, &
-                           mpi3%comm, ie)
-        !step3 local reordering of blocks
-
-        do l = 1, mpi3%np
-          do k = 0, mpi3%rnxs(1)-1
-            do j = 0, D%ny-1
-              do i = 0, mpi3%rnzs(l)-1
-                mpi3%rwork(i+sum(mpi3%rnzs(1:l-1))+1, j+1, k+1) = &
-                  mpi3%tmp2(i + j*mpi3%rnzs(l) + k*(D%ny*mpi3%rnzs(l)) + mpi3%rdispls(l))
-              end do
-            end do
-          end do
-        end do
-     
-        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-        do k=1,size(mpi3%rwork,3)
-          do j=1,size(mpi3%rwork,2)
-            call Execute(D%Solvers1D(3)%forward,mpi3%rwork(:,j,k))
-          end do
-        end do
-        
-
-        !step3' local reordering of blocks
-        do l = 1, mpi3%np
-          do k = 0, mpi3%rnxs(1)-1
-            do j = 0, D%ny-1
-              do i = 0, mpi3%rnzs(l)-1
-                mpi3%tmp2(i + j*mpi3%rnzs(l) + k*(D%ny*mpi3%rnzs(l)) + mpi3%rdispls(l)) = &
-                  mpi3%rwork(i+sum(mpi3%rnzs(1:l-1))+1, j+1, k+1)
-              end do
-            end do
-          end do
-        end do
-
+        call transform_1d_real_z(D%Solvers1D(3), Phi, RHS, forward=.true., use_rhs=.true.)
       
-        !step2' exchange
-        call MPI_AllToAllV(mpi3%tmp2, mpi3%rcounts, mpi3%rdispls, MPI_RP, &
-                           mpi3%tmp1, mpi3%scounts, mpi3%sdispls, MPI_RP, &
-                           mpi3%comm, ie)
-        do k = 1, D%nz
-          do j = 1, D%ny
-            do i = 1, D%nx
-              Phi(i,j,k) = mpi3%tmp1(k,j,i)
-            end do
-          end do
-        end do
       else
         ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
         do j=1,D%ny
@@ -778,76 +707,8 @@
 
       if (D%Solvers1D(3)%mpi_transpose_needed) then
 
-        !step1 local transpose
-        do k = 1, D%nz
-          do j = 1, D%ny
-            do i = 1, D%nx
-              mpi3%tmp1(k,j,i) = Phi(i,j,k)
-            end do
-          end do
-        end do
-
-        !step2 exchange
-        call MPI_AllToAllV(mpi3%tmp1, mpi3%scounts, mpi3%sdispls, MPI_RP, &
-                           mpi3%tmp2, mpi3%rcounts, mpi3%rdispls, MPI_RP, &
-                           mpi3%comm, ie)
-
-        !step3 local reordering of blocks
-        do l = 1, mpi3%np
-          do k = 0, mpi3%rnxs(1)-1
-            do j = 0, D%ny-1
-              do i = 0, mpi3%rnzs(l)-1
-                mpi3%rwork(i+sum(mpi3%rnzs(1:l-1))+1, j+1, k+1) = &
-                  mpi3%tmp2(i + j*mpi3%rnzs(l) + k*(D%ny*mpi3%rnzs(l)) + mpi3%rdispls(l))
-              end do
-            end do
-          end do
-        end do
-      
-        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-        do k=1,size(mpi3%rwork,3)
-          do j=1,size(mpi3%rwork,2)
-            call Execute(D%Solvers1D(3)%backward, mpi3%rwork(:,j,k))
-          end do
-        end do
-
-        !step3' local reordering of blocks
-        do l = 1, mpi3%np
-          do k = 0, mpi3%rnxs(1)-1
-            do j = 0, D%ny-1
-              do i = 0, mpi3%rnzs(l)-1
-                mpi3%tmp2(i + j*mpi3%rnzs(l) + k*(D%ny*mpi3%rnzs(l)) + mpi3%rdispls(l)) = &
-                  mpi3%rwork(i+sum(mpi3%rnzs(1:l-1))+1, j+1, k+1)
-              end do
-            end do
-          end do
-        end do
-      
-        !step2' exchange
-        call MPI_AllToAllV(mpi3%tmp2, mpi3%rcounts, mpi3%rdispls, MPI_RP, &
-                           mpi3%tmp1, mpi3%scounts, mpi3%sdispls, MPI_RP, &
-                           mpi3%comm, ie)
-
-        do k = 1, D%nz
-          do j = 1, D%ny
-            do i = 1, D%nx
-              Phi(i,j,k) = mpi3%tmp1(k,j,i)
-            end do
-          end do
-        end do
-      else
-        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-        do j=1,D%ny
-          do i=1,D%nx
-            D%Solvers1D(3)%rwork = Phi(i,j,:)
-
-
-            call Execute(D%Solvers1D(3)%backward,D%Solvers1D(3)%rwork)
-
-
-            Phi(i,j,:) = D%Solvers1D(3)%rwork
-          end do
-        end do
+        call transform_1d_real_z(D%Solvers1D(3), Phi, RHS, forward=.false., use_rhs=.false.)
+        
       end if
     end subroutine PoisFFT_Solver3D_PPNs
 #endif
@@ -1057,95 +918,10 @@
       real(RP), intent(in)  :: RHS(:,:,:)
       integer i,j,k
 
-      interface
-        subroutine MPI_ALLTOALLV(SENDBUF, SENDCOUNTS, SDISPLS, SENDTYPE, &
-                                 RECVBUF, RECVCOUNTS, RDISPLS, RECVTYPE, COMM, IERROR)
-          import
-          REAL(RP)    SENDBUF(*), RECVBUF(*)
-          INTEGER    SENDCOUNTS(*), SDISPLS(*), SENDTYPE
-          INTEGER    RECVCOUNTS(*), RDISPLS(*), RECVTYPE
-          INTEGER    COMM, IERROR
-        end subroutine
-      end interface
-      integer :: l, ie
-      type(mpi_vars_1d), pointer :: mpi3
-
-
-      mpi3 => D%Solvers1D(3)%mpi
-
       if (D%Solvers1D(3)%mpi_transpose_needed) then
       
-        do k = 1, D%nz
-          do j = 1, D%ny
-            do i = 1, D%nx
-              mpi3%tmp1(k,j,i) = RHS(i,j,k)
-            end do
-          end do
-        end do
-
+        call transform_1d_real_z(D%Solvers1D(3), Phi, RHS, forward=.true., use_rhs=.true.)
         
-        !step2 exchange
-        call MPI_AllToAllV(mpi3%tmp1, mpi3%scounts, mpi3%sdispls, MPI_RP, &
-                           mpi3%tmp2, mpi3%rcounts, mpi3%rdispls, MPI_RP, &
-                           mpi3%comm, ie)
-        !step3 local reordering of blocks
-
-        do l = 1, mpi3%np
-          do k = 0, mpi3%rnxs(1)-1
-            do j = 0, D%ny-1
-              do i = 0, mpi3%rnzs(l)-1
-                mpi3%rwork(i+sum(mpi3%rnzs(1:l-1))+1, j+1, k+1) = &
-                  mpi3%tmp2(i + j*mpi3%rnzs(l) + k*(D%ny*mpi3%rnzs(l)) + mpi3%rdispls(l))
-              end do
-            end do
-          end do
-        end do
-     
-        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-        do k = 1, size(mpi3%rwork,3)
-          do j = 1, size(mpi3%rwork,2)
-            call Execute(D%Solvers1D(3)%forward,mpi3%rwork(:,j,k))
-          end do
-        end do
-        
-
-        !step3' local reordering of blocks
-        do l = 1, mpi3%np
-          do k = 0, mpi3%rnxs(1)-1
-            do j = 0, D%ny-1
-              do i = 0, mpi3%rnzs(l)-1
-                mpi3%tmp2(i + j*mpi3%rnzs(l) + k*(D%ny*mpi3%rnzs(l)) + mpi3%rdispls(l)) = &
-                  mpi3%rwork(i+sum(mpi3%rnzs(1:l-1))+1, j+1, k+1)
-              end do
-            end do
-          end do
-        end do
-
-      
-        !step2' exchange
-        call MPI_AllToAllV(mpi3%tmp2, mpi3%rcounts, mpi3%rdispls, MPI_RP, &
-                           mpi3%tmp1, mpi3%scounts, mpi3%sdispls, MPI_RP, &
-                           mpi3%comm, ie)
-        do k = 1, D%nz
-          do j = 1, D%ny
-            do i = 1, D%nx
-              Phi(i,j,k) = mpi3%tmp1(k,j,i)
-            end do
-          end do
-        end do
-      else
-        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-        do j = 1, D%ny
-          do i = 1, D%nx
-            D%Solvers1D(3)%rwork = RHS(i,j,:)
-
-
-            call Execute(D%Solvers1D(3)%forward,D%Solvers1D(3)%rwork)
-
-
-            Phi(i,j,:) = D%Solvers1D(3)%rwork
-          end do
-        end do
       end if
       
 
@@ -1203,63 +979,8 @@
 
       if (D%Solvers1D(3)%mpi_transpose_needed) then
 
-        !step1 local transpose
-        do k = 1, D%nz
-          do j = 1, D%ny
-            do i = 1, D%nx
-              mpi3%tmp1(k,j,i) = Phi(i,j,k)
-            end do
-          end do
-        end do
+        call transform_1d_real_z(D%Solvers1D(3), Phi, RHS, forward=.false., use_rhs=.false.)
 
-        !step2 exchange
-        call MPI_AllToAllV(mpi3%tmp1, mpi3%scounts, mpi3%sdispls, MPI_RP, &
-                           mpi3%tmp2, mpi3%rcounts, mpi3%rdispls, MPI_RP, &
-                           mpi3%comm, ie)
-
-        !step3 local reordering of blocks
-        do l = 1, mpi3%np
-          do k = 0, mpi3%rnxs(1)-1
-            do j = 0, D%ny-1
-              do i = 0, mpi3%rnzs(l)-1
-                mpi3%rwork(i+sum(mpi3%rnzs(1:l-1))+1, j+1, k+1) = &
-                  mpi3%tmp2(i + j*mpi3%rnzs(l) + k*(D%ny*mpi3%rnzs(l)) + mpi3%rdispls(l))
-              end do
-            end do
-          end do
-        end do
-      
-        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
-        do k=1,size(mpi3%rwork,3)
-          do j=1,size(mpi3%rwork,2)
-            call Execute(D%Solvers1D(3)%backward, mpi3%rwork(:,j,k))
-          end do
-        end do
-
-        !step3' local reordering of blocks
-        do l = 1, mpi3%np
-          do k = 0, mpi3%rnxs(1)-1
-            do j = 0, D%ny-1
-              do i = 0, mpi3%rnzs(l)-1
-                mpi3%tmp2(i + j*mpi3%rnzs(l) + k*(D%ny*mpi3%rnzs(l)) + mpi3%rdispls(l)) = &
-                  mpi3%rwork(i+sum(mpi3%rnzs(1:l-1))+1, j+1, k+1)
-              end do
-            end do
-          end do
-        end do
-      
-        !step2' exchange
-        call MPI_AllToAllV(mpi3%tmp2, mpi3%rcounts, mpi3%rdispls, MPI_RP, &
-                           mpi3%tmp1, mpi3%scounts, mpi3%sdispls, MPI_RP, &
-                           mpi3%comm, ie)
-
-        do k = 1, D%nz
-          do j = 1, D%ny
-            do i = 1, D%nx
-              Phi(i,j,k) = mpi3%tmp1(k,j,i)
-            end do
-          end do
-        end do
       else
         ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
         do j=1,D%ny
@@ -1338,4 +1059,109 @@
 
     end subroutine PoisFFT_Solver3D_PNsNs
 #endif
+    
+    
+#ifdef MPI    
+    subroutine transform_1d_real_z(D1D, Phi, RHS, forward, use_rhs)
+      type(PoisFFT_Solver1D), intent(inout), target :: D1D
+      real(RP), intent(inout) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      logical, intent(in) :: forward, use_rhs
+      integer :: nx, ny, nz
+      integer :: i,j,k,l, ie
+      interface
+        subroutine MPI_ALLTOALLV(SENDBUF, SENDCOUNTS, SDISPLS, SENDTYPE, &
+                                 RECVBUF, RECVCOUNTS, RDISPLS, RECVTYPE, COMM, IERROR)
+          import
+          REAL(RP)    SENDBUF(*), RECVBUF(*)
+          INTEGER    SENDCOUNTS(*), SDISPLS(*), SENDTYPE
+          INTEGER    RECVCOUNTS(*), RDISPLS(*), RECVTYPE
+          INTEGER    COMM, IERROR
+        end subroutine
+      end interface
+
+      nx = size(Phi, 1)
+      ny = size(Phi, 2)
+      nz = size(Phi, 3)
+
+      associate(mpi => D1D%mpi)
+  
+        if (use_rhs) then
+          do k = 1, nz
+            do j = 1, ny
+              do i = 1, nx
+                mpi%tmp1(k,j,i) = RHS(i,j,k)
+              end do
+            end do
+          end do
+        else
+          do k = 1, nz
+            do j = 1, ny
+              do i = 1, nx
+                mpi%tmp1(k,j,i) = Phi(i,j,k)
+              end do
+            end do
+          end do
+        end if
+        
+        !step2 exchange
+        call MPI_AllToAllV(mpi%tmp1, mpi%scounts, mpi%sdispls, MPI_RP, &
+                           mpi%tmp2, mpi%rcounts, mpi%rdispls, MPI_RP, &
+                           mpi%comm, ie)
+                           
+        !step3 local reordering of blocks
+        do l = 1, mpi%np
+          do k = 0, mpi%rnxs(1)-1
+            do j = 0, ny-1
+              do i = 0, mpi%rnzs(l)-1
+                mpi%rwork(i+sum(mpi%rnzs(1:l-1))+1, j+1, k+1) = &
+                  mpi%tmp2(i + j*mpi%rnzs(l) + k*(ny*mpi%rnzs(l)) + mpi%rdispls(l))
+              end do
+            end do
+          end do
+        end do
+     
+        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
+        if (forward) then
+          do k=1,size(mpi%rwork,3)
+            do j=1,size(mpi%rwork,2)
+              call Execute(D1D%forward,mpi%rwork(:,j,k))
+            end do
+          end do
+        else
+          do k=1,size(mpi%rwork,3)
+            do j=1,size(mpi%rwork,2)
+              call Execute(D1D%backward,mpi%rwork(:,j,k))
+            end do
+          end do
+        end if      
+
+        !step3' local reordering of blocks
+        do l = 1, mpi%np
+          do k = 0, mpi%rnxs(1)-1
+            do j = 0, ny-1
+              do i = 0, mpi%rnzs(l)-1
+                mpi%tmp2(i + j*mpi%rnzs(l) + k*(ny*mpi%rnzs(l)) + mpi%rdispls(l)) = &
+                  mpi%rwork(i+sum(mpi%rnzs(1:l-1))+1, j+1, k+1)
+              end do
+            end do
+          end do
+        end do
+
+      
+        !step2' exchange
+        call MPI_AllToAllV(mpi%tmp2, mpi%rcounts, mpi%rdispls, MPI_RP, &
+                           mpi%tmp1, mpi%scounts, mpi%sdispls, MPI_RP, &
+                           mpi%comm, ie)
+        do k = 1, nz
+          do j = 1, ny
+            do i = 1, nx
+              Phi(i,j,k) = mpi%tmp1(k,j,i)
+            end do
+          end do
+        end do
+        
+      end associate
+    end subroutine transform_1d_real_z
+#endif    
     
