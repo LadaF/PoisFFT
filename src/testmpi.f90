@@ -901,16 +901,12 @@ program testpoisson_MPI
  RHS = RHS - S / product(ng)
 
   
- if (nyims==1) then
    call MPI_Barrier(mpi_comm,ie)
    
    if (master) write(*,*) "3D PNsNs"
 
    call compute3d([(PoisFFT_Periodic, i=1,2),(PoisFFT_NeumannStag, i=3,6)])
- else
-   write(*,*) "Ignoring 3D PNsNs"
-   write(*,*)
- end if
+
 
    call MPI_Barrier(mpi_comm,ie)
    
@@ -940,18 +936,18 @@ program testpoisson_MPI
    call compute3D([(PoisFFT_Periodic, i=1,6)])
  
  
-!   call MPI_Barrier(mpi_comm,ie)
-!   
-!   if (master) write(*,*) "2D Periodic"
-! 
-!   call compute2D([(PoisFFT_Periodic, i=1,4)])
-!   
-! 
-!   call MPI_Barrier(mpi_comm,ie)
-!   
-!   if (master) write(*,*) "1D Periodic"
-! 
-!   call compute1D([(PoisFFT_Periodic, i=1,2)])
+  call MPI_Barrier(mpi_comm,ie)
+  
+  if (master) write(*,*) "2D Periodic"
+
+  call compute2D([(PoisFFT_Periodic, i=1,4)])
+  
+
+  call MPI_Barrier(mpi_comm,ie)
+  
+  if (master) write(*,*) "1D Periodic"
+
+  call compute1D([(PoisFFT_Periodic, i=1,2)])
 
 
   call MPI_Barrier(mpi_comm,ie)

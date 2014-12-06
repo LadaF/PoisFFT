@@ -356,10 +356,6 @@
         D%Solvers1D(2) = PoisFFT_Solver1D_From3D(D,2)
         D%Solvers1D(3) = PoisFFT_Solver1D_From3D(D,3)
         
-        !HACK
-        if (D%Solvers1D(2)%mpi_transpose_needed)&
-          stop "These boundary conditions require process grid only in dimension 3 (dimension 1 in C)."
-        
         call allocate_fftw_complex(D%Solvers1D(1))
         call allocate_fftw_real(D%Solvers1D(2))
         call allocate_fftw_real(D%Solvers1D(3))
@@ -371,6 +367,7 @@
         D%Solvers1D(3)%forward = PoisFFT_Plan1D(D%Solvers1D(3), [FFT_RealEven10,FFT_RealEven10])
         D%Solvers1D(3)%backward = PoisFFT_Plan1D(D%Solvers1D(3), [FFT_RealEven01,FFT_RealEven01])
         
+        call Init_MPI_Buffers(D, 2)
         call Init_MPI_Buffers(D, 3)
 
 #else
@@ -1292,7 +1289,39 @@
       allocate(mpi%rdispls(mpi%np))
       allocate(mpi%rcounts(mpi%np))
         
-      if (dir==3) then
+      if (dir==2) then
+        mpi%snxs(1:mpi%np-1) = (D%nx / mpi%np)
+        mpi%snxs(mpi%np) = D%nx - sum(mpi%snxs(1:mpi%np-1))
+        mpi%snzs = D%ny
+        mpi%scounts = mpi%snxs*D%ny*D%nz
+        mpi%sdispls(1) = 0
+        do i = 2, mpi%np
+          mpi%sdispls(i) = mpi%sdispls(i-1) + mpi%scounts(i-1)
+        end do
+
+        call MPI_AllToAll(mpi%snxs, 1, MPI_INTEGER, &
+                          mpi%rnxs, 1, MPI_INTEGER, &
+                          mpi%comm, ie)
+        if (.not.all(mpi%rnxs(2:mpi%np)==mpi%rnxs(1))) &
+          stop "PoisFFT internal error: .not.all(mpi%rnxs(2:mpi%np)==mpi%rnxs(1))"
+        call MPI_AllToAll(mpi%snzs, 1, MPI_INTEGER, &
+                          mpi%rnzs, 1, MPI_INTEGER, &
+                          mpi%comm, ie)
+        call MPI_AllToAll(mpi%scounts, 1, MPI_INTEGER, &
+                          mpi%rcounts, 1, MPI_INTEGER, &
+                          mpi%comm, ie)
+
+        mpi%rdispls(1) = 0
+        do i = 2, mpi%np
+          mpi%rdispls(i) = mpi%rdispls(i-1) + mpi%rcounts(i-1)
+        end do
+
+        allocate(mpi%tmp1(1:D%ny,1:D%nz,1:D%nx))
+        allocate(mpi%tmp2(0:sum(mpi%rcounts)-1))
+        allocate(mpi%rwork(sum(mpi%rnzs), D%nz, mpi%rnxs(1)))
+        
+      else if (dir==3) then
+      
         mpi%snxs(1:mpi%np-1) = (D%nx / mpi%np)
         mpi%snxs(mpi%np) = D%nx - sum(mpi%snxs(1:mpi%np-1))
         mpi%snzs = D%nz
@@ -1314,15 +1343,11 @@
                           mpi%rcounts, 1, MPI_INTEGER, &
                           mpi%comm, ie)
 
-        call MPI_AllToAll(mpi%sdispls, 1, MPI_INTEGER, &
-                          mpi%rdispls, 1, MPI_INTEGER, &
-                          mpi%comm, ie)
-
         mpi%rdispls(1) = 0
         do i = 2, mpi%np
           mpi%rdispls(i) = mpi%rdispls(i-1) + mpi%rcounts(i-1)
         end do
-        !step1 local transpose
+
         allocate(mpi%tmp1(1:D%nz,1:D%ny,1:D%nx))
         allocate(mpi%tmp2(0:sum(mpi%rcounts)-1))
         allocate(mpi%rwork(sum(mpi%rnzs), D%ny, mpi%rnxs(1)))

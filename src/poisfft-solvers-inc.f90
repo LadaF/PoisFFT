@@ -922,11 +922,23 @@
       
         call transform_1d_real_z(D%Solvers1D(3), Phi, RHS, forward=.true., use_rhs=.true.)
         
+      else
+        do j=1,D%ny
+          do i=1,D%nx
+            D%Solvers1D(3)%rwork = RHS(i,j,:)
+
+            call Execute(D%Solvers1D(3)%forward,D%Solvers1D(3)%rwork)
+
+            Phi(i,j,:) = D%Solvers1D(3)%rwork
+          end do
+        end do
       end if
       
 
       if (D%Solvers1D(2)%mpi_transpose_needed) then
-        stop "Not impemented."
+      
+        call transform_1d_real_y(D%Solvers1D(2), Phi, RHS, forward=.true., use_rhs=.false.)
+        
       else
         do k = 1, D%nz
           do i = 1, D%nx
@@ -963,7 +975,9 @@
       end do
 
       if (D%Solvers1D(2)%mpi_transpose_needed) then
-        stop "Not impemented."
+
+        call transform_1d_real_y(D%Solvers1D(2), Phi, RHS, forward=.false., use_rhs=.false.)
+
       else
         do k = 1, D%nz
           do i = 1, D%nx
@@ -982,7 +996,6 @@
         call transform_1d_real_z(D%Solvers1D(3), Phi, RHS, forward=.false., use_rhs=.false.)
 
       else
-        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
         do j=1,D%ny
           do i=1,D%nx
             D%Solvers1D(3)%rwork = Phi(i,j,:)
@@ -1062,6 +1075,110 @@
     
     
 #ifdef MPI    
+    subroutine transform_1d_real_y(D1D, Phi, RHS, forward, use_rhs)
+      type(PoisFFT_Solver1D), intent(inout), target :: D1D
+      real(RP), intent(inout) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      logical, intent(in) :: forward, use_rhs
+      integer :: nx, ny, nz
+      integer :: i,j,k,l, ie
+      interface
+        subroutine MPI_ALLTOALLV(SENDBUF, SENDCOUNTS, SDISPLS, SENDTYPE, &
+                                 RECVBUF, RECVCOUNTS, RDISPLS, RECVTYPE, COMM, IERROR)
+          import
+          REAL(RP)    SENDBUF(*), RECVBUF(*)
+          INTEGER    SENDCOUNTS(*), SDISPLS(*), SENDTYPE
+          INTEGER    RECVCOUNTS(*), RDISPLS(*), RECVTYPE
+          INTEGER    COMM, IERROR
+        end subroutine
+      end interface
+
+      nx = size(Phi, 1)
+      ny = size(Phi, 2)
+      nz = size(Phi, 3)
+
+      associate(mpi => D1D%mpi)
+  
+        !step1 local transpose
+        if (use_rhs) then
+          do k = 1, nz
+            do j = 1, ny
+              do i = 1, nx
+                mpi%tmp1(j,k,i) = RHS(i,j,k)
+              end do
+            end do
+          end do
+        else
+          do k = 1, nz
+            do j = 1, ny
+              do i = 1, nx
+                mpi%tmp1(j,k,i) = Phi(i,j,k)
+              end do
+            end do
+          end do
+        end if
+        
+        !step2 exchange
+        call MPI_AllToAllV(mpi%tmp1, mpi%scounts, mpi%sdispls, MPI_RP, &
+                           mpi%tmp2, mpi%rcounts, mpi%rdispls, MPI_RP, &
+                           mpi%comm, ie)
+                           
+        !step3 local reordering of blocks
+        do l = 1, mpi%np
+          do k = 0, mpi%rnxs(1)-1
+            do j = 0, nz-1
+              do i = 0, mpi%rnzs(l)-1
+                mpi%rwork(i+sum(mpi%rnzs(1:l-1))+1, j+1, k+1) = &
+                  mpi%tmp2(i + j*mpi%rnzs(l) + k*(nz*mpi%rnzs(l)) + mpi%rdispls(l))
+              end do
+            end do
+          end do
+        end do
+     
+        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
+        if (forward) then
+          do k=1,size(mpi%rwork,3)
+            do j=1,size(mpi%rwork,2)
+              call Execute(D1D%forward,mpi%rwork(:,j,k))
+            end do
+          end do
+        else
+          do k=1,size(mpi%rwork,3)
+            do j=1,size(mpi%rwork,2)
+              call Execute(D1D%backward,mpi%rwork(:,j,k))
+            end do
+          end do
+        end if      
+
+        !step3' local reordering of blocks
+        do l = 1, mpi%np
+          do k = 0, mpi%rnxs(1)-1
+            do j = 0, nz-1
+              do i = 0, mpi%rnzs(l)-1
+                mpi%tmp2(i + j*mpi%rnzs(l) + k*(nz*mpi%rnzs(l)) + mpi%rdispls(l)) = &
+                  mpi%rwork(i+sum(mpi%rnzs(1:l-1))+1, j+1, k+1)
+              end do
+            end do
+          end do
+        end do
+
+      
+        !step2' exchange
+        call MPI_AllToAllV(mpi%tmp2, mpi%rcounts, mpi%rdispls, MPI_RP, &
+                           mpi%tmp1, mpi%scounts, mpi%sdispls, MPI_RP, &
+                           mpi%comm, ie)
+        do k = 1, nz
+          do j = 1, ny
+            do i = 1, nx
+              Phi(i,j,k) = mpi%tmp1(j,k,i)
+            end do
+          end do
+        end do
+        
+      end associate
+    end subroutine transform_1d_real_y
+    
+    
     subroutine transform_1d_real_z(D1D, Phi, RHS, forward, use_rhs)
       type(PoisFFT_Solver1D), intent(inout), target :: D1D
       real(RP), intent(inout) :: Phi(:,:,:)
@@ -1086,6 +1203,7 @@
 
       associate(mpi => D1D%mpi)
   
+        !step1 local transpose
         if (use_rhs) then
           do k = 1, nz
             do j = 1, ny
@@ -1163,5 +1281,6 @@
         
       end associate
     end subroutine transform_1d_real_z
+
 #endif    
     
