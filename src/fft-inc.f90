@@ -40,25 +40,11 @@
   end type PoisFFT_Plan1D
 
 
-  type PoisFFT_Plan1D_Many
-    type(c_ptr)         :: planptr=c_null_ptr
-    logical             :: planowner=.false.
-    integer(c_int)      :: dir
-  end type PoisFFT_Plan1D_Many
-
-
   type PoisFFT_Plan2D
     type(c_ptr)         :: planptr=c_null_ptr
     logical             :: planowner=.false.
     integer(c_int)      :: dir
   end type PoisFFT_Plan2D
-
-
-  type PoisFFT_Plan2D_Many
-    type(c_ptr)         :: planptr=c_null_ptr
-    logical             :: planowner=.false.
-    integer(c_int)      :: dir
-  end type PoisFFT_Plan2D_Many
 
 
   type PoisFFT_Plan3D
@@ -105,37 +91,6 @@
     type(mpi_vars_1D) :: mpi
   end type PoisFFT_Solver1D
 
-  type PoisFFT_Solver1D_Many
-    real(RP) :: Lx
-    integer(c_int) :: nxyz(1)
-    integer(c_int) :: nx
-    integer(c_int) :: gnx
-    integer(c_int) :: offx = 0 !offset from global index
-    integer(c_size_t) :: cnt
-    integer(c_size_t) :: gcnt
-    real(RP) :: norm_factor
-    integer(c_int) :: howmany
-    integer(C_size_t), dimension(3) :: workdims
-    integer(c_int), dimension(2) :: BCs
-    real(RP), allocatable, dimension(:) :: denomx
-    integer :: approximation = 0
-    
-    type(PoisFFT_Plan1D_Many) :: forward, backward
-    complex(CP), dimension(:,:,:), &
-#ifndef NO_CONTIGUOUS
-    contiguous, &
-#endif
-                       pointer :: cwork => null()
-    real(RP), dimension(:,:,:), &
-#ifndef NO_CONTIGUOUS
-    contiguous, &
-#endif
-                       pointer :: rwork => null()
-    logical :: mpi_transpose_needed = .false.
-    integer :: nthreads = 1
-    type(mpi_vars_1D) :: mpi
-  end type PoisFFT_Solver1D_Many
-  
   type mpi_vars_2d
     integer :: rank
     integer :: np
@@ -169,36 +124,6 @@
     integer :: nthreads = 1
     type(mpi_vars_2D) :: mpi
   end type PoisFFT_Solver2D
-
-  type PoisFFT_Solver2D_Many
-    real(RP) :: Lx, Ly
-    integer(c_int) :: nxyz(2)
-    integer(c_int) :: nx, ny
-    integer(c_int) :: gnx, gny
-    integer(c_int) :: offx = 0, offy = 0 !offsets from global indexes
-    integer(c_size_t) :: cnt
-    integer(c_size_t) :: gcnt
-    real(RP) :: norm_factor
-    integer(c_int) :: howmany
-    integer(c_size_t), dimension(3) :: workdims
-    integer(c_int), dimension(4) :: BCs
-    real(RP), allocatable, dimension(:) :: denomx, denomy
-    integer :: approximation = 0
-    
-    type(PoisFFT_Plan2D_Many) :: forward, backward
-    complex(CP), dimension(:,:,:), &
-#ifndef NO_CONTIGUOUS
-    contiguous, &
-#endif
-                       pointer :: cwork => null()
-    real(RP), dimension(:,:,:), &
-#ifndef NO_CONTIGUOUS
-    contiguous, &
-#endif
-                       pointer :: rwork => null()
-    integer :: nthreads = 1
-    type(mpi_vars_2D) :: mpi
-  end type PoisFFT_Solver2D_Many
   
   type mpi_vars_3D
     integer :: comm = -1
@@ -232,8 +157,6 @@
     !will be used in splitting for some boundary conditions
     type(PoisFFT_Solver1D),dimension(:),allocatable :: Solvers1D
     type(PoisFFT_Solver2D),dimension(:),allocatable :: Solvers2D
-!     type(PoisFFT_Solver1D_Many),allocatable :: Solver1D
-!     type(PoisFFT_Solver2D_Many),allocatable :: Solver2D
     type(mpi_vars_3D) :: mpi
  end type PoisFFT_Solver3D
 
@@ -250,27 +173,19 @@
     module procedure allocate_fftw_1D_real
     module procedure allocate_fftw_2D_real
     module procedure allocate_fftw_3D_real
-    module procedure allocate_fftw_1D_many_real
-    module procedure allocate_fftw_2D_many_real
   end interface
 
   interface allocate_fftw_complex
     module procedure allocate_fftw_1D_complex
     module procedure allocate_fftw_2D_complex
     module procedure allocate_fftw_3D_complex
-    module procedure allocate_fftw_1D_many_complex
-    module procedure allocate_fftw_2D_many_complex
   end interface
 
   interface Execute
     module procedure PoisFFT_Plan1D_Execute_Real
     module procedure PoisFFT_Plan1D_Execute_Complex
-    module procedure PoisFFT_Plan1D_Many_Execute_Real
-    module procedure PoisFFT_Plan1D_Many_Execute_Complex
     module procedure PoisFFT_Plan2D_Execute_Real
     module procedure PoisFFT_Plan2D_Execute_Complex
-    module procedure PoisFFT_Plan2D_Many_Execute_Real
-    module procedure PoisFFT_Plan2D_Many_Execute_Complex
     module procedure PoisFFT_Plan3D_Execute_Real
     module procedure PoisFFT_Plan3D_Execute_Complex
   end interface
@@ -279,7 +194,6 @@
   interface Execute_MPI
     module procedure PoisFFT_Plan1D_Execute_MPI
     module procedure PoisFFT_Plan2D_Execute_MPI
-    module procedure PoisFFT_Plan2D_Many_Execute_MPI
     module procedure PoisFFT_Plan3D_Execute_MPI
  end interface
 #endif
@@ -298,13 +212,6 @@
   end interface
   interface PoisFFT_Plan3D
     module procedure PoisFFT_Plan3D_New
-  end interface
-
-  interface PoisFFT_Plan1D_Many
-    module procedure PoisFFT_Plan1D_Many_New
-  end interface
-  interface PoisFFT_Plan2D_Many
-    module procedure PoisFFT_Plan2D_Many_New
   end interface
 
 
@@ -332,19 +239,6 @@
 
 
 
-    function PoisFFT_Plan1D_Many_New(D, plantypes) result(plan)
-#define dimensions 1
-#include "plan_new_many-inc.f90"
-#undef dimensions
-    end function
-
-    function PoisFFT_Plan2D_Many_New(D, plantypes) result(plan)
-#define dimensions 2
-#include "plan_new_many-inc.f90"
-#undef dimensions
-    end function
-
-
 
 
     subroutine allocate_fftw_1D_complex(D)
@@ -368,26 +262,6 @@
     end subroutine
 
 
-    subroutine allocate_fftw_1D_many_complex(D)
-#define dimensions 1
-#define realcomplex 2
-
-#include "allocate_fftw_many-inc.f90"
-
-#undef dimensions
-#undef realcomplex
-    end subroutine
-
-    subroutine allocate_fftw_1D_many_real(D)
-#define dimensions 1
-#define realcomplex 1
-
-#include "allocate_fftw_many-inc.f90"
-
-#undef dimensions
-#undef realcomplex
-    end subroutine
-
 
     subroutine allocate_fftw_2D_complex(D)
 #define dimensions 2
@@ -410,25 +284,6 @@
     end subroutine
 
     
-    subroutine allocate_fftw_2D_many_complex(D)
-#define dimensions 2
-#define realcomplex 2
-
-#include "allocate_fftw_many-inc.f90"
-
-#undef dimensions
-#undef realcomplex
-    end subroutine
-
-    subroutine allocate_fftw_2D_many_real(D)
-#define dimensions 2
-#define realcomplex 1
-
-#include "allocate_fftw_many-inc.f90"
-
-#undef dimensions
-#undef realcomplex
-    end subroutine
     
 
     subroutine allocate_fftw_3D_complex(D)
@@ -479,31 +334,6 @@
     end subroutine
     
 
-    subroutine PoisFFT_Plan1D_Many_Execute_Complex(plan, data)
-      type(PoisFFT_Plan1D_Many), intent(in) :: plan
-      complex(CP), dimension(:,:,:) &
-#ifndef NO_CONTIGUOUS
-                               , contiguous &
-#endif
-                                           :: data
-
-      call fftw_execute_complex(plan%planptr, data, data)
-
-    end subroutine
-
-    subroutine PoisFFT_Plan1D_Many_Execute_Real(plan, data)
-      type(PoisFFT_Plan1D_Many), intent(in) :: plan
-      real(RP), dimension(:,:,:) &
-#ifndef NO_CONTIGUOUS
-                               , contiguous &
-#endif
-                                           :: data
-
-      call fftw_execute_real(plan%planptr, data, data)
-
-    end subroutine
-    
-
     subroutine PoisFFT_Plan2D_Execute_Complex(plan, data)
       type(PoisFFT_Plan2D), intent(in) :: plan
       complex(CP), dimension(:,:) &
@@ -520,32 +350,6 @@
     subroutine PoisFFT_Plan2D_Execute_Real(plan, data)
       type(PoisFFT_Plan2D), intent(in) :: plan
       real(RP), dimension(:,:) &
-#ifndef NO_CONTIGUOUS
-                               , contiguous &
-#endif
-                                           :: data
-
-      call fftw_execute_real(plan%planptr, data, data)
-
-    end subroutine
-    
-
-    subroutine PoisFFT_Plan2D_Many_Execute_Complex(plan, data)
-      type(PoisFFT_Plan2D_Many), intent(in) :: plan
-      complex(CP), dimension(:,:,:) &
-#ifndef NO_CONTIGUOUS
-                               , contiguous &
-#endif
-                                           :: data
-
-      call fftw_execute_complex(plan%planptr, data, data)
-
-    end subroutine
-
-
-    subroutine PoisFFT_Plan2D_Many_Execute_Real(plan, data)
-      type(PoisFFT_Plan2D_Many), intent(in) :: plan
-      real(RP), dimension(:,:,:) &
 #ifndef NO_CONTIGUOUS
                                , contiguous &
 #endif
@@ -593,13 +397,6 @@
 
     subroutine PoisFFT_Plan2D_Execute_MPI(plan)
       type(PoisFFT_Plan2D), intent(in) :: plan
-
-        call pfft_execute_gen(plan%planptr)
-
-    end subroutine
-
-    subroutine PoisFFT_Plan2D_Many_Execute_MPI(plan)
-      type(PoisFFT_Plan2D_Many), intent(in) :: plan
 
         call pfft_execute_gen(plan%planptr)
 

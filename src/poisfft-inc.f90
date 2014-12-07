@@ -113,6 +113,12 @@
 
       D%BCs = BCs
       
+      if (D%BCs(1)/=D%BCs(2) .or. &
+          D%BCs(3)/=D%BCs(4) .or. &
+          D%BCs(5)/=D%BCs(6)) then
+        stop "Both boundary consitions in one direction must be identical."
+      end if
+      
       if (present(approximation)) D%approximation = approximation
       
       if (present(mpi_comm)) then
@@ -138,7 +144,7 @@
 
     subroutine PoisFFT_Solver3D_Init(D)
       type(PoisFFT_Solver3D), intent(inout) :: D
-      integer :: i
+      integer :: real_forw, real_back, i
       !$omp parallel
       !$omp single
       !$ D%nthreads = omp_get_num_threads()
@@ -153,6 +159,7 @@
       allocate(D%denomy(D%ny))
       allocate(D%denomz(D%nz))
       
+      
 #ifndef MPI
       if (D%nthreads>1) call PoisFFT_InitThreads(1)
 #endif
@@ -166,120 +173,24 @@
         D%forward = PoisFFT_Plan3D(D, [FFT_Complex, FFTW_FORWARD])
         D%backward = PoisFFT_Plan3D(D, [FFT_Complex, FFTW_BACKWARD])
         
-      else if (all(D%BCs==PoisFFT_Dirichlet)) then
+      else if (all(D%BCs==PoisFFT_Dirichlet) .or. &
+               all(D%BCs==PoisFFT_DirichletStag) .or. &
+               all(D%BCs==PoisFFT_Neumann) .or. &
+               all(D%BCs==PoisFFT_NeumannStag)) then
 
         if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
 
         call allocate_fftw_real(D)
+        
+        real_forw = real_transform_type_forward(D%BCs(1))
+        real_back = real_transform_type_backward(D%BCs(1))
 
-        D%forward = PoisFFT_Plan3D(D, [(FFT_RealOdd00, i=1,3)])
-        D%backward = PoisFFT_Plan3D(D, [(FFT_RealOdd00, i=1,3)])
-      
-      else if (all(D%BCs==PoisFFT_DirichletStag)) then
-
-        if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
-
-        call allocate_fftw_real(D)
-
-        D%forward = PoisFFT_Plan3D(D, [(FFT_RealOdd10, i=1,3)])
-        D%backward = PoisFFT_Plan3D(D, [(FFT_RealOdd01, i=1,3)])
-      
-      else if (all(D%BCs==PoisFFT_Neumann)) then
-
-        if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
-
-        call allocate_fftw_real(D)
-
-        D%forward = PoisFFT_Plan3D(D, [(FFT_RealEven00, i=1,3)])
-        D%backward = PoisFFT_Plan3D(D, [(FFT_RealEven00, i=1,3)])
-
-      else if (all(D%BCs==PoisFFT_NeumannStag)) then
-
-        if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
-
-        call allocate_fftw_real(D)
-
-        D%forward = PoisFFT_Plan3D(D, [(FFT_RealEven10, i=1,3)])
-        D%backward = PoisFFT_Plan3D(D, [(FFT_RealEven01, i=1,3)])
+        D%forward = PoisFFT_Plan3D(D, [(real_forw, i=1,3)])
+        D%backward = PoisFFT_Plan3D(D, [(real_back, i=1,3)])
 
       else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
-               all(D%BCs(5:6)==PoisFFT_NeumannStag)) then
-      
-#ifdef MANY_VARIANT
-
-!         allocate(D%Solver1D)
-!         allocate(D%Solver2D)
-! 
-!         D%Solver1D = PoisFFT_Solver1D_Many_From3D(D,3)
-! 
-!         D%Solver2D = PoisFFT_Solver2D_Many_From3D(D,3)
-! 
-! #ifdef MPI
-!         call MPI_Comm_rank(D%Solver1D%mpi%comm, D%mpi%rank, ie)
-!         call MPI_Comm_size(D%Solver1D%mpi%comm, D%mpi%np, ie)
-!         allocate(D%mpi%snxs(D%mpi%np))
-!         allocate(D%mpi%snzs(D%mpi%np))
-!         allocate(D%mpi%rnxs(D%mpi%np))
-!         allocate(D%mpi%rnzs(D%mpi%np))
-!         allocate(D%mpi%sdispls(D%mpi%np))
-!         allocate(D%mpi%scounts(D%mpi%np))
-!         allocate(D%mpi%rdispls(D%mpi%np))
-!         allocate(D%mpi%rcounts(D%mpi%np))
-!         
-!         D%mpi%snxs(1:D%mpi%np-1) = (D%nx / D%mpi%np)
-!         D%mpi%snxs(D%mpi%np) = D%nx - sum(D%mpi%snxs(1:D%mpi%np-1))
-!         D%mpi%snzs = D%nz
-!         D%mpi%scounts = D%mpi%snxs*D%ny*D%nz
-!         D%mpi%sdispls(1) = 0
-!         do i = 2, D%mpi%np
-!           D%mpi%sdispls(i) = D%mpi%sdispls(i-1) + D%mpi%scounts(i-1)
-!         end do
-! 
-!         call MPI_AllToAll(D%mpi%snxs, 1, MPI_INTEGER, &
-!                           D%mpi%rnxs, 1, MPI_INTEGER, &
-!                           D%Solver1D%mpi%comm, ie)
-!         if (.not.all(D%mpi%rnxs(2:D%mpi%np)==D%mpi%rnxs(1))) stop "????"
-!         call MPI_AllToAll(D%mpi%snzs, 1, MPI_INTEGER, &
-!                           D%mpi%rnzs, 1, MPI_INTEGER, &
-!                           D%Solver1D%mpi%comm, ie)
-!         call MPI_AllToAll(D%mpi%scounts, 1, MPI_INTEGER, &
-!                           D%mpi%rcounts, 1, MPI_INTEGER, &
-!                           D%Solver1D%mpi%comm, ie)
-! 
-!         call MPI_AllToAll(D%mpi%sdispls, 1, MPI_INTEGER, &
-!                           D%mpi%rdispls, 1, MPI_INTEGER, &
-!                           D%Solver1D%mpi%comm, ie)
-! 
-!         D%mpi%rdispls(1) = 0
-!         do i = 2, D%mpi%np
-!           D%mpi%rdispls(i) = D%mpi%rdispls(i-1) + D%mpi%rcounts(i-1)
-!         end do
-!         !step1 local transpose
-!         allocate(D%mpi%tmp1(1:D%nz,1:D%ny,1:D%nx))
-!         allocate(D%mpi%tmp2(0:sum(D%mpi%rcounts)-1))
-!         
-!         D%Solver1D%workdims = [sum(D%mpi%rnzs), D%ny, D%mpi%rnxs(1)]
-!         D%Solver1D%howmany = D%ny * D%mpi%rnxs(1)
-! #endif
-! 
-! 
-! 
-! 
-!         call allocate_fftw_real(D%Solver1D)
-! 
-!         D%Solver1D%forward = PoisFFT_Plan1D_Many(D%Solver1D, [FFT_RealEven10])
-!         D%Solver1D%backward = PoisFFT_Plan1D_Many(D%Solver1D, [FFT_RealEven01])
-! 
-!         call allocate_fftw_complex(D%Solver2D)
-! 
-!         D%Solver2D%forward = PoisFFT_Plan2D_Many(D%Solver2D, [FFT_Complex, FFTW_FORWARD])
-!         D%Solver2D%backward = PoisFFT_Plan2D_Many(D%Solver2D, [FFT_Complex, FFTW_BACKWARD])
-
-
-
-!MANY_VARIANT
-#else
-
+               (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
+                all(D%BCs(5:6)==PoisFFT_NeumannStag) )) then
 
 #ifdef MPI
         allocate(D%Solvers1D(3:3))
@@ -342,12 +253,13 @@
 #endif
 
 
-
-!MANY_VARIANT
-#endif
-
       else if (all(D%BCs(1:2)==PoisFFT_Periodic) .and. &
-               all(D%BCs(3:6)==PoisFFT_NeumannStag)) then
+               (all(D%BCs(3:6)==PoisFFT_Neumann) .or. &
+                all(D%BCs(3:6)==PoisFFT_NeumannStag) )) then
+
+        real_forw = real_transform_type_forward(D%BCs(3))
+        real_back = real_transform_type_backward(D%BCs(3))
+        
 #ifdef MPI
         !1..x, 2..y, 3..z, not different threads, but directions
         allocate(D%Solvers1D(3))
@@ -362,10 +274,10 @@
         
         D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_Complex, FFTW_FORWARD])
         D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_Complex, FFTW_BACKWARD])
-        D%Solvers1D(2)%forward = PoisFFT_Plan1D(D%Solvers1D(2), [FFT_RealEven10,FFT_RealEven10])
-        D%Solvers1D(2)%backward = PoisFFT_Plan1D(D%Solvers1D(2), [FFT_RealEven01,FFT_RealEven01])
-        D%Solvers1D(3)%forward = PoisFFT_Plan1D(D%Solvers1D(3), [FFT_RealEven10,FFT_RealEven10])
-        D%Solvers1D(3)%backward = PoisFFT_Plan1D(D%Solvers1D(3), [FFT_RealEven01,FFT_RealEven01])
+        D%Solvers1D(2)%forward = PoisFFT_Plan1D(D%Solvers1D(2), [real_forw])
+        D%Solvers1D(2)%backward = PoisFFT_Plan1D(D%Solvers1D(2), [real_back])
+        D%Solvers1D(3)%forward = PoisFFT_Plan1D(D%Solvers1D(3), [real_forw])
+        D%Solvers1D(3)%backward = PoisFFT_Plan1D(D%Solvers1D(3), [real_back])
         
         call Init_MPI_Buffers(D, 2)
         call Init_MPI_Buffers(D, 3)
@@ -393,8 +305,8 @@
 
         call allocate_fftw_real(D%Solvers2D(1))
 
-        D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_RealEven10,FFT_RealEven10])
-        D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_RealEven01,FFT_RealEven01])
+        D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [real_forw, real_forw])
+        D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [real_back, real_back])
 
         do i=2,D%nthreads
           D%Solvers2D(i) = D%Solvers2D(1)
@@ -405,6 +317,8 @@
 
         end do
 #endif
+      else
+        stop "Unknown combination of boundary conditions."
       endif
 
 
@@ -417,6 +331,45 @@
         D%denomy = eigenvalues_spectral(D%BCs(3:4), D%Ly, D%ny, D%gny, D%offy)
         D%denomz = eigenvalues_spectral(D%BCs(5:6), D%Lz, D%nz, D%gnz, D%offz)
       end if
+      
+    contains
+    
+      function real_transform_type_forward(bc) result(res)
+        integer :: res
+        integer, intent(in) :: bc
+        
+        select case (bc)
+          case (PoisFFT_Dirichlet)
+            res = FFT_RealOdd00
+          case (PoisFFT_DirichletStag)
+            res = FFT_RealOdd10
+          case (PoisFFT_Neumann)
+            res = FFT_RealEven00
+          case (PoisFFT_NeumannStag)
+            res = FFT_RealEven10
+          case default
+            res = -1
+        end select
+      end function
+      
+      function real_transform_type_backward(bc) result(res)
+        integer :: res
+        integer, intent(in) :: bc
+        
+        select case (bc)
+          case (PoisFFT_Dirichlet)
+            res = FFT_RealOdd00
+          case (PoisFFT_DirichletStag)
+            res = FFT_RealOdd01
+          case (PoisFFT_Neumann)
+            res = FFT_RealEven00
+          case (PoisFFT_NeumannStag)
+            res = FFT_RealEven01
+          case default
+            res = -1
+        end select
+      end function
+      
     end subroutine PoisFFT_Solver3D_Init
     
     
@@ -465,7 +418,8 @@
                      ngRHS(3)+1:ngRHS(3)+D%nz))
 
       else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
-               all(D%BCs(5:6)==PoisFFT_NeumannStag)) then
+               (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
+                all(D%BCs(5:6)==PoisFFT_NeumannStag))) then
 
         call PoisFFT_Solver3D_PPNs(D,&
                  Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
@@ -476,7 +430,8 @@
                      ngRHS(3)+1:ngRHS(3)+D%nz))
 
       else if (all(D%BCs(1:2)==PoisFFT_Periodic) .and. &
-               all(D%BCs(3:6)==PoisFFT_NeumannStag)) then
+               (all(D%BCs(3:6)==PoisFFT_Neumann) .or. &
+                all(D%BCs(3:6)==PoisFFT_NeumannStag))) then
 
         call PoisFFT_Solver3D_PNsNs(D,&
                  Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
@@ -581,67 +536,6 @@
     end function PoisFFT_Solver1D_From3D
 
 
-!     function PoisFFT_Solver1D_Many_From3D(D3D,direction) result(D)
-!       type(PoisFFT_Solver1D_Many)        :: D
-!       type(PoisFFT_Solver3D), intent(in) :: D3D
-!       integer, intent(in)                :: direction
-! #ifdef MPI
-!       integer :: ie, dims
-!       
-!       call MPI_Cartdim_get(D3D%mpi%comm, dims, ie)
-!       if (ie/=0) stop "Error executing MPI_Cartdim_get."
-! 
-!       if (dims==2) then
-!         !We see the dimensions reversed in Fortran!
-!         if (direction==1) then
-!           D%mpi%comm = MPI_COMM_SELF
-!         else if (direction==2) then
-!           call MPI_Cart_sub(D3D%mpi%comm, [.false.,.true.], D%mpi%comm, ie)
-!           if (ie/=0) stop "Error executing MPI_Cart_sub."
-!           call MPI_Comm_size(D%mpi%comm, D%mpi%np, ie)
-!           D%mpi_transpose_needed = D%mpi%np > 1
-!         else
-!           call MPI_Cart_sub(D3D%mpi%comm, [.true.,.false.], D%mpi%comm, ie)
-!           if (ie/=0) stop "Error executing MPI_Cart_sub."
-!           call MPI_Comm_size(D%mpi%comm, D%mpi%np, ie)
-!           D%mpi_transpose_needed = D%mpi%np > 1
-!         end if
-!       else
-!         stop "Not implemented."
-!       end if
-!       
-! #endif
-! 
-!       if (direction==1) then
-!         D%nx = D3D%nx
-!         D%gnx = D3D%gnx
-!         D%offx = D3D%offx
-!         D%BCs = D3D%BCs(1:2)
-!         D%howmany = D3D%ny * D3D%nz
-!         D%workdims = [D3D%nx, D3D%ny, D3D%nz]
-!       else if (direction==2) then
-!         D%nx = D3D%ny
-!         D%gnx = D3D%gny
-!         D%offx = D3D%offy
-!         D%BCs = D3D%BCs(3:4)
-!         D%howmany = D3D%nx * D3D%nz
-!         D%workdims = [D3D%ny, D3D%nx, D3D%nz]
-!       else
-!         D%nx = D3D%nz
-!         D%gnx = D3D%gnz
-!         D%offx = D3D%offz
-!         D%BCs = D3D%BCs(5:6)
-!         D%howmany = D3D%nx * D3D%ny
-!         D%workdims = [D3D%nz, D3D%ny, D3D%nx]
-!       endif
-! 
-!       D%nxyz = [D%nx]
-!         
-!       D%cnt = D%nx
-!       
-!       D%gcnt = int(D%gnx, kind(D%gcnt))
-!     end function PoisFFT_Solver1D_Many_From3D
-
 
     function PoisFFT_Solver2D_From3D(D3D,direction) result(D)
       type(PoisFFT_Solver2D)             :: D
@@ -702,79 +596,6 @@
       
       D%gcnt = int(D%gnx, kind(D%gcnt)) * int(D%gny, kind(D%gcnt))
     end function PoisFFT_Solver2D_From3D
-
-
-!     function PoisFFT_Solver2D_Many_From3D(D3D,direction) result(D)
-!       type(PoisFFT_Solver2D_Many)        :: D
-!       type(PoisFFT_Solver3D), intent(in) :: D3D
-!       integer, intent(in)                :: direction
-! #ifdef MPI
-!       integer :: ie, dims
-!       
-!       call MPI_Cartdim_get(D3D%mpi%comm, dims, ie)
-!       if (ie/=0) stop "Error executing MPI_Cartdim_get."
-!       
-!       if (dims==2) then
-!         !We see the dimensions reversed in Fortran!
-!         if (direction==1) then
-!           D%mpi%comm = D3D%mpi%comm
-!         else if (direction==2) then
-!           call MPI_Cart_sub(D3D%mpi%comm, [.true.,.false.], D%mpi%comm, ie)
-!           if (ie/=0) stop "Error executing MPI_Cart_sub."
-!         else
-!           call MPI_Cart_sub(D3D%mpi%comm, [.false.,.true.], D%mpi%comm, ie)
-!           if (ie/=0) stop "Error executing MPI_Cart_sub."
-!         end if
-!       else
-!         stop "Not implemented."
-!       end if
-!       
-! #endif
-! 
-!       if (direction==1) then
-!         D%nx = D3D%ny
-!         D%gnx = D3D%gny
-!         D%offx = D3D%offy
-!         D%ny = D3D%nz
-!         D%gny = D3D%gnz
-!         D%offy = D3D%offz
-!         D%BCs = D3D%BCs(3:6)
-!         D%howmany = D3D%nx
-!         D%workdims = [D3D%ny, D3D%nz, D3D%nx]
-!       else if (direction==2) then
-!         D%nx = D3D%nx
-!         D%gnx = D3D%gnx
-!         D%offx = D3D%offx
-!         D%ny = D3D%nz
-!         D%gny = D3D%gnz
-!         D%offy = D3D%offz
-!         D%BCs = D3D%BCs([1,2,5,6])
-!         D%howmany = D3D%ny
-!         D%workdims = [D3D%nx, D3D%nz, D3D%ny]
-!       else
-!         D%nx = D3D%nx
-!         D%gnx = D3D%gnx
-!         D%offx = D3D%offx
-!         D%ny = D3D%ny
-!         D%gny = D3D%gny
-!         D%offy = D3D%offy
-!         D%BCs = D3D%BCs(1:4)
-!         D%howmany = D3D%nz
-!         D%workdims = [D3D%nx, D3D%ny, D3D%nz]
-!       endif
-!       
-!       D%nxyz = [D%nx, D%ny]
-! 
-!       D%cnt = D%nx * D%ny
-!       
-!       D%gcnt = int(D%gnx, kind(D%gcnt)) * int(D%gny, kind(D%gcnt))
-!     end function PoisFFT_Solver2D_Many_From3D
-
-
-
-
-
-
 
 
 
