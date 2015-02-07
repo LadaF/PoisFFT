@@ -436,7 +436,6 @@
         call transform_1d_real_z(D%Solvers1D(3), Phi, RHS, forward=.true., use_rhs=.true.)
       
       else
-        ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
         do j=1,D%ny
           do i=1,D%nx
             D%Solvers1D(3)%rwork = RHS(i,j,:)
@@ -449,7 +448,7 @@
           end do
         end do
       end if
-      
+     
 
       do k=1,D%nz
         D%Solvers2D(1)%cwork(1:D%nx,1:D%ny) = cmplx(Phi(1:D%nx,1:D%ny,k),0._RP,CP)
@@ -489,6 +488,19 @@
 
         call transform_1d_real_z(D%Solvers1D(3), Phi, RHS, forward=.false., use_rhs=.false.)
         
+      else
+        do j=1,D%ny
+          do i=1,D%nx
+            D%Solvers1D(3)%rwork = Phi(i,j,:)
+
+
+            call Execute(D%Solvers1D(3)%backward,D%Solvers1D(3)%rwork)
+
+
+            Phi(i,j,:) = D%Solvers1D(3)%rwork
+          end do
+        end do
+        
       end if
     end subroutine PoisFFT_Solver3D_PPNs
 #else
@@ -517,7 +529,7 @@
         end do
       end do
       !$omp end do
-      
+
       
       !$omp do
       do k=1,D%nz
@@ -564,6 +576,7 @@
       end do
       !$omp end do
 
+      
       !$omp do
       do j=1,D%ny
         do i=1,D%nx

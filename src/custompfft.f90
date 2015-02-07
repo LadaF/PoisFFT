@@ -4,7 +4,7 @@ module PFFT
   
 #include "pfft.f03"
 
-
+#ifdef MISSING_PFFT_R2R
   interface
     type(C_PTR) function pfft_plan_r2r(rnk,Nos,in,out,comm_cart,kinds,pfft_flags) bind(C, name='pfft_plan_r2r_f03')
       import
@@ -27,6 +27,8 @@ module PFFT
       integer(C_INT), value :: pfft_flags
     end function pfftf_plan_r2r
   end interface
+#endif
+  
 #endif
 end module PFFT
 

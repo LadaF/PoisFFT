@@ -3,16 +3,16 @@
     integer(c_int) :: nxyz(dims), BCs(2*dims)
     real(rp) :: Lxyz(dims)
     integer(c_int), optional :: approximation, gnxyz(dims), offs(dims)
-    type(c_ptr), value :: mpi_comm
+    type(c_ptr), value :: comm_ptr
     integer(c_int), value :: nthreads
     integer :: f_comm, appr
     integer, parameter :: idxs(6) = [2,1,4,3,6,5]
     
 #ifdef MPI
-    f_comm = MPI_Comm_c2f(mpi_comm)
+    f_comm = MPI_Comm_c2f(comm_ptr)
 #else
     !to avoid unused variable warning
-    if (c_associated(mpi_comm)) f_comm = 0
+    if (c_associated(comm_ptr)) f_comm = 0
 #endif
 
     allocate(f_D)

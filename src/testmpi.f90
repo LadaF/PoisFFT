@@ -71,7 +71,7 @@ module my_mpi
   integer :: myim, myrank, iim, jim, kim
   integer :: w_im, e_im, s_im, n_im, b_im, t_im
   integer :: w_rank, e_rank, s_rank, n_rank, b_rank, t_rank
-  integer :: mpi_comm, cart_comm, cart_comm_dim = -1
+  integer :: glob_comm, cart_comm, cart_comm_dim = -1
   logical :: master = .false.
   integer :: MPI_RP = -huge(1)
   
@@ -84,14 +84,14 @@ module my_mpi
 
   integer function this_image() result(res)
     integer ie
-    call MPI_Comm_rank(mpi_comm, res, ie)
+    call MPI_Comm_rank(glob_comm, res, ie)
     res = res + 1
     if (ie/=0) call error_stop("MPI_Comm_rank ERROR")
   end function
 
   integer function num_images() result(res)
     integer ie
-    call MPI_Comm_size(mpi_comm, res, ie)
+    call MPI_Comm_size(glob_comm, res, ie)
     if (ie/=0) call error_stop("MPI_Comm_size ERROR")
   end function
 
@@ -701,7 +701,7 @@ contains
          end do
       end do
 
-      call MPI_AllReduce(MPI_IN_PLACE, R, 1, MPI_RP, MPI_MAX, mpi_comm, ie)
+      call MPI_AllReduce(MPI_IN_PLACE, R, 1, MPI_RP, MPI_MAX, glob_comm, ie)
 
    end subroutine Res3D
 
@@ -743,7 +743,7 @@ contains
            end do
        end do
 
-      call MPI_AllReduce(MPI_IN_PLACE, R, 1, MPI_RP, MPI_MAX, mpi_comm, ie)
+      call MPI_AllReduce(MPI_IN_PLACE, R, 1, MPI_RP, MPI_MAX, glob_comm, ie)
 
    end subroutine Res2D
 
@@ -804,7 +804,7 @@ program testpoisson_MPI
     MPI_RP = MPI_DOUBLE_PRECISION
   end if
   
-  mpi_comm = MPI_COMM_WORLD
+  glob_comm = MPI_COMM_WORLD
 
   call system_clock(count_rate=trate)
 
@@ -850,7 +850,7 @@ program testpoisson_MPI
     call error_stop(25)
   end if
 
-  call PoisFFT_InitMPIGrid(mpi_comm, npxyz(3:2:-1), cart_comm, ie)
+  call PoisFFT_InitMPIGrid(glob_comm, npxyz(3:2:-1), cart_comm, ie)
   if (ie/=0) call error_stop(30)
   
   call get_image_coords
@@ -896,61 +896,61 @@ program testpoisson_MPI
    end do
   end do
   
- call MPI_AllReduce(sum(RHS), S, 1, MPI_RP, MPI_SUM, mpi_comm, ie)
+ call MPI_AllReduce(sum(RHS), S, 1, MPI_RP, MPI_SUM, glob_comm, ie)
  
  RHS = RHS - S / product(ng)
 
   
-   call MPI_Barrier(mpi_comm,ie)
+   call MPI_Barrier(glob_comm,ie)
    
    if (master) write(*,*) "3D PNsNs"
 
    call compute3d([(PoisFFT_Periodic, i=1,2),(PoisFFT_NeumannStag, i=3,6)])
 
 
-   call MPI_Barrier(mpi_comm,ie)
+   call MPI_Barrier(glob_comm,ie)
    
    if (master) write(*,*) "3D PPNs"
 
    call compute3d([(PoisFFT_Periodic, i=1,4),(PoisFFT_NeumannStag, i=5,6)])
 
 
-   call MPI_Barrier(mpi_comm,ie)
+   call MPI_Barrier(glob_comm,ie)
    
    if (master) write(*,*) "3D staggered Dirichlet"
  
    call compute3D([(PoisFFT_DirichletStag, i=1,6)])
  
  
-   call MPI_Barrier(mpi_comm,ie)
+   call MPI_Barrier(glob_comm,ie)
    
    if (master) write(*,*) "3D staggered Neumann:"
  
    call compute3D([(PoisFFT_NeumannStag, i=1,6)])
  
  
-   call MPI_Barrier(mpi_comm,ie)
+   call MPI_Barrier(glob_comm,ie)
    
    if (master) write(*,*) "3D Periodic"
  
    call compute3D([(PoisFFT_Periodic, i=1,6)])
  
  
-  call MPI_Barrier(mpi_comm,ie)
+  call MPI_Barrier(glob_comm,ie)
   
   if (master) write(*,*) "2D Periodic"
 
   call compute2D([(PoisFFT_Periodic, i=1,4)])
   
 
-  call MPI_Barrier(mpi_comm,ie)
+  call MPI_Barrier(glob_comm,ie)
   
   if (master) write(*,*) "1D Periodic"
 
   call compute1D([(PoisFFT_Periodic, i=1,2)])
 
 
-  call MPI_Barrier(mpi_comm,ie)
+  call MPI_Barrier(glob_comm,ie)
 
   call save_vtk  
   
@@ -964,7 +964,7 @@ contains
     
     Phi(1:nx,1:ny,1:nz) = RHS
 
-    call exchange_boundaries_3D(mpi_comm, Phi, nx, ny, nz, BCs)
+    call exchange_boundaries_3D(glob_comm, Phi, nx, ny, nz, BCs)
 
     call Res3D(nx,ny,nz,Phi,RHS,&
                  dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
@@ -986,7 +986,7 @@ contains
 
     call Finalize(Solver3D)
 
-    call exchange_boundaries_3D(mpi_comm, Phi, nx, ny, nz, BCs)
+    call exchange_boundaries_3D(glob_comm, Phi, nx, ny, nz, BCs)
 
     call Res3D(nx,ny,nz,Phi,RHS,&
                  dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
@@ -1009,7 +1009,7 @@ contains
  
     RHS(:,:,1) = RHS(:,:,1) - S / product(ng(1:2))
 
-    call exchange_boundaries_2D(mpi_comm, Phi(:,:,1), nx, ny, BCs)
+    call exchange_boundaries_2D(glob_comm, Phi(:,:,1), nx, ny, BCs)
 
     call Res2D(nx,ny,Phi(:,:,1),RHS(:,:,1),&
                  dx**(-2),dx**(-2),dy**(-2),dy**(-2),&
@@ -1031,7 +1031,7 @@ contains
 
     call Finalize(Solver2D)
 
-    call exchange_boundaries_2D(mpi_comm, Phi(:,:,1), nx, ny, BCs)
+    call exchange_boundaries_2D(glob_comm, Phi(:,:,1), nx, ny, BCs)
 
     call Res2D(nx,ny,Phi(:,:,1),RHS(:,:,1),&
                  dx**(-2),dx**(-2),dy**(-2),dy**(-2),&
@@ -1053,7 +1053,7 @@ contains
  
     RHS(1,:,1) = RHS(1,:,1) - S / ng(2)
 
-!     call exchange_boundaries_1D(mpi_comm, Phi(:,:,1), nx, BCs)
+!     call exchange_boundaries_1D(glob_comm, Phi(:,:,1), nx, BCs)
 
 !     call Res1D(nx,ny,Phi(:,1,1),RHS(:,1,1),&
 !                  dx**(-2),dx**(-2),&
@@ -1075,7 +1075,7 @@ contains
 
     call Finalize(Solver1D)
 
-!     call exchange_boundaries_1D(mpi_comm, Phi(:,1,1), nx, ny, BCs)
+!     call exchange_boundaries_1D(glob_comm, Phi(:,1,1), nx, ny, BCs)
 
 !     call Res1D(nx,ny,Phi(:,1,1),RHS(:,1,1),&
 !                  dx**(-2),dx**(-2),&
@@ -1130,9 +1130,9 @@ contains
       close(unit)
     end if
     
-    call MPI_Barrier(mpi_comm,ie)
+    call MPI_Barrier(glob_comm,ie)
     
-    call MPI_File_open(mpi_comm,"out.vtk", MPI_MODE_APPEND + MPI_MODE_WRONLY, MPI_INFO_NULL, fh, ie)
+    call MPI_File_open(glob_comm,"out.vtk", MPI_MODE_APPEND + MPI_MODE_WRONLY, MPI_INFO_NULL, fh, ie)
     if (ie/=0) call error_stop("open")
 
     call MPI_Type_create_subarray(3, int(ng), int(nxyz), int(off), &
@@ -1142,9 +1142,9 @@ contains
     call MPI_type_commit(filetype, ie)
     if (ie/=0) call error_stop("type_commit")
     
-    call MPI_Barrier(mpi_comm,ie)
+    call MPI_Barrier(glob_comm,ie)
     call MPI_File_get_position(fh, pos, ie)
-    call MPI_Barrier(mpi_comm,ie)
+    call MPI_Barrier(glob_comm,ie)
     
     call MPI_File_set_view(fh, pos, MPI_RP, filetype, "native", MPI_INFO_NULL, ie)
     if (ie/=0) call error_stop("set_view")
