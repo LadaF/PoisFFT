@@ -1,4 +1,4 @@
-#ifdef MPI
+#if defined(MPI) && defined(MISSING_PFFT_R2R)
 #include "pfft.h"
 
 #define PFFT_DEFINE_MISSING(PX, X, R, C, INT)                                               \
