@@ -786,7 +786,7 @@ program testpoisson_MPI
   real(RP) :: dx,dy,dz, Ls(3)
   integer i,j,k
   real(RP) :: R,x,y,z
-  integer(8) :: t1,t2,trate
+  integer(int64) :: t1,t2,trate
   type(PoisFFT_Solver3D_DP) :: Solver3D
   type(PoisFFT_Solver2D_DP) :: Solver2D
   type(PoisFFT_Solver1D_DP) :: Solver1D
