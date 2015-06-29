@@ -34,15 +34,15 @@
 
 
   interface PoisFFT_Solver1D
-    module procedure PoisFFT_Solver1D_New
+    module procedure PoisFFT_Solver1D__New
   end interface
 
   interface PoisFFT_Solver2D
-    module procedure PoisFFT_Solver2D_New
+    module procedure PoisFFT_Solver2D__New
   end interface
 
   interface PoisFFT_Solver3D
-    module procedure PoisFFT_Solver3D_New
+    module procedure PoisFFT_Solver3D__New
   end interface
 
   interface Finalize
@@ -68,7 +68,7 @@
   contains
 
 
-    function PoisFFT_Solver3D_New(nxyz,Lxyz,BCs,approximation, &
+    function PoisFFT_Solver3D__New(nxyz,Lxyz,BCs,approximation, &
                                   gnxyz,offs,mpi_comm,nthreads) result(D)
       type(PoisFFT_Solver3D) :: D
 
@@ -125,7 +125,7 @@
         D%mpi%comm = mpi_comm
 #ifdef MPI      
       else
-        stop "No PFFT comm present in PoisFFT_Solver3D_New."
+        stop "No PFFT comm present in PoisFFT_Solver3D__New."
 #endif
       end if
 
@@ -137,7 +137,7 @@
 
       !create fftw plans and allocate working arrays
       call Init(D)
-    end function PoisFFT_Solver3D_New
+    end function PoisFFT_Solver3D__New
     
     
 
@@ -600,7 +600,7 @@
 
 
 
-    function PoisFFT_Solver2D_New(nxyz,Lxyz,BCs,approximation, &
+    function PoisFFT_Solver2D__New(nxyz,Lxyz,BCs,approximation, &
                                   gnxyz,offs,mpi_comm,nthreads) result(D)
       type(PoisFFT_Solver2D) :: D
 
@@ -646,7 +646,7 @@
         D%mpi%comm = mpi_comm
 #ifdef MPI      
       else
-        stop "No PFFT comm present in PoisFFT_Solver2D_New."
+        stop "No PFFT comm present in PoisFFT_Solver2D__New."
 #endif
       end if
 
@@ -658,7 +658,7 @@
 
       !create fftw plans and allocate working array
       call Init(D)
-    end function PoisFFT_Solver2D_New
+    end function PoisFFT_Solver2D__New
 
 
 
@@ -801,7 +801,7 @@
 
 
 
-    function PoisFFT_Solver1D_New(nxyz,Lxyz,BCs,approximation, &
+    function PoisFFT_Solver1D__New(nxyz,Lxyz,BCs,approximation, &
                                   gnxyz,offs,mpi_comm,nthreads) result(D)
       type(PoisFFT_Solver1D) :: D
 
@@ -847,7 +847,7 @@
         if (ie/=0) stop "Error executing MPI_Cartdim_get."
         D%mpi_transpose_needed = dims > 0
       else
-        stop "No PFFT comm present in PoisFFT_Solver1D_New."
+        stop "No PFFT comm present in PoisFFT_Solver1D__New."
 #endif
       end if
       
@@ -861,7 +861,7 @@
 
        !create fftw plans and allocate working array
       call Init(D)
-    end function PoisFFT_Solver1D_New
+    end function PoisFFT_Solver1D__New
 
 
 
