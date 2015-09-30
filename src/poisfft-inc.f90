@@ -262,7 +262,7 @@
         
 #ifdef MPI
         !1..x, 2..y, 3..z, not different threads, but directions
-        allocate(D%Solvers1D(3))
+        allocate(D%Solvers1D(3*D%nthreads))
 
         D%Solvers1D(1) = PoisFFT_Solver1D_From3D(D,1)
         D%Solvers1D(2) = PoisFFT_Solver1D_From3D(D,2)
@@ -279,6 +279,26 @@
         D%Solvers1D(3)%forward = PoisFFT_Plan1D(D%Solvers1D(3), [real_forw])
         D%Solvers1D(3)%backward = PoisFFT_Plan1D(D%Solvers1D(3), [real_back])
         
+        do i = 4, 1 + 3*(D%nthreads-1), 3
+          D%Solvers1D(i) = D%Solvers1D(1)
+          D%Solvers1D(i)%forward%planowner = .false.
+          D%Solvers1D(i)%backward%planowner = .false.
+          call allocate_fftw_complex(D%Solvers1D(i))
+        end do
+
+        do i = 5, 2 + 3*(D%nthreads-1), 3
+          D%Solvers1D(i) = D%Solvers1D(2)
+          D%Solvers1D(i)%forward%planowner = .false.
+          D%Solvers1D(i)%backward%planowner = .false.
+          call allocate_fftw_real(D%Solvers1D(i))
+        end do
+        do i = 6, 3 + 3*(D%nthreads-1), 3
+          D%Solvers1D(i) = D%Solvers1D(3)
+          D%Solvers1D(i)%forward%planowner = .false.
+          D%Solvers1D(i)%backward%planowner = .false.
+          call allocate_fftw_real(D%Solvers1D(i))
+        end do
+
         call Init_MPI_Buffers(D, 2)
         call Init_MPI_Buffers(D, 3)
 
