@@ -787,9 +787,9 @@ program testpoisson_MPI
   integer i,j,k
   real(RP) :: R,x,y,z
   integer(int64) :: t1,t2,trate
-  type(PoisFFT_Solver3D_DP) :: Solver3D
-  type(PoisFFT_Solver2D_DP) :: Solver2D
-  type(PoisFFT_Solver1D_DP) :: Solver1D
+  type(PoisFFT_Solver3D) :: Solver3D
+  type(PoisFFT_Solver2D) :: Solver2D
+  type(PoisFFT_Solver1D) :: Solver1D
   character(len=50) :: ch50
   integer :: nx, ny, nz
   integer(c_intptr_t),dimension(3) :: nxyz,off,nxyz2,nsxyz2
@@ -797,6 +797,32 @@ program testpoisson_MPI
   integer :: ie = 0
   character(200) :: fname
 
+  integer :: required, provided
+
+  required = MPI_THREAD_SERIALIZED
+
+!$ if (.false.) then
+    call MPI_Init_thread(required, provided, ie)
+    provided = required
+!$ else
+!$  call MPI_Init_thread(required, provided, ie)
+!$ end if
+
+  if (ie/=0) call error_stop("Error initializing MPI.")
+
+  myim = this_image()
+  myrank = myim - 1
+
+  if (myrank==0) master = .true.
+
+  if (provided<required) then
+    if (master) write(*,*) "------------------------------"
+    if (master) write(*,*) "Error, the provided MPI threading support smaller than required!"
+    if (master) write(*,*) "required:", required
+    if (master) write(*,*) "provided:", provided
+    if (master) write(*,*) "Trying to continue anyway, but a crash is likely and the results will be questionable."
+    if (master) write(*,*) "------------------------------"
+  end if
   
   if (RP == kind(1.)) then
     MPI_RP = MPI_REAL
@@ -807,17 +833,8 @@ program testpoisson_MPI
   glob_comm = MPI_COMM_WORLD
 
   call system_clock(count_rate=trate)
-
-  call MPI_Init(ie)
-  if (ie/=0) stop 5
-  
+ 
   nims = num_images()
-
-  myim = this_image()
-  myrank = myim - 1
-
-  if (myrank==0) master = .true.
-
 
   if (command_argument_count()>=1) then
     call get_command_argument(1,value=ch50)
@@ -858,11 +875,11 @@ program testpoisson_MPI
   call PoisFFT_LocalGridSize(3,ng,cart_comm,nxyz,off,nxyz2,nsxyz2)
   if (any(nxyz/=nxyz2).or.any(off/=nsxyz2)) call error_stop(40)
 
-! if (master)  then
-! print *,"images:",npxyz,"size:", ng
-! end if
-! print *,myrank,"nxyz:",nxyz
-! print *,myrank,"off:",off
+  if (any(nxyz==0)) then
+    write(*,*) "Process",pxyz,"has grid dimensions",nxyz,"."
+    write(*,*) "Try different process grid distribution."
+    call error_stop(45)
+  end if
   
   nx = nxyz(1)
   ny = nxyz(2)
@@ -896,44 +913,44 @@ program testpoisson_MPI
    end do
   end do
   
- call MPI_AllReduce(sum(RHS), S, 1, MPI_RP, MPI_SUM, glob_comm, ie)
+  call MPI_AllReduce(sum(RHS), S, 1, MPI_RP, MPI_SUM, glob_comm, ie)
  
- RHS = RHS - S / product(ng)
+  RHS = RHS - S / product(ng)
 
   
-   call MPI_Barrier(glob_comm,ie)
-   
-   if (master) write(*,*) "3D PNsNs"
+  call MPI_Barrier(glob_comm,ie)
+  
+  if (master) write(*,*) "3D PNsNs"
 
-   call compute3d([(PoisFFT_Periodic, i=1,2),(PoisFFT_NeumannStag, i=3,6)])
-
-
-   call MPI_Barrier(glob_comm,ie)
-   
-   if (master) write(*,*) "3D PPNs"
-
-   call compute3d([(PoisFFT_Periodic, i=1,4),(PoisFFT_NeumannStag, i=5,6)])
+  call compute3d([(PoisFFT_Periodic, i=1,2),(PoisFFT_NeumannStag, i=3,6)])
 
 
-   call MPI_Barrier(glob_comm,ie)
-   
-   if (master) write(*,*) "3D staggered Dirichlet"
- 
-   call compute3D([(PoisFFT_DirichletStag, i=1,6)])
- 
- 
-   call MPI_Barrier(glob_comm,ie)
-   
-   if (master) write(*,*) "3D staggered Neumann:"
- 
-   call compute3D([(PoisFFT_NeumannStag, i=1,6)])
- 
- 
-   call MPI_Barrier(glob_comm,ie)
-   
-   if (master) write(*,*) "3D Periodic"
- 
-   call compute3D([(PoisFFT_Periodic, i=1,6)])
+  call MPI_Barrier(glob_comm,ie)
+  
+  if (master) write(*,*) "3D PPNs"
+
+  call compute3d([(PoisFFT_Periodic, i=1,4),(PoisFFT_NeumannStag, i=5,6)])
+
+
+  call MPI_Barrier(glob_comm,ie)
+  
+  if (master) write(*,*) "3D staggered Dirichlet"
+
+  call compute3D([(PoisFFT_DirichletStag, i=1,6)])
+
+
+  call MPI_Barrier(glob_comm,ie)
+  
+  if (master) write(*,*) "3D staggered Neumann:"
+
+  call compute3D([(PoisFFT_NeumannStag, i=1,6)])
+
+
+  call MPI_Barrier(glob_comm,ie)
+  
+  if (master) write(*,*) "3D Periodic"
+
+  call compute3D([(PoisFFT_Periodic, i=1,6)])
  
  
   call MPI_Barrier(glob_comm,ie)
