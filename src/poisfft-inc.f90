@@ -193,7 +193,7 @@
                 all(D%BCs(5:6)==PoisFFT_NeumannStag) )) then
 
 #ifdef MPI
-        allocate(D%Solvers1D(3:3))
+        allocate(D%Solvers1D(3:2+D%nthreads))
 
         D%Solvers1D(3) = PoisFFT_Solver1D_From3D(D,3)
 
@@ -202,16 +202,49 @@
         D%Solvers1D(3)%forward = PoisFFT_Plan1D(D%Solvers1D(3), [FFT_RealEven10])
         D%Solvers1D(3)%backward = PoisFFT_Plan1D(D%Solvers1D(3), [FFT_RealEven01])
 
-        allocate(D%Solvers2D(D%nthreads))
+        do i = 4, 2+D%nthreads
+          D%Solvers1D(i) = D%Solvers1D(3)
+          D%Solvers1D(i)%forward%planowner = .false.
+          D%Solvers1D(i)%backward%planowner = .false.
+          call allocate_fftw_real(D%Solvers1D(i))
+        end do
 
-        D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
+        if (D%ny<D%gny) then
+          if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
 
-        call allocate_fftw_complex(D%Solvers2D(1))
+          allocate(D%Solvers2D(1))
 
-        D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_FORWARD])
-        D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_BACKWARD])
+          D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
 
-        
+          call allocate_fftw_complex(D%Solvers2D(1))
+
+          D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_FORWARD])
+          D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_BACKWARD])
+
+          
+        else
+          allocate(D%Solvers2D(D%nthreads))
+
+          D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
+
+          call allocate_fftw_complex(D%Solvers2D(1))
+
+          D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), &
+                                                  [FFT_Complex, FFTW_FORWARD], &
+                                                  distributed=.false.)
+          D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), &
+                                                   [FFT_Complex, FFTW_BACKWARD], &
+                                                   distributed=.false.)
+
+          do i = 2, D%nthreads
+            D%Solvers2D(i) = D%Solvers2D(1)
+            D%Solvers2D(i)%forward%planowner = .false.
+            D%Solvers2D(i)%backward%planowner = .false.
+
+            call allocate_fftw_complex(D%Solvers2D(i))
+          end do
+        end if
+
         call Init_MPI_Buffers(D, 3)
 
 #else
@@ -225,7 +258,7 @@
         D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_RealEven10])
         D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_RealEven01])
 
-        do i=2,D%nthreads
+        do i = 2, D%nthreads
           D%Solvers1D(i) = D%Solvers1D(1)
           D%Solvers1D(i)%forward%planowner = .false.
           D%Solvers1D(i)%backward%planowner = .false.
@@ -241,7 +274,7 @@
         D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_FORWARD])
         D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_BACKWARD])
 
-        do i=2,D%nthreads
+        do i = 2, D%nthreads
           D%Solvers2D(i) = D%Solvers2D(1)
           D%Solvers2D(i)%forward%planowner = .false.
           D%Solvers2D(i)%backward%planowner = .false.
@@ -251,7 +284,6 @@
         
 !MPI
 #endif
-
 
       else if (all(D%BCs(1:2)==PoisFFT_Periodic) .and. &
                (all(D%BCs(3:6)==PoisFFT_Neumann) .or. &

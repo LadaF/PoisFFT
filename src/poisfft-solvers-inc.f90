@@ -429,78 +429,152 @@
       real(RP), intent(out) :: Phi(:,:,:)
       real(RP), intent(in)  :: RHS(:,:,:)
       integer i,j,k
+      integer tid
 
       
       if (D%Solvers1D(3)%mpi_transpose_needed) then
       
-        call transform_1d_real_z(D%Solvers1D(3::3), Phi, RHS, forward=.true., use_rhs=.true.)
+        call transform_1d_real_z(D%Solvers1D(3:), Phi, RHS, forward=.true., use_rhs=.true.)
       
       else
+        !$omp parallel private(tid,i,j,k)
+        tid  = 0
+        !$ tid = omp_get_thread_num()
+        !$omp do collapse(2)
         do j=1,D%ny
           do i=1,D%nx
-            D%Solvers1D(3)%rwork = RHS(i,j,:)
+            D%Solvers1D(3+tid)%rwork = RHS(i,j,:)
 
 
-            call Execute(D%Solvers1D(3)%forward,D%Solvers1D(3)%rwork)
+            call Execute(D%Solvers1D(3+tid)%forward,D%Solvers1D(3+tid)%rwork)
 
 
-            Phi(i,j,:) = D%Solvers1D(3)%rwork
+            Phi(i,j,:) = D%Solvers1D(3+tid)%rwork
           end do
         end do
+        !$omp end parallel
       end if
      
+      if (D%ny<D%gny) then
 
-      do k=1,D%nz
-        D%Solvers2D(1)%cwork(1:D%nx,1:D%ny) = cmplx(Phi(1:D%nx,1:D%ny,k),0._RP,CP)
+        do k=1,D%nz
 
-        call Execute_MPI(D%Solvers2D(1)%forward)
+          !$omp parallel workshare
+          D%Solvers2D(1)%cwork(1:D%nx,1:D%ny) = cmplx(Phi(1:D%nx,1:D%ny,k),0._RP,CP)
+          !$omp end parallel workshare
 
-        if (k==1.and.D%offz==0) then
-          do j = 1,D%ny
-            do i = max(3-j-D%offx-D%offy,1),D%nx
-              D%Solvers2D(1)%cwork(i,j) = D%Solvers2D(1)%cwork(i,j) / (D%denomx(i) + D%denomy(j))
+          call Execute_MPI(D%Solvers2D(1)%forward)
+
+          if (k==1.and.D%offz==0) then
+
+            !$omp parallel do
+            do j = 1,D%ny
+              do i = max(3-j-D%offx-D%offy,1),D%nx
+                D%Solvers2D(1)%cwork(i,j) = D%Solvers2D(1)%cwork(i,j) / (D%denomx(i) + D%denomy(j))
+              end do
             end do
-          end do
-          !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
-          ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
-          if (D%offx==0.and.D%offy==0) D%Solvers2D(1)%cwork(1,1) = 0
+            !$omp end parallel do
 
-        else
+            !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
+            ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
+            if (D%offx==0.and.D%offy==0) D%Solvers2D(1)%cwork(1,1) = 0
 
-          do j=1,D%ny
-            do i=1,D%nx
-              D%Solvers2D(1)%cwork(i,j) = D%Solvers2D(1)%cwork(i,j)&
-                                              / (D%denomx(i) + D%denomy(j) + D%denomz(k))
+          else
+
+            !$omp parallel do collapse(2)
+            do j=1,D%ny
+              do i=1,D%nx
+                D%Solvers2D(1)%cwork(i,j) = D%Solvers2D(1)%cwork(i,j)&
+                                                / (D%denomx(i) + D%denomy(j) + D%denomz(k))
+              end do
             end do
-          end do
+            !$omp end parallel do
 
-        endif
+          endif
 
-        call Execute_MPI(D%Solvers2D(1)%backward)
+          call Execute_MPI(D%Solvers2D(1)%backward)
 
-        Phi(:,:,k) = real(D%Solvers2D(1)%cwork,RP) / D%norm_factor
+          !$omp parallel workshare
+          Phi(:,:,k) = real(D%Solvers2D(1)%cwork,RP) / D%norm_factor
+          !$omp end parallel workshare
+
+        end do
+
+      else
+
+        !$omp parallel private(tid,i,j,k)
+        tid  = 1
+        !$ tid = omp_get_thread_num()+1
+
+        !$omp do
+        do k=1,D%nz
+          D%Solvers2D(tid)%cwork(1:D%nx,1:D%ny) = cmplx(Phi(1:D%nx,1:D%ny,k),0._RP,CP)
 
 
-      end do
+          call Execute(D%Solvers2D(tid)%forward, D%Solvers2D(tid)%cwork)
+
+          if (k==1.and.D%offz==0) then
+            do j=2,D%ny
+              do i=2,D%nx
+                D%Solvers2D(tid)%cwork(i,j) = D%Solvers2D(tid)%cwork(i,j)&
+                                                / (D%denomx(i) + D%denomy(j))
+              end do
+            end do
+            do i=2,D%nx
+                D%Solvers2D(tid)%cwork(i,1) = D%Solvers2D(tid)%cwork(i,1)&
+                                                / (D%denomx(i))
+            end do
+            do j=2,D%ny
+                D%Solvers2D(tid)%cwork(1,j) = D%Solvers2D(tid)%cwork(1,j)&
+                                                / (D%denomy(j))
+            end do
+            !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
+            ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
+            D%Solvers2D(tid)%cwork(1,1) = 0
+
+          else
+
+            do j=1,D%ny
+              do i=1,D%nx
+                D%Solvers2D(tid)%cwork(i,j) = D%Solvers2D(tid)%cwork(i,j)&
+                                                / (D%denomx(i) + D%denomy(j) + D%denomz(k))
+              end do
+            end do
+
+          endif
+
+          call Execute(D%Solvers2D(tid)%backward, D%Solvers2D(tid)%cwork)
+
+          Phi(:,:,k) = real(D%Solvers2D(tid)%cwork,RP) / D%norm_factor
+
+
+        end do
+        !$omp end parallel
+
+      end if
 
 
       if (D%Solvers1D(3)%mpi_transpose_needed) then
 
-        call transform_1d_real_z(D%Solvers1D(3::3), Phi, RHS, forward=.false., use_rhs=.false.)
+        call transform_1d_real_z(D%Solvers1D(3:), Phi, RHS, forward=.false., use_rhs=.false.)
         
       else
+        !$omp parallel private(tid,i,j,k)
+        tid  = 0
+        !$ tid = omp_get_thread_num()
+        !$omp do collapse(2)
         do j=1,D%ny
           do i=1,D%nx
-            D%Solvers1D(3)%rwork = Phi(i,j,:)
+            D%Solvers1D(3+tid)%rwork = Phi(i,j,:)
 
 
-            call Execute(D%Solvers1D(3)%backward,D%Solvers1D(3)%rwork)
+            call Execute(D%Solvers1D(3+tid)%backward,D%Solvers1D(3+tid)%rwork)
 
 
-            Phi(i,j,:) = D%Solvers1D(3)%rwork
+            Phi(i,j,:) = D%Solvers1D(3+tid)%rwork
           end do
         end do
-        
+        !$omp end parallel
       end if
     end subroutine PoisFFT_Solver3D_PPNs
 #else
@@ -622,7 +696,7 @@
             Phi(i,j,:) = D%Solvers1D(3+3*tid)%rwork
           end do
         end do
-         !$omp end parallel
+        !$omp end parallel
      end if
       
 

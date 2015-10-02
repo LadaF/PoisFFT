@@ -34,22 +34,25 @@
   logical, parameter :: BLOCK_DECOMP = .false.
 
   type PoisFFT_Plan1D
-    type(c_ptr)         :: planptr=c_null_ptr
-    logical             :: planowner=.false.
+    type(c_ptr)         :: planptr = c_null_ptr
+    logical             :: planowner = .false.
+    logical             :: distributed = .false.
     integer(c_int)      :: dir
   end type PoisFFT_Plan1D
 
 
   type PoisFFT_Plan2D
-    type(c_ptr)         :: planptr=c_null_ptr
-    logical             :: planowner=.false.
+    type(c_ptr)         :: planptr = c_null_ptr
+    logical             :: planowner = .false.
+    logical             :: distributed = .false.
     integer(c_int)      :: dir
   end type PoisFFT_Plan2D
 
 
   type PoisFFT_Plan3D
-    type(c_ptr)         :: planptr=c_null_ptr
-    logical             :: planowner=.false.
+    type(c_ptr)         :: planptr = c_null_ptr
+    logical             :: planowner = .false.
+    logical             :: distributed = .false.
     integer(c_int)      :: dir
   end type PoisFFT_Plan3D
 
@@ -218,19 +221,19 @@
   contains
 
 
-    function PoisFFT_Plan1D_New(D, plantypes) result(plan)
+    function PoisFFT_Plan1D_New(D, plantypes, distributed) result(plan)
 #define dimensions 1
 #include "plan_new-inc.f90"
 #undef dimensions
     end function
 
-    function PoisFFT_Plan2D_New(D, plantypes) result(plan)
+    function PoisFFT_Plan2D_New(D, plantypes, distributed) result(plan)
 #define dimensions 2
 #include "plan_new-inc.f90"
 #undef dimensions
     end function
 
-    function PoisFFT_Plan3D_New(D, plantypes) result(plan)
+    function PoisFFT_Plan3D_New(D, plantypes, distributed) result(plan)
 #define dimensions 3
 #include "plan_new-inc.f90"
 #undef dimensions
@@ -509,24 +512,36 @@
     subroutine PoisFFT_Plan2D_Finalize(plan)
       type(PoisFFT_Plan2D) :: plan
 
-      if (c_associated(plan%planptr).and.plan%planowner)  &
+      if (c_associated(plan%planptr).and.plan%planowner) then
 #ifdef MPI
-        call pfft_destroy_plan(plan%planptr)
+        if (plan%distributed) then
+          call pfft_destroy_plan(plan%planptr)
+        else
+          call fftw_destroy_plan(plan%planptr)
+        end if
 #else
         call fftw_destroy_plan(plan%planptr)
 #endif
+      end if
+
       plan%planptr = c_null_ptr
     end subroutine PoisFFT_Plan2D_Finalize
 
     subroutine PoisFFT_Plan3D_Finalize(plan)
       type(PoisFFT_Plan3D) :: plan
       
-      if (c_associated(plan%planptr).and.plan%planowner)  &
+      if (c_associated(plan%planptr).and.plan%planowner) then
 #ifdef MPI
-        call pfft_destroy_plan(plan%planptr)
+        if (plan%distributed) then
+          call pfft_destroy_plan(plan%planptr)
+        else
+          call fftw_destroy_plan(plan%planptr)
+        end if
 #else
         call fftw_destroy_plan(plan%planptr)
 #endif
+      end if
+
       plan%planptr = c_null_ptr
     end subroutine PoisFFT_Plan3D_Finalize
 

@@ -36,6 +36,10 @@
       
       type(PoisFFT_SolverXD), intent(inout) :: D
       integer, intent(in), dimension(:)     :: plantypes
+      logical, intent(in), optional         :: distributed
+      logical :: distr
+
+      distr = .false.
 
       if (plantypes(1)==FFT_Complex) then
 
@@ -47,9 +51,20 @@
         plan%dir = plantypes(2)
 
 #if defined(MPI) && dimensions > 1
-        plan%planptr = pfft_cmplx(dimensions,int([nxyzs],c_intptr_t), &
-          D%cwork, D%cwork, D%mpi%comm, &
-          plan%dir, PFFT_TRANSPOSED_NONE + PFFT_MEASURE + PFFT_PRESERVE_INPUT)
+        if (present(distributed)) then
+          distr = distributed
+        else
+          distr = .true.
+        end if
+
+        if (distr) then
+          plan%planptr = pfft_cmplx(dimensions,int([nxyzs],c_intptr_t), &
+            D%cwork, D%cwork, D%mpi%comm, &
+            plan%dir, PFFT_TRANSPOSED_NONE + PFFT_MEASURE + PFFT_PRESERVE_INPUT)
+        else
+          plan%planptr = fftw_plan_gen(nxyzs , D%cwork, D%cwork,&
+                          plan%dir, FFTW_MEASURE)
+        end if
 #else
         plan%planptr = fftw_plan_gen(nxyzs , D%cwork, D%cwork,&
                         plan%dir, FFTW_MEASURE)
@@ -64,9 +79,20 @@
 
 
 #if defined(MPI) && dimensions > 1
-        plan%planptr = pfft_real(dimensions,int([nxyzs],c_intptr_t), &
-          D%rwork, D%rwork, D%mpi%comm, &
-          plantypes, PFFT_TRANSPOSED_NONE + PFFT_MEASURE + PFFT_PRESERVE_INPUT)
+        if (present(distributed)) then
+          distr = distributed
+        else
+          distr = .true.
+        end if
+
+        if (distr) then
+          plan%planptr = pfft_real(dimensions,int([nxyzs],c_intptr_t), &
+            D%rwork, D%rwork, D%mpi%comm, &
+            plantypes, PFFT_TRANSPOSED_NONE + PFFT_MEASURE + PFFT_PRESERVE_INPUT)
+        else
+          plan%planptr = fftw_plan_gen(nxyzs , D%rwork, D%rwork,&
+                          realplantypes , FFTW_MEASURE)
+        end if
 #else
         plan%planptr = fftw_plan_gen(nxyzs , D%rwork, D%rwork,&
                         realplantypes , FFTW_MEASURE)
@@ -74,8 +100,10 @@
 
       endif
       
-      plan%planowner=.true.
-      
+      plan%planowner = .true.
+
+      plan%distributed = distr
+
       if (.not.c_associated(plan%planptr)) stop "Error, FFT plan not created!"
 
 #undef colons
