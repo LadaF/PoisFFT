@@ -921,7 +921,7 @@
           do k = 0, m%rnxs(1)-1
             do j = 0, nz-1
               do i = 0, m%rnzs(l)-1
-                m%rwork(i+sum(m%rnzs(1:l-1))+1, j+1, k+1) = &
+                m%rwork(i+m%sumrnzs(l)+1, j+1, k+1) = &
                   m%tmp2(i + j*m%rnzs(l) + k*(nz*m%rnzs(l)) + m%rdispls(l))
               end do
             end do
@@ -953,7 +953,7 @@
             do j = 0, nz-1
               do i = 0, m%rnzs(l)-1
                 m%tmp2(i + j*m%rnzs(l) + k*(nz*m%rnzs(l)) + m%rdispls(l)) = &
-                  m%rwork(i+sum(m%rnzs(1:l-1))+1, j+1, k+1)
+                  m%rwork(i+m%sumrnzs(l)+1, j+1, k+1)
               end do
             end do
           end do
@@ -1045,7 +1045,7 @@
           do k = 0, m%rnxs(1)-1
             do j = 0, ny-1
               do i = 0, m%rnzs(l)-1
-                m%rwork(i+sum(m%rnzs(1:l-1))+1, j+1, k+1) = &
+                m%rwork(i+m%sumrnzs(l)+1, j+1, k+1) = &
                   m%tmp2(i + j*m%rnzs(l) + k*(ny*m%rnzs(l)) + m%rdispls(l))
               end do
             end do
@@ -1076,7 +1076,7 @@
             do j = 0, ny-1
               do i = 0, m%rnzs(l)-1
                 m%tmp2(i + j*m%rnzs(l) + k*(ny*m%rnzs(l)) + m%rdispls(l)) = &
-                  m%rwork(i+sum(m%rnzs(1:l-1))+1, j+1, k+1)
+                  m%rwork(i+m%sumrnzs(l)+1, j+1, k+1)
               end do
             end do
           end do

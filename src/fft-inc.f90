@@ -58,11 +58,29 @@
 
 
   type mpi_vars_1d
-    integer :: rank
-    integer :: np
-    integer,dimension(:),allocatable :: snxs, snzs, rnxs, rnzs, sdispls, scounts, rdispls, rcounts
-    real(RP), allocatable :: tmp1(:,:,:), tmp2(:), rwork(:,:,:)
+    !MPI communicator for the exchange
     integer :: comm = -1
+    !our rank in comm
+    integer :: rank
+    !number of processes in comm
+    integer :: np
+    ! s for dimensions of send buffers, r for receive buffers
+    ! nx, nz are the dimensions of individual parts which will be sent to or received from other processes in comm
+    ! displs are the displacements (offsets) of individual pieces in the whole 1D buffer
+    ! counts are the the number of elements in each piece
+    ! sumrnzs(i) is the sum of rnzs in pieces 1..i-1
+    integer,dimension(:),allocatable :: snxs, snzs, &
+                                        rnxs, rnzs, &
+                                        sdispls, scounts, &
+                                        rdispls, rcounts, &
+                                        sumrnzs
+    !contiguous 3D buffer for locally transposed RHS
+    real(RP), allocatable :: tmp1(:,:,:)
+    !1D buffer for globally transposed blocks of tmp1 from different processes after MPI_Alltoallv
+    real(RP), allocatable :: tmp2(:)
+    !3D buffer for contiguous 1D rows on which 1D FFT can be performed locally,
+    ! constructed by local reordering of tmp2
+    real(RP), allocatable :: rwork(:,:,:)
   end type
 
   type PoisFFT_Solver1D

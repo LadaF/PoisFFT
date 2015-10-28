@@ -1155,10 +1155,15 @@
     
       allocate(mpi%snxs(mpi%np))
       allocate(mpi%snzs(mpi%np))
+
       allocate(mpi%rnxs(mpi%np))
       allocate(mpi%rnzs(mpi%np))
+
+      allocate(mpi%sumrnzs(mpi%np))
+
       allocate(mpi%sdispls(mpi%np))
       allocate(mpi%scounts(mpi%np))
+
       allocate(mpi%rdispls(mpi%np))
       allocate(mpi%rcounts(mpi%np))
         
@@ -1187,6 +1192,10 @@
         mpi%rdispls(1) = 0
         do i = 2, mpi%np
           mpi%rdispls(i) = mpi%rdispls(i-1) + mpi%rcounts(i-1)
+        end do
+
+        do i = 1, mpi%np
+          mpi%sumrnzs(i) = sum(mpi%rnzs(1:i-1))
         end do
 
         allocate(mpi%tmp1(1:D%ny,1:D%nz,1:D%nx))
@@ -1219,6 +1228,10 @@
         mpi%rdispls(1) = 0
         do i = 2, mpi%np
           mpi%rdispls(i) = mpi%rdispls(i-1) + mpi%rcounts(i-1)
+        end do
+
+        do i = 1, mpi%np
+          mpi%sumrnzs(i) = sum(mpi%rnzs(1:i-1))
         end do
 
         allocate(mpi%tmp1(1:D%nz,1:D%ny,1:D%nx))
