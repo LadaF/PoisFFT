@@ -891,8 +891,8 @@
         if (use_rhs) then
           !$omp do
           do k = 1, nz
-            do j = 1, ny
-              do i = 1, nx
+            do i = 1, nx
+              do j = 1, ny
                 m%tmp1(j,k,i) = RHS(i,j,k)
               end do
             end do
@@ -900,8 +900,8 @@
         else
           !$omp do
           do k = 1, nz
-            do j = 1, ny
-              do i = 1, nx
+            do i = 1, nx
+              do j = 1, ny
                 m%tmp1(j,k,i) = Phi(i,j,k)
               end do
             end do
@@ -969,8 +969,8 @@
 
         !$omp do
         do k = 1, nz
-          do j = 1, ny
-            do i = 1, nx
+          do i = 1, nx
+            do j = 1, ny
               Phi(i,j,k) = m%tmp1(j,k,i)
             end do
           end do
@@ -1014,18 +1014,18 @@
         !step1 local transpose
         if (use_rhs) then
          !$omp do
-          do k = 1, nz
-            do j = 1, ny
-              do i = 1, nx
+          do j = 1, ny
+            do i = 1, nx
+              do k = 1, nz
                 m%tmp1(k,j,i) = RHS(i,j,k)
               end do
             end do
           end do
         else
          !$omp do
-          do k = 1, nz
-            do j = 1, ny
-              do i = 1, nx
+          do j = 1, ny
+            do i = 1, nx
+              do k = 1, nz
                 m%tmp1(k,j,i) = Phi(i,j,k)
               end do
             end do
@@ -1091,8 +1091,8 @@
         !$omp end single
 
         !$omp do
-        do k = 1, nz
-          do j = 1, ny
+        do j = 1, ny
+          do k = 1, nz
             do i = 1, nx
               Phi(i,j,k) = m%tmp1(k,j,i)
             end do
