@@ -4,21 +4,27 @@ prec = ARGUMENTS.get('prec','')
 mpi = ARGUMENTS.get('mpi','')
 openmp = ARGUMENTS.get('openmp','')
 debug = ARGUMENTS.get('debug','')
+cray = ARGUMENTS.get('cray','')
 missing_pfft_r2r = ARGUMENTS.get('missing_pfft_r2r','')
-
-
-if str(comp)=='sun':
-  env = Environment(tools=['link','sunf90','sunf95','suncc','sunc++'])
-elif str(comp)=='intel':
-  env = Environment(tools=['default','ifort','intelc'])
-else:
-  env = Environment()
 
 def from_env(s):
   try:
     env.Append(ENV = {s : os.environ[s]})
   except:
     pass
+
+if str(comp)=='sun':
+  env = Environment(tools=['link','sunf90','sunf95','suncc','sunc++'])
+elif str(comp)=='intel':
+  env = Environment(tools=['default','ifort','intelc'])
+elif str(comp)=='cray':
+  env = Environment()
+else:
+  env = Environment()
+  
+if cray=='yes':
+  env.Append(ENV=os.environ)
+
 
 from_env('PATH')
 from_env('LIBRARY_PATH')
@@ -42,7 +48,8 @@ except:
   pass
 
 if str(mpi)=='yes':
-  env.Replace(LINK = 'mpif90', F90='mpif90', CC='mpicc')
+  if str(comp)!='cray':
+    env.Replace(LINK = 'mpif90', F90='mpif90', CC='mpicc')
   env.Append(F90FLAGS=' -DMPI')
   env.Append(CFLAGS=' -DMPI')
 else:
@@ -115,6 +122,12 @@ if str(prec)=='dp':
   env.Append(F90FLAGS=' -DDPREC')
 else:
   prec_dir = 'sp'
+  
+  
+if cray=='yes':
+  env.Replace(CC='cc',CXX='CC',F90='ftn')
+  env.Replace(LINK='ftn')
+
   
 missing_pfft = str(missing_pfft_r2r)=='yes'
 if missing_pfft:
@@ -193,7 +206,8 @@ if str(mpi)=='yes':
       test = env.Program(LINKFLAGS=omp_flag+debug_flag, LIBS=libs,target='../bin/'+comp_dir+'/testmpi', source = sobjs + testobj)
       env.Alias('test',['../bin/'+comp_dir+'/testmpi'])
 else:
-    testobj = env.StaticObject(F90FLAGS='-O3 -g',target='../bin/'+comp_dir+'/testpoisson', source='testpoisson.f90')
+    #Intel Fortran 14 causes infinite compilation for -O3 here. It is not very important to optimize the main test program.
+    testobj = env.StaticObject(F90FLAGS='-O2 -g',target='../bin/'+comp_dir+'/testpoisson', source='testpoisson.f90')
     testobj = filter(lambda o: str(o)[-4:] != '.mod', testobj)
     
     ctestobj = env.StaticObject(CFLAGS='-O3 -g',target='../bin/'+comp_dir+'/c_testpoisson', source='testpoisson.c')
