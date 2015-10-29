@@ -2,6 +2,16 @@ The PoisFFT library solves the Poisson equation on a uniform Cartesian grid
 using the Fast Fourier Transform. It calls the library FFTW3 and (if MPI is used) 
 also PFFT.
 
+The description is available in article
+
+  Vladimir Fuka: PoisFFT - a free parallel fast Poisson solver, Applied Mathematics and Computation, 2015
+
+  available online: http://dx.doi.org/10.1016/j.amc.2015.03.011 
+  preprint: http://arxiv.org/abs/1409.8116
+
+Please cite this article when using the library for your research.
+
+
 The Poisson equation used is
 
  \Delta \phi = b

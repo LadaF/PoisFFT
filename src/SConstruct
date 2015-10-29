@@ -132,6 +132,7 @@ if cray=='yes':
 missing_pfft = str(missing_pfft_r2r)=='yes'
 if missing_pfft:
   env.Append(F90FLAGS=' -DMISSING_PFFT_R2R')
+  env.Append(CFLAGS=' -DMISSING_PFFT_R2R')
     
 
 
