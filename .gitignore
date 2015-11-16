@@ -7,5 +7,7 @@
 back/*
 bin/*
 lib/*
+tmp/*
+scratch/*
 *.dblite
 fftw3.f03
