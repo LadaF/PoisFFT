@@ -810,6 +810,8 @@ program testpoisson_MPI
 
   if (ie/=0) call error_stop("Error initializing MPI.")
 
+  glob_comm = MPI_COMM_WORLD
+
   myim = this_image()
   myrank = myim - 1
 
@@ -830,8 +832,6 @@ program testpoisson_MPI
     MPI_RP = MPI_DOUBLE_PRECISION
   end if
   
-  glob_comm = MPI_COMM_WORLD
-
   call system_clock(count_rate=trate)
  
   nims = num_images()
