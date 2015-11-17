@@ -524,12 +524,16 @@
         do i = lbound(D%Solvers1D,1), ubound(D%Solvers1D,1)
           call Finalize(D%Solvers1D(i))
         end do
+
+        deallocate(D%Solvers1D)
       endif
 
       if (allocated(D%Solvers2D)) then
         do i = lbound(D%Solvers2D,1), ubound(D%Solvers2D,1)
           call Finalize(D%Solvers2D(i))
         end do
+
+        deallocate(D%Solvers2D)
       endif
 
     endsubroutine PoisFFT_Solver3D_Finalize
