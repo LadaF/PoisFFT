@@ -578,6 +578,19 @@
 #endif
     end subroutine PoisFFT_InitThreads
 
+#ifdef MPI
+    subroutine PoisFFT_PFFT_Init
+      call pfft_init()
+    end subroutine
+
+    subroutine PoisFFT_PFFT_InitThreads(nthreads)  !instructs PFFT and fftw to plan to use nthreads threads
+      integer, intent(in) :: nthreads
+#if defined(_OPENMP) || defined(ENABLE_PTHREADS)
+        call pfft_plan_with_nthreads(int(nthreads,c_int))
+#endif
+    end subroutine PoisFFT_PFFT_InitThreads
+#endif
+
 #undef RP
 #undef CP
 #undef fftw_execute_complex

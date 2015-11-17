@@ -4,6 +4,12 @@ module PFFT
   
 #include "pfft.f03"
 
+  interface
+    subroutine pfft_plan_with_nthreads(nthreads) bind(C, name="pfft_plan_with_nthreads")
+      integer, value :: nthreads
+    end subroutine
+  end interface
+
 #ifdef MISSING_PFFT_R2R
   interface
     type(C_PTR) function pfft_plan_r2r(rnk,Nos,in,out,comm_cart,kinds,pfft_flags) bind(C, name='pfft_plan_r2r_f03')

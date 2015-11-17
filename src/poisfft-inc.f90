@@ -160,13 +160,19 @@
       allocate(D%denomz(D%nz))
       
       
-#ifndef MPI
+#ifdef MPI
+      call PoisFFT_PFFT_init()
+#else
       if (D%nthreads>1) call PoisFFT_InitThreads(1)
 #endif
 
       if (all(D%BCs==PoisFFT_Periodic)) then
 
+#ifdef MPI
+        if (D%nthreads>1) call PoisFFT_PFFT_InitThreads(D%nthreads)
+#else
         if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
+#endif
 
         call allocate_fftw_complex(D)
 
@@ -178,7 +184,11 @@
                all(D%BCs==PoisFFT_Neumann) .or. &
                all(D%BCs==PoisFFT_NeumannStag)) then
 
+#ifdef MPI
+        if (D%nthreads>1) call PoisFFT_PFFT_InitThreads(D%nthreads)
+#else
         if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
+#endif
 
         call allocate_fftw_real(D)
         
@@ -210,7 +220,7 @@
         end do
 
         if (D%ny<D%gny) then
-          if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
+          if (D%nthreads>1) call PoisFFT_PFFT_InitThreads(D%nthreads)
 
           allocate(D%Solvers2D(1))
 
