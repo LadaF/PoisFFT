@@ -14,7 +14,7 @@ Please cite this article when using the library for your research.
 
 The Poisson equation used is
 
- \Delta \phi = b
+    \Delta \phi = b
  
  where `\phi` and `b` are functions of 1, 2 or 3 spatial dimensions.
 
@@ -39,11 +39,11 @@ The installation is done using SConstruct, a Python based build environment, if 
 
 For compiling the library use
 
-scons
+    scons
 
 or 
 
-scons mpi=yes
+    scons mpi=yes
 
 in the `src` directory.
 
@@ -51,17 +51,17 @@ For compiling of the test programs add `test` after the above command.
 
 If you use other compilers than GCC (gfortran, gcc, g++), add argument comp, i.e.,
 
-scons comp=intel
+    scons comp=intel
 
 or
 
-scons comp=sun
+    scons comp=sun
 
 For other compilers you will have to add the options in the `SConstruct` file.
 
 If you want to disable OpenMP, use
 
-scons openmp=no
+    scons openmp=no
 
 With MPI it is disabled automatically, but can be explicitly enabled by
 
