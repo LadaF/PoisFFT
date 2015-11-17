@@ -63,5 +63,10 @@ If you want to disable OpenMP, use
 
 scons openmp=no
 
-with MPI it disabled automatically due to the restrictions of PFFT.
+With MPI it is disabled automatically, but can be explicitly enabled by
+
+    scons mpi=yes openmp=yes
+
+for hybrid MPI/OpenMP parallelization.
+
 
