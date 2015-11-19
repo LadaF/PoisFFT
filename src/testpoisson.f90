@@ -1,6 +1,7 @@
 module Kinds
   use PoisFFT_Precisions
-  use iso_c_binding, only: c_size_t
+  use iso_c_binding
+  use iso_fortran_env
 
   integer,parameter :: rp = DRP
   integer,parameter :: size_kind = c_size_t
@@ -573,7 +574,7 @@ contains
     
     call test_proc(Phi1D, R)
     
-    if (R<nx*epsilon(1._rp)) then
+    if (R < nx * epsilon(1._rp)) then
       write(*,*) "Spectral OK"
     else
       write(*,*) "Spectral FAIL"
@@ -603,7 +604,7 @@ contains
                dx**(-2), dx**(-2), &
                BCs, R)
     
-    if (R<nx*epsilon(1._rp)) then
+    if (R < nx * epsilon(1._rp)) then
       write(*,*) "FD2 OK"
     else
       write(*,*) "FD2 FAIL"
@@ -665,7 +666,7 @@ contains
     
     call test_proc(Phi2D, R)
     
-    if (R<nx*ny*epsilon(1._rp)) then
+    if (R < int(nx, int64) * int(ny, int64) * epsilon(1._rp)) then
       write(*,*) "Spectral OK"
     else
       write(*,*) "Spectral FAIL"
@@ -694,7 +695,7 @@ contains
     call Res2D(Phi2D, RHS2D, &
                dx**(-2), dx**(-2), dy**(-2), dy**(-2), &
                BCs, R)
-    if (R<nx*ny*epsilon(1._rp)) then
+    if (R < int(nx, int64) * int(ny, int64) * epsilon(1._rp)) then
       write(*,*) "FD2 OK"
     else
       write(*,*) "FD2 FAIL"
@@ -753,7 +754,7 @@ contains
     
     call test_proc(Phi3D, R)
     
-    if (R<nx*ny*nz*epsilon(1._rp)) then
+    if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * epsilon(1._rp)) then
       write(*,*) "Spectral OK"
     else
       write(*,*) "Spectral FAIL"
@@ -782,7 +783,7 @@ contains
     call Res3D(Phi3D, RHS3D, &
                dx**(-2), dx**(-2), dy**(-2), dy**(-2), dz**(-2), dz**(-2), &
                BCs, R)
-    if (R<nx*ny*nz*epsilon(1._rp)) then
+    if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * epsilon(1._rp)) then
       write(*,*) "FD2 OK"
     else
       write(*,*) "FD2 FAIL"
