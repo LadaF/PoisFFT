@@ -6,7 +6,7 @@ module PFFT
 
   interface
     subroutine pfft_plan_with_nthreads(nthreads) bind(C, name="pfft_plan_with_nthreads")
-      integer, value :: nthreads
+      integer(C_INT), value :: nthreads
     end subroutine
   end interface
 
