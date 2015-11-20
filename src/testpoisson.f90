@@ -574,7 +574,7 @@ contains
     
     call test_proc(Phi1D, R)
     
-    if (R < nx * epsilon(1._rp)) then
+    if (R < nx * 10 * epsilon(1._rp)) then
       write(*,*) "Spectral OK"
     else
       write(*,*) "Spectral FAIL"
@@ -604,7 +604,7 @@ contains
                dx**(-2), dx**(-2), &
                BCs, R)
     
-    if (R < nx * epsilon(1._rp)) then
+    if (R < nx * 10 * epsilon(1._rp)) then
       write(*,*) "FD2 OK"
     else
       write(*,*) "FD2 FAIL"
@@ -666,7 +666,7 @@ contains
     
     call test_proc(Phi2D, R)
     
-    if (R < int(nx, int64) * int(ny, int64) * epsilon(1._rp)) then
+    if (R < int(nx, int64) * int(ny, int64) * 10 * epsilon(1._rp)) then
       write(*,*) "Spectral OK"
     else
       write(*,*) "Spectral FAIL"
@@ -695,7 +695,7 @@ contains
     call Res2D(Phi2D, RHS2D, &
                dx**(-2), dx**(-2), dy**(-2), dy**(-2), &
                BCs, R)
-    if (R < int(nx, int64) * int(ny, int64) * epsilon(1._rp)) then
+    if (R < int(nx, int64) * int(ny, int64) * 10 * epsilon(1._rp)) then
       write(*,*) "FD2 OK"
     else
       write(*,*) "FD2 FAIL"
@@ -754,7 +754,7 @@ contains
     
     call test_proc(Phi3D, R)
     
-    if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * epsilon(1._rp)) then
+    if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * 10 * epsilon(1._rp)) then
       write(*,*) "Spectral OK"
     else
       write(*,*) "Spectral FAIL"
@@ -783,7 +783,7 @@ contains
     call Res3D(Phi3D, RHS3D, &
                dx**(-2), dx**(-2), dy**(-2), dy**(-2), dz**(-2), dz**(-2), &
                BCs, R)
-    if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * epsilon(1._rp)) then
+    if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * 10 * epsilon(1._rp)) then
       write(*,*) "FD2 OK"
     else
       write(*,*) "FD2 FAIL"
