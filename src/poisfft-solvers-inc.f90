@@ -463,7 +463,7 @@
           D%Solvers2D(1)%cwork(1:D%nx,1:D%ny) = cmplx(Phi(1:D%nx,1:D%ny,k),0._RP,CP)
           !$omp end parallel workshare
 
-          call Execute_MPI(D%Solvers2D(1)%forward)
+          call Execute_MPI(D%Solvers2D(1)%forward, D%Solvers2D(1)%cwork)
 
           if (k==1.and.D%offz==0) then
 
@@ -492,7 +492,7 @@
 
           endif
 
-          call Execute_MPI(D%Solvers2D(1)%backward)
+          call Execute_MPI(D%Solvers2D(1)%backward, D%Solvers2D(1)%cwork)
 
           !$omp parallel workshare
           Phi(:,:,k) = real(D%Solvers2D(1)%cwork,RP) / D%norm_factor

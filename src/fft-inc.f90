@@ -2,12 +2,14 @@
 #define RP DRP
 #define CP DCP
 #define fftw_execute_complex fftw_execute_dft
+#define fftw_mpi_execute_complex fftw_mpi_execute_dft
 #define fftw_execute_real fftw_execute_r2r
 #define pfft_execute_gen pfft_execute
 #else
 #define RP SRP
 #define CP SCP
 #define fftw_execute_complex fftwf_execute_dft
+#define fftw_mpi_execute_complex fftwf_mpi_execute_dft
 #define fftw_execute_real fftwf_execute_r2r
 #define pfft_execute_gen pfftf_execute
 #endif
@@ -31,7 +33,8 @@
   integer, parameter :: FFT_RealOdd10   = FFTW_RODFT10
   integer, parameter :: FFT_RealOdd11   = FFTW_RODFT11
 
-  logical, parameter :: BLOCK_DECOMP = .false.
+  integer, parameter :: FFT_DISTRIBUTED_FFTW = 1
+  integer, parameter :: FFT_DISTRIBUTED_PFFT = 2
 
   type PoisFFT_Plan1D
     type(c_ptr)         :: planptr = c_null_ptr
@@ -45,6 +48,7 @@
     type(c_ptr)         :: planptr = c_null_ptr
     logical             :: planowner = .false.
     logical             :: distributed = .false.
+    integer             :: method = FFT_DISTRIBUTED_PFFT
     integer(c_int)      :: dir
   end type PoisFFT_Plan2D
 
@@ -116,6 +120,7 @@
     integer :: rank
     integer :: np
     integer :: comm = -1
+    integer :: comm_dim = 2
   end type
 
   type PoisFFT_Solver2D
@@ -416,10 +421,23 @@
 
     end subroutine
 
-    subroutine PoisFFT_Plan2D_Execute_MPI(plan)
+    subroutine PoisFFT_Plan2D_Execute_MPI(plan, data)
       type(PoisFFT_Plan2D), intent(in) :: plan
+      complex(CP), dimension(:,:), optional &
+#ifndef NO_CONTIGUOUS
+                               , contiguous &
+#endif
+                                           :: data
 
+      if (plan%method==FFT_DISTRIBUTED_FFTW) then
+        if (present(data)) then
+          call fftw_mpi_execute_complex(plan%planptr, data, data)
+        else
+          stop "Error, missing `data` argument in a call to Execute_MPI with FFTW."
+        end if
+      else
         call pfft_execute_gen(plan%planptr)
+      end if
 
     end subroutine
 
@@ -532,7 +550,7 @@
 
       if (c_associated(plan%planptr).and.plan%planowner) then
 #ifdef MPI
-        if (plan%distributed) then
+        if (plan%distributed.and.plan%method==FFT_DISTRIBUTED_PFFT) then
           call pfft_destroy_plan(plan%planptr)
         else
           call fftw_destroy_plan(plan%planptr)
@@ -596,3 +614,4 @@
 #undef fftw_execute_complex
 #undef fftw_execute_real
 #undef pfft_execute_gen
+#undef fftw_mpi_execute_complex

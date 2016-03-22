@@ -617,12 +617,15 @@
         !We see the dimensions reversed in Fortran!
         if (direction==1) then
           D%mpi%comm = D3D%mpi%comm
+          D%mpi%comm_dim = 2
         else if (direction==2) then
           call MPI_Cart_sub(D3D%mpi%comm, [.true.,.false.], D%mpi%comm, ie)
           if (ie/=0) stop "Error executing MPI_Cart_sub."
+          D%mpi%comm_dim = 1
         else
           call MPI_Cart_sub(D3D%mpi%comm, [.false.,.true.], D%mpi%comm, ie)
           if (ie/=0) stop "Error executing MPI_Cart_sub."
+          D%mpi%comm_dim = 1
         end if
       else
         stop "Not implemented."
