@@ -4,13 +4,17 @@ module PFFT
   
 #include "pfft.f03"
 
+!NOTE: only for older versions of PFFT
+#ifdef MISSING_PFFT_PLAN_WITH_NTHREADS
   interface
     subroutine pfft_plan_with_nthreads(nthreads) bind(C, name="pfft_plan_with_nthreads")
       import
       integer(C_INT), value :: nthreads
     end subroutine
   end interface
+#endif
 
+!NOTE: only for older versions of PFFT
 #ifdef MISSING_PFFT_R2R
   interface
     type(C_PTR) function pfft_plan_r2r(rnk,Nos,in,out,comm_cart,kinds,pfft_flags) bind(C, name='pfft_plan_r2r_f03')

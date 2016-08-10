@@ -179,11 +179,11 @@ Depends(sobjs[-1], 'poisfft-solvers-inc.f90')
 Depends(sobjs[-1], 'poisfft-inc.f90')
 Depends(sobjs[-1], 'loop_nest_3d.f90')
 sobjs += env.Object(target='../bin/'+comp_dir+'/main', source='main.f90')
-sobjs += env.SharedObject(target='../bin/'+comp_dir+'/f_mpi_comm_c2f', source='f_mpi_comm_c2f.c')
+sobjs += env.Object(target='../bin/'+comp_dir+'/f_mpi_comm_c2f', source='f_mpi_comm_c2f.c')
 sobjs += env.Object(target='../bin/'+comp_dir+'/c_binding', source='c_binding.f90')
 Depends(sobjs[-1], 'c_new-inc.f90')
 Depends(sobjs[-1], 'c_execute-inc.f90')
-sobjs += env.SharedObject(target='../bin/'+comp_dir+'/c_binding_c', source='c_binding.c')
+sobjs += env.Object(target='../bin/'+comp_dir+'/c_binding_c', source='c_binding.c')
 
 sobjs = filter(lambda o: str(o)[-4:] != '.mod', sobjs)
 
