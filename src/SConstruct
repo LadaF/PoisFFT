@@ -4,6 +4,7 @@ prec = ARGUMENTS.get('prec','')
 mpi = ARGUMENTS.get('mpi','')
 openmp = ARGUMENTS.get('openmp','')
 debug = ARGUMENTS.get('debug','')
+warnings = ARGUMENTS.get('warnings','')
 cray = ARGUMENTS.get('cray','')
 missing_pfft_r2r = ARGUMENTS.get('missing_pfft_r2r','')
 
@@ -96,7 +97,11 @@ elif str(comp)=='intel':
   fortran_libs = ['ifcore','ifcoremt']
   
 else:
-  env.Append(F90FLAGS='-cpp -g -Wall -Wextra -Wsurprising -Wno-unused-dummy-argument -Ofast')
+  env.Append(F90FLAGS='-cpp -g -O3')
+
+  if warnings=='yes':
+    env.Append(F90FLAGS='-Wall -Wextra -Wsurprising -Wno-unused-dummy-argument')
+   
   if str(openmp)=='no':
     omp_flag = ''
   else:
