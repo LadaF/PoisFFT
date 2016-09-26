@@ -5,6 +5,7 @@ mpi = ARGUMENTS.get('mpi','')
 openmp = ARGUMENTS.get('openmp','')
 debug = ARGUMENTS.get('debug','')
 warnings = ARGUMENTS.get('warnings','')
+sanitize = ARGUMENTS.get('sanitize','')
 cray = ARGUMENTS.get('cray','')
 missing_pfft_r2r = ARGUMENTS.get('missing_pfft_r2r','')
 
@@ -13,6 +14,7 @@ def from_env(s):
     env.Append(ENV = {s : os.environ[s]})
   except:
     pass
+   
 
 if str(comp)=='sun':
   env = Environment(tools=['link','sunf90','sunf95','suncc','sunc++'])
@@ -44,8 +46,22 @@ except:
 try:
   fc = os.environ['FC']
   if len(fc)>0:
-    env.Replace(F90 = fc)
+    env.Replace(F90 = fc, FORTRAN=fc, LINK=fc)
 except:
+  pass
+ 
+try:
+  cc = os.environ['CC']
+  if len(fc)>0:
+    env.Replace(CC = cc)
+except KeyError:
+  pass
+
+try:
+  cxx = os.environ['CXX']
+  if len(cxx)>0:
+    env.Replace(CXX = cxx)
+except KeyError:
   pass
 
 if str(mpi)=='yes':
@@ -97,7 +113,7 @@ elif str(comp)=='intel':
   fortran_libs = ['ifcore','ifcoremt']
   
 else:
-  env.Append(F90FLAGS='-cpp -g -O3')
+  env.Append(F90FLAGS='-cpp -g -O3 -fbacktrace')
 
   if warnings=='yes':
     env.Append(F90FLAGS='-Wall -Wextra -Wsurprising -Wno-unused-dummy-argument')
@@ -109,9 +125,14 @@ else:
   comp_dir='gcc'
   
   if debug=='yes':
-    debug_flag = ' -fcheck=bounds,pointer -ffpe-trap=zero,overflow,invalid -fbacktrace'
+    debug_flag = ' -fcheck=bounds,pointer -ffpe-trap=zero,overflow,invalid'
   else:
     debug_flag = ''
+
+  if sanitize=='yes':
+    debug_flag = debug_flag + ' -fsanitize=undefined,address,null -fbacktrace'
+  else:
+    sanitize_flag = debug_flag + ''
 
   env.Append(FORTRANMODDIRPREFIX = '-J')
   
@@ -215,13 +236,13 @@ else:
     testobj = env.StaticObject(F90FLAGS='-O2 -g',target='../bin/'+comp_dir+'/testpoisson', source='testpoisson.f90')
     testobj = filter(lambda o: str(o)[-4:] != '.mod', testobj)
     
-    ctestobj = env.StaticObject(CFLAGS='-O3 -g',target='../bin/'+comp_dir+'/c_testpoisson', source='testpoisson.c')
+    ctestobj = env.StaticObject(CFLAGS='-O3 -g'+debug_flag,target='../bin/'+comp_dir+'/c_testpoisson', source='testpoisson.c')
     
-    cctestobj = env.StaticObject(CXXFLAGS='-O3 -g',target='../bin/'+comp_dir+'/cc_testpoisson', source='testpoisson.cc')
+    cctestobj = env.StaticObject(CXXFLAGS='-O3 -g'+debug_flag,target='../bin/'+comp_dir+'/cc_testpoisson', source='testpoisson.cc')
     
     test = env.Program(LINKFLAGS=omp_flag+debug_flag, LIBS=['fftw3','fftw3f','fftw3_omp'],target='../bin/'+comp_dir+'/testpoisson', source = sobjs + testobj)
-    test += env.Program(LINK=env['CC'],LINKFLAGS=omp_flag, LIBS=['m','fftw3','fftw3f','fftw3_omp']+fortran_libs,target='../bin/'+comp_dir+'/c_testpoisson', source = sobjs + ctestobj)
-    test += env.Program(LINK=env['CXX'], LINKFLAGS=omp_flag, LIBS=['m','fftw3','fftw3f','fftw3_omp']+fortran_libs,target='../bin/'+comp_dir+'/cc_testpoisson', source = sobjs + cctestobj)
+    test += env.Program(LINK=env['CC'],LINKFLAGS=omp_flag+debug_flag, LIBS=['m','fftw3','fftw3f','fftw3_omp']+fortran_libs,target='../bin/'+comp_dir+'/c_testpoisson', source = sobjs + ctestobj)
+    test += env.Program(LINK=env['CXX'], LINKFLAGS=omp_flag+debug_flag, LIBS=['m','fftw3','fftw3f','fftw3_omp']+fortran_libs,target='../bin/'+comp_dir+'/cc_testpoisson', source = sobjs + cctestobj)
     env.Alias('test',['../bin/'+comp_dir+'/testpoisson',
                       '../bin/'+comp_dir+'/c_testpoisson',
                       '../bin/'+comp_dir+'/cc_testpoisson'])
