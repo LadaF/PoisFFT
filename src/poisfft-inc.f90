@@ -46,9 +46,9 @@
   end interface
 
   interface Finalize
-    module procedure PoisFFT_Solver1D_Finalize
-    module procedure PoisFFT_Solver2D_Finalize
-    module procedure PoisFFT_Solver3D_Finalize
+    module procedure PoisFFT_Solver1D__Finalize
+    module procedure PoisFFT_Solver2D__Finalize
+    module procedure PoisFFT_Solver3D__Finalize
   end interface Finalize
 
 
@@ -59,9 +59,9 @@
   end interface Init
 
   interface Execute
-    module procedure PoisFFT_Solver1D_Execute
-    module procedure PoisFFT_Solver2D_Execute
-    module procedure PoisFFT_Solver3D_Execute
+    module procedure PoisFFT_Solver1D__Execute
+    module procedure PoisFFT_Solver2D__Execute
+    module procedure PoisFFT_Solver3D__Execute
   end interface Execute
 
 
@@ -437,7 +437,7 @@
     
 
 
-    subroutine PoisFFT_Solver3D_Execute(D,Phi,RHS)
+    subroutine PoisFFT_Solver3D__Execute(D,Phi,RHS)
       type(PoisFFT_Solver3D), intent(inout) :: D
       real(RP), intent(out) :: Phi(:,:,:)
       real(RP), intent(in)  :: RHS(:,:,:)
@@ -505,12 +505,12 @@
 
       endif
 
-    end subroutine PoisFFT_Solver3D_Execute
+    end subroutine PoisFFT_Solver3D__Execute
     
     
     
     
-    subroutine PoisFFT_Solver3D_Finalize(D)
+    subroutine PoisFFT_Solver3D__Finalize(D)
       type(PoisFFT_Solver3D), intent(inout) :: D
       integer :: i
 
@@ -536,7 +536,7 @@
         deallocate(D%Solvers2D)
       endif
 
-    endsubroutine PoisFFT_Solver3D_Finalize
+    endsubroutine PoisFFT_Solver3D__Finalize
 
 
 
@@ -792,7 +792,7 @@
 
 
 
-    subroutine PoisFFT_Solver2D_Execute(D,Phi,RHS)
+    subroutine PoisFFT_Solver2D__Execute(D,Phi,RHS)
       type(PoisFFT_Solver2D), intent(inout) :: D
       real(RP), intent(out) :: Phi(:,:)
       real(RP), intent(in)  :: RHS(:,:)
@@ -832,13 +832,13 @@
 
       endif
 
-    end subroutine PoisFFT_Solver2D_Execute
+    end subroutine PoisFFT_Solver2D__Execute
 
 
 
 
 
-    subroutine PoisFFT_Solver2D_Finalize(D)
+    subroutine PoisFFT_Solver2D__Finalize(D)
       type(PoisFFT_Solver2D), intent(inout) :: D
 
       call Finalize(D%forward)
@@ -847,7 +847,7 @@
       if (associated(D%rwork)) call deallocate_fftw(D%rwork)
       if (associated(D%cwork)) call deallocate_fftw(D%cwork)
 
-    endsubroutine PoisFFT_Solver2D_Finalize
+    endsubroutine PoisFFT_Solver2D__Finalize
 
 
 
@@ -990,7 +990,7 @@
     
     
     
-    subroutine PoisFFT_Solver1D_Execute(D,Phi,RHS)
+    subroutine PoisFFT_Solver1D__Execute(D,Phi,RHS)
       type(PoisFFT_Solver1D), intent(inout) :: D
       real(RP), intent(out) :: Phi(:)
       real(RP), intent(in)  :: RHS(:)
@@ -1024,12 +1024,12 @@
                  
       endif
 
-    end subroutine PoisFFT_Solver1D_Execute
+    end subroutine PoisFFT_Solver1D__Execute
 
 
 
 
-    subroutine PoisFFT_Solver1D_Finalize(D)
+    subroutine PoisFFT_Solver1D__Finalize(D)
       type(PoisFFT_Solver1D), intent(inout) :: D
 
       call Finalize(D%forward)
@@ -1038,7 +1038,7 @@
       if (associated(D%rwork)) call deallocate_fftw(D%rwork)
       if (associated(D%cwork)) call deallocate_fftw(D%cwork)
 
-    endsubroutine PoisFFT_Solver1D_Finalize
+    endsubroutine PoisFFT_Solver1D__Finalize
 
 
 
