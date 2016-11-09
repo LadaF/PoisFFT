@@ -296,6 +296,44 @@
 #endif
 
       else if (all(D%BCs(1:2)==PoisFFT_Periodic) .and. &
+               all(D%BCs(5:6)==PoisFFT_Periodic) .and. &
+               (all(D%BCs(3:4)==PoisFFT_Neumann) .or. &
+                all(D%BCs(3:4)==PoisFFT_NeumannStag) )) then
+
+        allocate(D%Solvers1D(D%nthreads))
+
+        D%Solvers1D(1) = PoisFFT_Solver1D_From3D(D,2)
+
+        call allocate_fftw_real(D%Solvers1D(1))
+
+        D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_RealEven10])
+        D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_RealEven01])
+
+        do i = 2, D%nthreads
+          D%Solvers1D(i) = D%Solvers1D(1)
+          D%Solvers1D(i)%forward%planowner = .false.
+          D%Solvers1D(i)%backward%planowner = .false.
+          call allocate_fftw_real(D%Solvers1D(i))
+        end do
+
+        allocate(D%Solvers2D(D%nthreads))
+
+        D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,2)
+
+        call allocate_fftw_complex(D%Solvers2D(1))
+
+        D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_FORWARD])
+        D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_BACKWARD])
+
+        do i = 2, D%nthreads
+          D%Solvers2D(i) = D%Solvers2D(1)
+          D%Solvers2D(i)%forward%planowner = .false.
+          D%Solvers2D(i)%backward%planowner = .false.
+
+          call allocate_fftw_complex(D%Solvers2D(i))
+        end do
+        
+      else if (all(D%BCs(1:2)==PoisFFT_Periodic) .and. &
                (all(D%BCs(3:6)==PoisFFT_Neumann) .or. &
                 all(D%BCs(3:6)==PoisFFT_NeumannStag) )) then
 

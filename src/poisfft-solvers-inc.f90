@@ -670,6 +670,99 @@
 
 
 
+
+    subroutine PoisFFT_Solver3D_PNsP(D, Phi, RHS)
+      type(PoisFFT_Solver3D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      integer i,j,k
+      integer tid      !thread id
+
+      !$omp parallel private(tid,i,j,k)
+      tid = 1
+      !$ tid = omp_get_thread_num()+1
+
+      ! Forward FFT of RHS in y dimension
+      !$omp do
+      do k=1,D%nz
+        do i=1,D%nx
+          D%Solvers1D(tid)%rwork = RHS(i,:,k)
+
+
+          call Execute(D%Solvers1D(tid)%forward,D%Solvers1D(tid)%rwork)
+
+
+          Phi(i,:,k) = D%Solvers1D(tid)%rwork
+        end do
+      end do
+      !$omp end do
+
+      
+      !$omp do
+      do j=1,D%ny
+        D%Solvers2D(tid)%cwork(1:D%nx,1:D%nz) = cmplx(Phi(1:D%nx,1:D%nz,k),0._RP,CP)
+
+
+        call Execute(D%Solvers2D(tid)%forward, D%Solvers2D(tid)%cwork)
+
+        if (j==1) then
+          do k=2,D%nz
+            do i=2,D%nx
+              D%Solvers2D(tid)%cwork(i,k) = D%Solvers2D(tid)%cwork(i,k)&
+                                              / (D%denomx(i) + D%denomz(k))
+            end do
+          end do
+          do i=2,D%nx
+              D%Solvers2D(tid)%cwork(i,1) = D%Solvers2D(tid)%cwork(i,1)&
+                                              / (D%denomx(i))
+          end do
+          do k=2,D%nz
+              D%Solvers2D(tid)%cwork(1,k) = D%Solvers2D(tid)%cwork(1,k)&
+                                              / (D%denomz(k))
+          end do
+          !NOTE: if IEEE FPE exceptions are disabled all this is not necessary and
+          ! the loop can be over all indexes because the infinity or NaN is changed to 0 below
+          D%Solvers2D(tid)%cwork(1,1) = 0
+
+        else
+
+          do k=1,D%nz
+            do i=1,D%nx
+              D%Solvers2D(tid)%cwork(i,k) = D%Solvers2D(tid)%cwork(i,k)&
+                                              / (D%denomx(i) + D%denomy(j) + D%denomz(k))
+            end do
+          end do
+
+        endif
+
+        call Execute(D%Solvers2D(tid)%backward, D%Solvers2D(tid)%cwork)
+
+        Phi(:,:,k) = real(D%Solvers2D(tid)%cwork,RP) / D%norm_factor
+
+
+      end do
+      !$omp end do
+
+      
+      !$omp do
+      do k=1,D%nz
+        do i=1,D%nx
+          D%Solvers1D(tid)%rwork = Phi(i,:,k)
+
+
+          call Execute(D%Solvers1D(tid)%backward,D%Solvers1D(tid)%rwork)
+
+
+          Phi(i,:,k) = D%Solvers1D(tid)%rwork
+        end do
+      end do
+      !$omp end do
+      !$omp end parallel
+    end subroutine PoisFFT_Solver3D_PNsP
+
+    
+    
+
 #ifdef MPI
     subroutine PoisFFT_Solver3D_PNsNs(D, Phi, RHS)
       type(PoisFFT_Solver3D), intent(inout), target :: D
