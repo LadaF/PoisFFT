@@ -52,7 +52,7 @@ except:
  
 try:
   cc = os.environ['CC']
-  if len(fc)>0:
+  if len(cc)>0:
     env.Replace(CC = cc)
 except KeyError:
   pass
