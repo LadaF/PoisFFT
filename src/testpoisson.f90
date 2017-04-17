@@ -605,10 +605,10 @@ contains
                BCs, R)
     
     if (R < nx * 10 * epsilon(1._rp)) then
-      write(*,*) "FD2 OK"
+      write(*,*) "FD2 OK", R
     else
       write(*,*) "FD2 FAIL"
-      write(*,*) "Finite difference 2 residuum:",R
+      write(*,*) "FD2 residuum:",R
     end if
   end subroutine
   
@@ -696,10 +696,10 @@ contains
                dx**(-2), dx**(-2), dy**(-2), dy**(-2), &
                BCs, R)
     if (R < int(nx, int64) * int(ny, int64) * 10 * epsilon(1._rp)) then
-      write(*,*) "FD2 OK"
+      write(*,*) "FD2 OK", R
     else
       write(*,*) "FD2 FAIL"
-      write(*,*) "Spectral residuum:",R
+      write(*,*) "FD2 residuum:",R
     end if
   end subroutine
   
@@ -784,10 +784,10 @@ contains
                dx**(-2), dx**(-2), dy**(-2), dy**(-2), dz**(-2), dz**(-2), &
                BCs, R)
     if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * 10 * epsilon(1._rp)) then
-      write(*,*) "FD2 OK"
+      write(*,*) "FD2 OK", R
     else
       write(*,*) "FD2 FAIL"
-      write(*,*) "Finite difference 2 residuum:",R
+      write(*,*) "FD2 residuum:",R
     end if
   end subroutine
   
