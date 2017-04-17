@@ -422,14 +422,14 @@
       endif
 
 
-      if (D%approximation==2) then
-        D%denomx = eigenvalues_FD2(D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
-        D%denomy = eigenvalues_FD2(D%BCs(3:4), D%Ly, D%ny, D%gny, D%offy)
-        D%denomz = eigenvalues_FD2(D%BCs(5:6), D%Lz, D%nz, D%gnz, D%offz)
+      if (D%approximation==PoisFFT_FiniteDifference2) then
+        D%denomx = eigenvalues(eig_fn_FD2, D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
+        D%denomy = eigenvalues(eig_fn_FD2, D%BCs(3:4), D%Ly, D%ny, D%gny, D%offy)
+        D%denomz = eigenvalues(eig_fn_FD2, D%BCs(5:6), D%Lz, D%nz, D%gnz, D%offz)
       else
-        D%denomx = eigenvalues_spectral(D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
-        D%denomy = eigenvalues_spectral(D%BCs(3:4), D%Ly, D%ny, D%gny, D%offy)
-        D%denomz = eigenvalues_spectral(D%BCs(5:6), D%Lz, D%nz, D%gnz, D%offz)
+        D%denomx = eigenvalues(eig_fn_spectral, D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
+        D%denomy = eigenvalues(eig_fn_spectral, D%BCs(3:4), D%Ly, D%ny, D%gny, D%offy)
+        D%denomz = eigenvalues(eig_fn_spectral, D%BCs(5:6), D%Lz, D%nz, D%gnz, D%offz)
       end if
       
     contains
@@ -818,12 +818,12 @@
 
       endif
       
-      if (D%approximation==2) then
-        D%denomx = eigenvalues_FD2(D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
-        D%denomy = eigenvalues_FD2(D%BCs(2:4), D%Ly, D%ny, D%gny, D%offy)
+      if (D%approximation==PoisFFT_FiniteDifference2) then
+        D%denomx = eigenvalues(eig_fn_FD2, D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
+        D%denomy = eigenvalues(eig_fn_FD2, D%BCs(2:4), D%Ly, D%ny, D%gny, D%offy)
       else
-        D%denomx = eigenvalues_spectral(D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
-        D%denomy = eigenvalues_spectral(D%BCs(2:4), D%Ly, D%ny, D%gny, D%offy)
+        D%denomx = eigenvalues(eig_fn_spectral, D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
+        D%denomy = eigenvalues(eig_fn_spectral, D%BCs(2:4), D%Ly, D%ny, D%gny, D%offy)
       end if
     end subroutine PoisFFT_Solver2D_Init
 
@@ -1017,10 +1017,10 @@
         
       endif
       
-      if (D%approximation==2) then
-        D%denomx = eigenvalues_FD2(D%BCs(1:2), D%Lx, D%gnx, D%gnx, D%offx)
+      if (D%approximation==PoisFFT_FiniteDifference2) then
+        D%denomx = eigenvalues(eig_fn_FD2, D%BCs(1:2), D%Lx, D%gnx, D%gnx, D%offx)
       else
-        D%denomx = eigenvalues_spectral(D%BCs(1:2), D%Lx, D%gnx, D%gnx, D%offx)
+        D%denomx = eigenvalues(eig_fn_spectral, D%BCs(1:2), D%Lx, D%gnx, D%gnx, D%offx)
       end if
 
     end subroutine PoisFFT_Solver1D_Init
@@ -1088,7 +1088,9 @@
 
 
 
-    function eigenvalues_spectral(BCs, L, n, gn, off) result(res)
+
+    function eigenvalues(f, BCs, L, n, gn, off) result(res)
+      procedure(eig_fn_spectral) :: f
       integer, intent(in) :: BCs(2)
       real(RP), intent(in) :: L
       integer, intent(in) :: n, gn, off
@@ -1096,59 +1098,43 @@
       integer :: i
       real(RP) :: dkx, dkx_h
       
-      dkx_h = pi/(gn)
-      dkx = 2 * dkx_h
+      dkx = pi * grid_dx(gn, L, BCs) / L
+      dkx_h = dkx / 2
       
       if (all(BCs==PoisFFT_Periodic)) then
         do i = 1, n
           if (i+off<gn/2) then
-            res(i) = -4*pi**2*(i-1+off)**2
+            res(i) = f((i-1+off)*dkx)
           else
-            res(i) = -4*pi**2*(gn-i+1+off)**2
+            res(i) = f((gn-i+1+off)*dkx)
           end if
         end do
       else if (all(BCs==PoisFFT_Dirichlet)) then
-        forall(i=1:n) res(i) = -pi**2*(i+off)**2
+        forall(i=1:n) res(i) = f((i+off)*dkx_h)
       else if (all(BCs==PoisFFT_DirichletStag)) then
-        forall(i=1:n) res(i) = -pi**2*(i+off)**2
+        forall(i=1:n) res(i) = f((i+off)*dkx_h)
       else if (all(BCs==PoisFFT_Neumann)) then
-        forall(i=1:n) res(i) = -pi**2*(i-1+off)**2
+        forall(i=1:n) res(i) = f((i-1+off)*dkx_h)
       else if (all(BCs==PoisFFT_NeumannStag)) then
-        forall(i=1:n) res(i) = -pi**2*(i-1+off)**2
-      endif
-      
-      res = res / L**2
-    end function
-
-    
-    
-
-    function eigenvalues_FD2(BCs, L, n, gn, off) result(res)
-      integer, intent(in) :: BCs(2)
-      real(RP), intent(in) :: L
-      integer, intent(in) :: n, gn, off
-      real(RP) :: res(n)
-      integer :: i
-      real(RP) :: dkx, dkx_h
-      
-      dkx_h = pi/(gn)
-      dkx = 2 * dkx_h
-      
-      if (all(BCs==PoisFFT_Periodic)) then
-        forall(i=1:n) res(i) = 2 * (cos((i-1+off)*dkx)-1.0_RP)
-      else if (all(BCs==PoisFFT_Dirichlet)) then
-        forall(i=1:n) res(i) = 2 * (cos((i+off)*pi/(gn+1))-1.0_RP)
-      else if (all(BCs==PoisFFT_DirichletStag)) then
-        forall(i=1:n) res(i) = 2 * (cos((i+off)*dkx_h)-1.0_RP)
-      else if (all(BCs==PoisFFT_Neumann)) then
-        forall(i=1:n) res(i) = 2 * (cos((i-1+off)*pi/(gn-1))-1.0_RP)
-      else if (all(BCs==PoisFFT_NeumannStag)) then
-        forall(i=1:n) res(i) = 2 * (cos((i-1+off)*dkx_h)-1.0_RP)
+        forall(i=1:n) res(i) = f((i-1+off)*dkx_h)
       end if
 
       res = res / (grid_dx(gn, L, BCs))**2
+      
     end function
-    
+
+
+    pure real(RP) function eig_fn_spectral(x) result(f)
+      real(RP), intent(in) :: x
+      f = -(2 * x)**2
+    end function
+  
+    pure real(RP) function eig_fn_FD2(x) result(f)
+      real(RP), intent(in) :: x
+      f = -(2 * sin(x))**2
+    end function
+  
+      
     function grid_dx(gn, L, BCs) result(res)
       real(RP) :: res
       integer, intent(in) :: gn
@@ -1189,6 +1175,10 @@
         res = 0
       end if
     end function
+    
+    
+    
+
     
 #ifdef MPI     
     subroutine Init_MPI_Buffers(D, dir)
