@@ -116,7 +116,7 @@ else:
   env.Append(F90FLAGS='-cpp -g -O3 -fbacktrace')
 
   if warnings=='yes':
-    env.Append(F90FLAGS='-Wall -Wextra -Wsurprising -Wno-unused-dummy-argument')
+    env.Append(F90FLAGS='-Wall -Wsurprising -Wno-unused-function -Wno-unused-dummy-argument')
    
   if str(openmp)=='no':
     omp_flag = ''
