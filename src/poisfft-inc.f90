@@ -426,6 +426,10 @@
         D%denomx = eigenvalues(eig_fn_FD2, D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
         D%denomy = eigenvalues(eig_fn_FD2, D%BCs(3:4), D%Ly, D%ny, D%gny, D%offy)
         D%denomz = eigenvalues(eig_fn_FD2, D%BCs(5:6), D%Lz, D%nz, D%gnz, D%offz)
+      else if (D%approximation==PoisFFT_FiniteDifference4) then
+        D%denomx = eigenvalues(eig_fn_FD4, D%BCs(1:2), D%Lx, D%gnx, D%gnx, D%offx)
+        D%denomy = eigenvalues(eig_fn_FD4, D%BCs(3:4), D%Ly, D%gny, D%gny, D%offy)
+        D%denomz = eigenvalues(eig_fn_FD4, D%BCs(5:6), D%Lz, D%gnz, D%gnz, D%offz)
       else
         D%denomx = eigenvalues(eig_fn_spectral, D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
         D%denomy = eigenvalues(eig_fn_spectral, D%BCs(3:4), D%Ly, D%ny, D%gny, D%offy)
@@ -821,6 +825,9 @@
       if (D%approximation==PoisFFT_FiniteDifference2) then
         D%denomx = eigenvalues(eig_fn_FD2, D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
         D%denomy = eigenvalues(eig_fn_FD2, D%BCs(2:4), D%Ly, D%ny, D%gny, D%offy)
+      else if (D%approximation==PoisFFT_FiniteDifference4) then
+        D%denomx = eigenvalues(eig_fn_FD4, D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
+        D%denomy = eigenvalues(eig_fn_FD4, D%BCs(2:4), D%Ly, D%ny, D%gny, D%offy)
       else
         D%denomx = eigenvalues(eig_fn_spectral, D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
         D%denomy = eigenvalues(eig_fn_spectral, D%BCs(2:4), D%Ly, D%ny, D%gny, D%offy)
@@ -1019,6 +1026,8 @@
       
       if (D%approximation==PoisFFT_FiniteDifference2) then
         D%denomx = eigenvalues(eig_fn_FD2, D%BCs(1:2), D%Lx, D%gnx, D%gnx, D%offx)
+      else if (D%approximation==PoisFFT_FiniteDifference4) then
+        D%denomx = eigenvalues(eig_fn_FD4, D%BCs(1:2), D%Lx, D%gnx, D%gnx, D%offx)
       else
         D%denomx = eigenvalues(eig_fn_spectral, D%BCs(1:2), D%Lx, D%gnx, D%gnx, D%offx)
       end if
@@ -1134,6 +1143,11 @@
       f = -(2 * sin(x))**2
     end function
   
+    pure real(RP) function eig_fn_FD4(x) result(f)
+      real(RP), intent(in) :: x
+      f = -((sin(3*x) - 27*sin(x)) / 12)**2
+    end function
+    
       
     function grid_dx(gn, L, BCs) result(res)
       real(RP) :: res

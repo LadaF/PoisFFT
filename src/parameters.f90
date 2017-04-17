@@ -8,4 +8,5 @@ module PoisFFT_Parameters
 
   integer, parameter :: PoisFFT_Spectral = 0
   integer, parameter :: PoisFFT_FiniteDifference2 = 2
+  integer, parameter :: PoisFFT_FiniteDifference4 = 4
 end module PoisFFT_Parameters
