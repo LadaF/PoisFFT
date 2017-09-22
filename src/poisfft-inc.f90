@@ -1115,7 +1115,7 @@
           if (i+off<gn/2) then
             res(i) = f((i-1+off)*dkx)
           else
-            res(i) = f((gn-i+1+off)*dkx)
+            res(i) = f((gn-(i-1+off))*dkx)
           end if
         end do
       else if (all(BCs==PoisFFT_Dirichlet)) then
