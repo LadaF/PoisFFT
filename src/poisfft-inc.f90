@@ -417,6 +417,97 @@
 
         end do
 #endif
+
+
+
+
+      else if ((all(D%BCs(1:4)==PoisFFT_Dirichlet) .or. &
+                all(D%BCs(1:4)==PoisFFT_DirichletStag)) .and. &
+               all(D%BCs(5:6)==PoisFFT_Periodic)) then
+
+        real_forw = real_transform_type_forward(D%BCs(1))
+        real_back = real_transform_type_backward(D%BCs(1))
+        
+! #ifdef MPI
+!         !1..x, 2..y, 3..z, not different threads, but directions
+!         allocate(D%Solvers1D(3*D%nthreads))
+! 
+!         D%Solvers1D(1) = PoisFFT_Solver1D_From3D(D,1)
+!         D%Solvers1D(2) = PoisFFT_Solver1D_From3D(D,2)
+!         D%Solvers1D(3) = PoisFFT_Solver1D_From3D(D,3)
+!         
+!         call allocate_fftw_complex(D%Solvers1D(1))
+!         call allocate_fftw_real(D%Solvers1D(2))
+!         call allocate_fftw_real(D%Solvers1D(3))
+!         
+!         D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_Complex, FFTW_FORWARD])
+!         D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_Complex, FFTW_BACKWARD])
+!         D%Solvers1D(2)%forward = PoisFFT_Plan1D(D%Solvers1D(2), [real_forw])
+!         D%Solvers1D(2)%backward = PoisFFT_Plan1D(D%Solvers1D(2), [real_back])
+!         D%Solvers1D(3)%forward = PoisFFT_Plan1D(D%Solvers1D(3), [real_forw])
+!         D%Solvers1D(3)%backward = PoisFFT_Plan1D(D%Solvers1D(3), [real_back])
+!         
+!         do i = 4, 1 + 3*(D%nthreads-1), 3
+!           D%Solvers1D(i) = D%Solvers1D(1)
+!           D%Solvers1D(i)%forward%planowner = .false.
+!           D%Solvers1D(i)%backward%planowner = .false.
+!           call allocate_fftw_complex(D%Solvers1D(i))
+!         end do
+! 
+!         do i = 5, 2 + 3*(D%nthreads-1), 3
+!           D%Solvers1D(i) = D%Solvers1D(2)
+!           D%Solvers1D(i)%forward%planowner = .false.
+!           D%Solvers1D(i)%backward%planowner = .false.
+!           call allocate_fftw_real(D%Solvers1D(i))
+!         end do
+!         do i = 6, 3 + 3*(D%nthreads-1), 3
+!           D%Solvers1D(i) = D%Solvers1D(3)
+!           D%Solvers1D(i)%forward%planowner = .false.
+!           D%Solvers1D(i)%backward%planowner = .false.
+!           call allocate_fftw_real(D%Solvers1D(i))
+!         end do
+! 
+!         call Init_MPI_Buffers(D, 2)
+!         call Init_MPI_Buffers(D, 3)
+! 
+! #else
+        allocate(D%Solvers1D(D%nthreads))
+
+        D%Solvers1D(1) = PoisFFT_Solver1D_From3D(D,3)
+
+        call allocate_fftw_complex(D%Solvers1D(1))
+
+        D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_Complex, FFTW_FORWARD])
+        D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_Complex, FFTW_BACKWARD])
+
+        do i=2,D%nthreads
+          D%Solvers1D(i) = D%Solvers1D(1)
+          D%Solvers1D(i)%forward%planowner = .false.
+          D%Solvers1D(i)%backward%planowner = .false.
+          call allocate_fftw_complex(D%Solvers1D(i))
+        end do
+
+        allocate(D%Solvers2D(D%nthreads))
+
+        D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
+
+        call allocate_fftw_real(D%Solvers2D(1))
+
+        D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [real_forw, real_forw])
+        D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [real_back, real_back])
+
+        do i=2,D%nthreads
+          D%Solvers2D(i) = D%Solvers2D(1)
+          D%Solvers2D(i)%forward%planowner = .false.
+          D%Solvers2D(i)%backward%planowner = .false.
+
+          call allocate_fftw_real(D%Solvers2D(i))
+
+        end do
+! #endif
+
+
+
       else
         stop "Unknown combination of boundary conditions."
       endif
@@ -534,6 +625,18 @@
                 all(D%BCs(3:6)==PoisFFT_NeumannStag))) then
 
         call PoisFFT_Solver3D_PNsNs(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny,&
+                     ngPhi(3)+1:ngPhi(3)+D%nz),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny,&
+                     ngRHS(3)+1:ngRHS(3)+D%nz))
+
+      else if ((all(D%BCs(1:4)==PoisFFT_Dirichlet) .or. &
+                all(D%BCs(1:4)==PoisFFT_DirichletStag)) .and. &
+               all(D%BCs(5:6)==PoisFFT_Periodic)) then
+
+        call PoisFFT_Solver3D_DDP(D,&
                  Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
                      ngPhi(2)+1:ngPhi(2)+D%ny,&
                      ngPhi(3)+1:ngPhi(3)+D%nz),&

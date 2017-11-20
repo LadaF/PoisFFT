@@ -950,6 +950,80 @@
 #endif
     
     
+    
+    
+    subroutine PoisFFT_Solver3D_DDP(D, Phi, RHS)
+      type(PoisFFT_Solver3D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      integer i,j,k
+      integer tid      !thread id
+
+      !$omp parallel private(tid,i,j,k)
+      tid = 1
+      !$ tid = omp_get_thread_num()+1
+
+      ! Forward FFT of RHS in z dimension
+      !$omp do
+      do k=1,D%nz
+        D%Solvers2D(tid)%rwork = RHS(:,:,k)
+        
+#ifdef MPI
+        call Execute_MPI(D%Solvers2D(tid)%forward)
+#else
+        call Execute(D%Solvers2D(tid)%forward, D%Solvers2D(tid)%rwork)
+#endif
+
+        Phi(:,:,k) = D%Solvers2D(tid)%rwork
+      end do
+      !$omp end do
+
+      
+      !$omp do collapse(2)
+      do j=1,D%ny
+        do i=1,D%nx
+          D%Solvers1D(tid)%cwork(:) = cmplx(Phi(i,j,1:D%nz),0._RP,CP)
+
+
+          call Execute(D%Solvers1D(tid)%forward, D%Solvers1D(tid)%cwork)
+
+
+          do k=1,D%nz
+            D%Solvers1D(tid)%cwork(k) = D%Solvers1D(tid)%cwork(k)&
+                                          / (D%denomx(i) + D%denomy(j) + D%denomz(k))
+          end do
+
+
+          call Execute(D%Solvers1D(tid)%backward, D%Solvers1D(tid)%cwork)
+
+          Phi(i,j,1:D%nz) = real(D%Solvers1D(tid)%cwork,RP) / D%norm_factor
+
+        end do
+      end do
+      !$omp end do
+
+      
+      !$omp do
+      do k=1,D%nz
+        D%Solvers2D(tid)%rwork = Phi(:,:,k)
+
+#ifdef MPI
+        call Execute_MPI(D%Solvers2D(tid)%backward)
+#else
+        call Execute(D%Solvers2D(tid)%backward, D%Solvers2D(tid)%rwork)
+#endif
+
+        Phi(:,:,k) = D%Solvers2D(tid)%rwork
+      end do
+      !$omp end do
+      !$omp end parallel
+    end subroutine PoisFFT_Solver3D_DDP
+
+    
+    
+    
+    
+    
 #ifdef MPI    
     subroutine transform_1d_real_y(D1D, Phi, RHS, forward, use_rhs)
       type(PoisFFT_Solver1D), intent(inout), target :: D1D(:)
