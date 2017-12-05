@@ -51,7 +51,7 @@ contains
 !         print *, x, f(x), Phi(i)
       R = R + p**2
     end do
-    R = sqrt(R)/nx
+    R = sqrt(R/nx)
   end subroutine
 
   subroutine ResExact1D_DirStag(Phi, R)
@@ -70,7 +70,7 @@ contains
       p = abs( Phi(i) - f(x) )
       R = R + p**2
     end do
-    R = sqrt(R)/nx
+    R = sqrt(R/nx)
   end subroutine
 
   subroutine ResExact1D_Neum(Phi, R)
@@ -93,7 +93,7 @@ contains
 !         print *, x, f(x), Phi(i)
       R = R + p**2
     end do
-    R = sqrt(R)/nx
+    R = sqrt(R/nx)
   end subroutine
 
 
@@ -116,7 +116,7 @@ contains
       p = abs( Phi(i) - f(x) )
       R = R + p**2
     end do
-    R = sqrt(R)/nx
+    R = sqrt(R/nx)
   end subroutine
 
 
@@ -137,7 +137,7 @@ contains
 !         print *, x, f(x), Phi(i)
       R = R + p**2
     end do
-    R = sqrt(R)/nx
+    R = sqrt(R/nx)
   end subroutine
   
   
@@ -174,7 +174,7 @@ contains
         end do
       end do
     end do
-    R = sqrt(R)/nx
+    R = sqrt(R/(nx*ny*nz))
   end subroutine
 
   subroutine ResExact3D_DirStag(Phi, R)
@@ -203,7 +203,7 @@ contains
         end do
       end do
     end do
-    R = sqrt(R)/nx
+    R = sqrt(R/(nx*ny*nz))
   end subroutine
 
 
@@ -234,7 +234,37 @@ contains
         end do
       end do
     end do
-    R = sqrt(R)/nx
+    R = sqrt(R/(nx*ny*nz))
+  end subroutine
+
+
+  subroutine ResExact3D_DsDsNs(Phi, R)
+    real(rp), intent(in) :: Phi(0:,0:,0:)
+    real(rp), intent(out) :: R
+    integer :: i, j, k
+    real(rp) :: x, y, z, p
+    real(rp) :: xx, yy, zz, f
+    
+    xx(i) = dx/2 + dx*(i-1)
+    yy(j) = dy/2 + dy*(j-1)
+    zz(k) = dz/2 + dz*(k-1)
+    
+    f(x,y,z) = - 1 / ( (3*pi)**2/Lx**2 + (5*pi)**2/Ly**2 + (6*pi)**2/Lz**2 ) * &
+                  sin(3*pi*x/Lx) * sin(5*pi*y/Ly) *cos(6*pi*z/Lz)
+                  
+    R = 0
+    do k = 1, nz
+      do j = 1, ny
+        do i = 1, nx
+          x = xx(i)
+          y = yy(j)
+          z = zz(k)
+          p = abs( Phi(i, j, k) - f(x,y,z) )
+          R = R + p**2
+        end do
+      end do
+    end do
+    R = sqrt(R/(nx*ny*nz))
   end subroutine
 
 
@@ -1041,6 +1071,20 @@ program testpoisson
     end do
   end do
   call Test3D([(PoisFFT_DirichletStag, i = 1,4),(PoisFFT_Periodic, i = 5,6)], ResExact3D_DsDsP)
+
+
+ dx = Lx / nx
+  dy = Ly / ny
+  dz = Lz / nz
+  do k = 1,nz
+    do j = 1,ny
+      do i = 1,nx
+        x = dx*(i-0.5_rp); y = dy*(j-0.5_rp); z = dz*(k-0.5_rp)
+        RHS3D(i,j,k) = sin(3*pi*x/Lx) * sin(5*pi*y/Ly) *cos(6*pi*z/Lz)
+      end do
+    end do
+  end do
+  call Test3D([(PoisFFT_DirichletStag, i = 1,4),(PoisFFT_NeumannStag, i = 5,6)], ResExact3D_DsDsNs)
 
 
   dx = Lx / nx
