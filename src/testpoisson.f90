@@ -28,9 +28,10 @@ module Residues
   use Kinds
   use Globals
   use PoisFFT
-  
+    
   implicit none
   
+  integer, parameter :: We = 1,Ea = 2,So = 3,No = 4,Bo = 5,To = 6
 
 contains
 
@@ -114,6 +115,50 @@ contains
     do i = 1, nx
       x = xx(i)
       p = abs( Phi(i) - f(x) )
+      R = R + p**2
+    end do
+    R = sqrt(R/nx)
+  end subroutine
+
+
+  subroutine ResExact1D_NeumStagDirStag(Phi, R)
+    real(rp), intent(in) :: Phi(0:)
+    real(rp), intent(out) :: R
+    integer :: i
+    real(rp) :: x, p
+    real(rp) :: xx,f
+!       xx(i) = dx/2 + dx*(i-1) - 0.5*Lx
+!       g(x) = (x**3/6 - x*(nx*dx)**2/8)
+!       g(x) = (5._rp/16._rp)*Lx**2*x+x**5/(5*Lx**2)-x**3/2
+    xx(i) = dx/2 + dx*(i-1)
+    f(x) = -(Lx/(1.5*pi))**2 * cos(1.5*pi*(x/Lx))
+ 
+    R = 0
+    do i = 1, nx
+      x = xx(i)
+      p = abs( Phi(i) - f(x) )  
+      R = R + p**2
+    end do
+    R = sqrt(R/nx)
+  end subroutine
+
+
+  subroutine ResExact1D_DirStagNeumStag(Phi, R)
+    real(rp), intent(in) :: Phi(0:)
+    real(rp), intent(out) :: R
+    integer :: i
+    real(rp) :: x, p
+    real(rp) :: xx,f
+!       xx(i) = dx/2 + dx*(i-1) - 0.5*Lx
+!       g(x) = (x**3/6 - x*(nx*dx)**2/8)
+!       g(x) = (5._rp/16._rp)*Lx**2*x+x**5/(5*Lx**2)-x**3/2
+    xx(i) = dx/2 + dx*(i-1)
+    f(x) = -(Lx/(1.5*pi))**2 * sin(1.5*pi*(x/Lx))
+ 
+    R = 0
+    do i = 1, nx
+      x = xx(i)
+      p = abs( Phi(i) - f(x) )  
       R = R + p**2
     end do
     R = sqrt(R/nx)
@@ -287,8 +332,6 @@ contains
                    Btype,R)
     !2nd order finite difference residuum
 
-    integer, parameter :: Ea = 1,We = 2
-
     real(rp), intent(inout) :: Phi(0:)
     real(rp), intent(in) :: RHS(:)
     real(rp),intent(in) :: Aw,Ae
@@ -333,8 +376,8 @@ contains
                 Ap = Ap + Ae
       end if
 
-      p = p - RHS(i)
-      p = abs(-p +Ap*Phi(i))
+      p = p - RHS(i)   
+      p = abs(-p +Ap*Phi(i))      
       R = max(R,abs(p))
     end do
 
@@ -353,8 +396,6 @@ contains
                    Aw,Ae,As,An,&
                    Btype,R)
     !2nd order finite difference residuum
-
-    integer, parameter :: Ea = 1,We = 2,So = 3,No = 4
 
     real(rp), intent(inout) :: Phi(0:,0:)
     real(rp), intent(in) :: RHS(:,:)
@@ -452,8 +493,6 @@ contains
                    Aw,Ae,As,An,Ab,At,&
                    Btype,R)
     !2nd order finite difference residuum
-
-    integer, parameter :: Ea = 1,We = 2,So = 3,No = 4,Bo = 5,To = 6
 
     real(rp), intent(inout) :: Phi(0:,0:,0:)
     real(rp), intent(in) :: RHS(:,:,:)
@@ -635,7 +674,7 @@ contains
     
     call test_proc(Phi1D, R)
     
-    if (R < nx * 10 * epsilon(1._rp)) then
+    if (R < nx * 100 * epsilon(1._rp)) then
       write(*,*) "Spectral OK"
     else
       write(*,*) "Spectral FAIL"
@@ -665,7 +704,7 @@ contains
                dx**(-2), dx**(-2), &
                BCs, R)
     
-    if (R < nx * 10 * epsilon(1._rp)) then
+    if (R < nx * 100 * epsilon(1._rp)) then
       write(*,*) "FD2 OK", R
     else
       write(*,*) "FD2 FAIL"
@@ -727,7 +766,7 @@ contains
     
     call test_proc(Phi2D, R)
     
-    if (R < int(nx, int64) * int(ny, int64) * 10 * epsilon(1._rp)) then
+    if (R < int(nx, int64) * int(ny, int64) * 100 * epsilon(1._rp)) then
       write(*,*) "Spectral OK"
     else
       write(*,*) "Spectral FAIL"
@@ -756,7 +795,7 @@ contains
     call Res2D(Phi2D, RHS2D, &
                dx**(-2), dx**(-2), dy**(-2), dy**(-2), &
                BCs, R)
-    if (R < int(nx, int64) * int(ny, int64) * 10 * epsilon(1._rp)) then
+    if (R < int(nx, int64) * int(ny, int64) * 100 * epsilon(1._rp)) then
       write(*,*) "FD2 OK", R
     else
       write(*,*) "FD2 FAIL"
@@ -815,7 +854,7 @@ contains
     
     call test_proc(Phi3D, R)
     
-    if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * 10 * epsilon(1._rp)) then
+    if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * 100 * epsilon(1._rp)) then
       write(*,*) "Spectral OK"
     else
       write(*,*) "Spectral FAIL"
@@ -844,7 +883,7 @@ contains
     call Res3D(Phi3D, RHS3D, &
                dx**(-2), dx**(-2), dy**(-2), dy**(-2), dz**(-2), dz**(-2), &
                BCs, R)
-    if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * 10 * epsilon(1._rp)) then
+    if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * 100 * epsilon(1._rp)) then
       write(*,*) "FD2 OK", R
     else
       write(*,*) "FD2 FAIL"
@@ -998,8 +1037,24 @@ program testpoisson
   call Test1D([(PoisFFT_NeumannStag, i = 1,2)], ResExact1D_NeumStag)
 
   
+  dx = Lx / nx
+  do i = 1,nx
+    x = dx/2 + dx*(i-1)
+    RHS1D(i) = cos(0.75_rp*2*pi*(x/Lx))
+  end do
+  call Test1D([PoisFFT_NeumannStag, PoisFFT_DirichletStag], ResExact1D_NeumStagDirStag)
 
 
+  dx = Lx / nx
+  do i = 1,nx
+    x = dx/2 + dx*(i-1)
+    RHS1D(i) = sin(0.75_rp*2*pi*(x/Lx))
+  end do
+  call Test1D([PoisFFT_DirichletStag, PoisFFT_NeumannStag], ResExact1D_DirStagNeumStag)
+
+
+  
+  
 
   dx = Lx / nx
   dy = Ly / ny
@@ -1073,7 +1128,7 @@ program testpoisson
   call Test3D([(PoisFFT_DirichletStag, i = 1,4),(PoisFFT_Periodic, i = 5,6)], ResExact3D_DsDsP)
 
 
- dx = Lx / nx
+  dx = Lx / nx
   dy = Ly / ny
   dz = Lz / nz
   do k = 1,nz
@@ -1085,6 +1140,20 @@ program testpoisson
     end do
   end do
   call Test3D([(PoisFFT_DirichletStag, i = 1,4),(PoisFFT_NeumannStag, i = 5,6)], ResExact3D_DsDsNs)
+
+
+  dx = Lx / nx
+  dy = Ly / ny
+  dz = Lz / nz
+  do k = 1,nz
+    do j = 1,ny
+      do i = 1,nx
+        x = dx*(i-0.5_rp); y = dy*(j-0.5_rp); z = dz*(k-0.5_rp)
+        RHS3D(i,j,k) = sin(3*pi*x/Lx) * sin(5*pi*y/Ly) *cos(1.5*pi*z/Lz)
+      end do
+    end do
+  end do
+  call Test3D([(PoisFFT_DirichletStag, i = 1,4),PoisFFT_NeumannStag, PoisFFT_DirichletStag])
 
 
   dx = Lx / nx

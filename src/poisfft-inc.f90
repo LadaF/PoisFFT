@@ -113,12 +113,6 @@
 
       D%BCs = BCs
       
-      if (D%BCs(1)/=D%BCs(2) .or. &
-          D%BCs(3)/=D%BCs(4) .or. &
-          D%BCs(5)/=D%BCs(6)) then
-        stop "Both boundary consitions in one direction must be identical."
-      end if
-      
       if (present(approximation)) D%approximation = approximation
       
       if (present(mpi_comm)) then
@@ -195,8 +189,8 @@
 
         call allocate_fftw_real(D)
         
-        real_forw = real_transform_type_forward(D%BCs(1))
-        real_back = real_transform_type_backward(D%BCs(1))
+        real_forw = real_transform_type_forward(D%BCs(1:2))
+        real_back = real_transform_type_backward(D%BCs(1:2))
 
         D%forward = PoisFFT_Plan3D(D, [(real_forw, i=1,3)])
         D%backward = PoisFFT_Plan3D(D, [(real_back, i=1,3)])
@@ -340,8 +334,8 @@
                (all(D%BCs(3:6)==PoisFFT_Neumann) .or. &
                 all(D%BCs(3:6)==PoisFFT_NeumannStag) )) then
 
-        real_forw = real_transform_type_forward(D%BCs(3))
-        real_back = real_transform_type_backward(D%BCs(3))
+        real_forw = real_transform_type_forward(D%BCs(3:4))
+        real_back = real_transform_type_backward(D%BCs(3:4))
         
 #ifdef MPI
         !1..x, 2..y, 3..z, not different threads, but directions
@@ -428,8 +422,8 @@
                 all(D%BCs(1:4)==PoisFFT_DirichletStag)) .and. &
                all(D%BCs(5:6)==PoisFFT_Periodic)) then
 
-        real_forw = real_transform_type_forward(D%BCs(1))
-        real_back = real_transform_type_backward(D%BCs(1))
+        real_forw = real_transform_type_forward(D%BCs(1:2))
+        real_back = real_transform_type_backward(D%BCs(1:2))
         
 ! #ifdef MPI
 !         !1..x, 2..y, 3..z, not different threads, but directions
@@ -511,22 +505,19 @@
 
 
 
-      else if ( &
-               ((all(D%BCs(1:4)==PoisFFT_Neumann) .or. &
-                all(D%BCs(1:4)==PoisFFT_NeumannStag)) .and. &
-               (all(D%BCs(5:6)==PoisFFT_Dirichlet) .or. &
-                all(D%BCs(5:6)==PoisFFT_DirichletStag)) ) &
-               .or. & 
-               ((all(D%BCs(1:4)==PoisFFT_Dirichlet) .or. &
-                all(D%BCs(1:4)==PoisFFT_DirichletStag)) .and. &
-               (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
-                all(D%BCs(5:6)==PoisFFT_NeumannStag)) ) &
+      else if ( (all(D%BCs==PoisFFT_Neumann .or. &
+                     D%BCs==PoisFFT_NeumannStag .or. &
+                     D%BCs==PoisFFT_Dirichlet .or. &
+                     D%BCs==PoisFFT_DirichletStag)) &
+               .and. & 
+               (all(D%BCs(1:2)==D%BCs(3:4)) .and. &
+                any(D%BCs(1:2)/=D%BCs(5:6))) &
               ) then
 
-        real_forw_xy = real_transform_type_forward(D%BCs(1))
-        real_back_xy = real_transform_type_backward(D%BCs(1))
-        real_forw_z = real_transform_type_forward(D%BCs(5))
-        real_back_z = real_transform_type_backward(D%BCs(5))
+        real_forw_xy = real_transform_type_forward(D%BCs(1:2))
+        real_back_xy = real_transform_type_backward(D%BCs(1:2))
+        real_forw_z = real_transform_type_forward(D%BCs(5:6))
+        real_back_z = real_transform_type_backward(D%BCs(5:6))
         
 ! #ifdef MPI
 !         !1..x, 2..y, 3..z, not different threads, but directions
@@ -629,40 +620,46 @@
       
     contains
     
-      function real_transform_type_forward(bc) result(res)
+      function real_transform_type_forward(BCs) result(res)
         integer :: res
-        integer, intent(in) :: bc
+        integer, intent(in) :: BCs(2)
         
-        select case (bc)
-          case (PoisFFT_Dirichlet)
+        if (all(BCs==PoisFFT_Dirichlet)) then
             res = FFT_RealOdd00
-          case (PoisFFT_DirichletStag)
+        else if (all(BCs==PoisFFT_DirichletStag)) then
             res = FFT_RealOdd10
-          case (PoisFFT_Neumann)
+        else if (all(BCs==PoisFFT_Neumann)) then
             res = FFT_RealEven00
-          case (PoisFFT_NeumannStag)
+        else if (all(BCs==PoisFFT_NeumannStag)) then
             res = FFT_RealEven10
-          case default
+        else if (all(BCs==[PoisFFT_NeumannStag,PoisFFT_DirichletStag])) then
+            res = FFT_RealEven11
+        else if (all(BCs==[PoisFFT_DirichletStag,PoisFFT_NeumannStag])) then
+            res = FFT_RealOdd11
+        else
             res = -1
-        end select
+        end if
       end function
       
-      function real_transform_type_backward(bc) result(res)
+      function real_transform_type_backward(BCs) result(res)
         integer :: res
-        integer, intent(in) :: bc
+        integer, intent(in) :: BCs(2)
         
-        select case (bc)
-          case (PoisFFT_Dirichlet)
+        if (all(BCs==PoisFFT_Dirichlet)) then
             res = FFT_RealOdd00
-          case (PoisFFT_DirichletStag)
+        else if (all(BCs==PoisFFT_DirichletStag)) then
             res = FFT_RealOdd01
-          case (PoisFFT_Neumann)
+        else if (all(BCs==PoisFFT_Neumann)) then
             res = FFT_RealEven00
-          case (PoisFFT_NeumannStag)
+        else if (all(BCs==PoisFFT_NeumannStag)) then
             res = FFT_RealEven01
-          case default
+        else if (all(BCs==[PoisFFT_NeumannStag,PoisFFT_DirichletStag])) then
+            res = FFT_RealEven11
+        else if (all(BCs==[PoisFFT_DirichletStag,PoisFFT_NeumannStag])) then
+            res = FFT_RealOdd11
+        else
             res = -1
-        end select
+        end if
       end function
       
     end subroutine PoisFFT_Solver3D_Init
@@ -748,16 +745,13 @@
                      ngRHS(2)+1:ngRHS(2)+D%ny,&
                      ngRHS(3)+1:ngRHS(3)+D%nz))
                      
-      else if ( &
-               ((all(D%BCs(1:4)==PoisFFT_Neumann) .or. &
-                all(D%BCs(1:4)==PoisFFT_NeumannStag)) .and. &
-               (all(D%BCs(5:6)==PoisFFT_Dirichlet) .or. &
-                all(D%BCs(5:6)==PoisFFT_DirichletStag)) ) &
-               .or. & 
-               ((all(D%BCs(1:4)==PoisFFT_Dirichlet) .or. &
-                all(D%BCs(1:4)==PoisFFT_DirichletStag)) .and. &
-               (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
-                all(D%BCs(5:6)==PoisFFT_NeumannStag)) ) &
+      else if ( (all(D%BCs==PoisFFT_Neumann .or. &
+                     D%BCs==PoisFFT_NeumannStag .or. &
+                     D%BCs==PoisFFT_Dirichlet .or. &
+                     D%BCs==PoisFFT_DirichletStag)) &
+               .and. & 
+               (all(D%BCs(1:2)==D%BCs(3:4)) .and. &
+                any(D%BCs(1:2)/=D%BCs(5:6))) &
               ) then
 
         call PoisFFT_Solver3D_2real1real(D,&
@@ -1245,6 +1239,20 @@
         D%forward = PoisFFT_Plan1D(D, [FFT_RealEven10])
         D%backward = PoisFFT_Plan1D(D, [FFT_RealEven01])
         
+      else if (all(D%BCs==[PoisFFT_NeumannStag, PoisFFT_DirichletStag])) then
+      
+        call allocate_fftw_real(D)
+
+        D%forward = PoisFFT_Plan1D(D, [FFT_RealEven11])
+        D%backward = PoisFFT_Plan1D(D, [FFT_RealEven11])
+        
+      else if (all(D%BCs==[PoisFFT_DirichletStag, PoisFFT_NeumannStag])) then
+      
+        call allocate_fftw_real(D)
+
+        D%forward = PoisFFT_Plan1D(D, [FFT_RealOdd11])
+        D%backward = PoisFFT_Plan1D(D, [FFT_RealOdd11])
+        
       endif
       
       if (D%approximation==PoisFFT_FiniteDifference2) then
@@ -1289,6 +1297,18 @@
                all(D%BCs==PoisFFT_NeumannStag)) then
 
         call PoisFFT_Solver1D_FullNeumann(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
+                 
+      else if (all(D%BCs==PoisFFT_Dirichlet .or. &
+                   D%BCs==PoisFFT_Neumann .or. &
+                   D%BCs==PoisFFT_DirichletStag .or. &
+                   D%BCs==PoisFFT_NeumannStag) &
+               .and. &
+               any(D%BCs==PoisFFT_DirichletStag .or. &
+                   D%BCs==PoisFFT_Dirichlet)) then
+   
+        call PoisFFT_Solver1D_FullDirichlet(D,&
                  Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
                  RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
                  
@@ -1349,6 +1369,10 @@
         forall(i=1:n) res(i) = f((i-1+off)*dkx_h)
       else if (all(BCs==PoisFFT_NeumannStag)) then
         forall(i=1:n) res(i) = f((i-1+off)*dkx_h)
+      else if (all(BCs==[PoisFFT_NeumannStag,PoisFFT_DirichletStag])) then
+        forall(i=1:n) res(i) = f((i+off-0.5_RP)*dkx_h)
+      else if (all(BCs==[PoisFFT_DirichletStag,PoisFFT_NeumannStag])) then
+        forall(i=1:n) res(i) = f((i+off-0.5_RP)*dkx_h)
       end if
 
       res = res / (grid_dx(gn, L, BCs))**2
@@ -1382,12 +1406,11 @@
         res = L / gn
       else if (all(BCs==PoisFFT_Dirichlet)) then
         res = L / (gn+1)
-      else if (all(BCs==PoisFFT_DirichletStag)) then
+      else if (all(BCs==PoisFFT_DirichletStag .or. &
+                   BCs==PoisFFT_NeumannStag)) then
         res = L / gn
       else if (all(BCs==PoisFFT_Neumann)) then
         res = L / (gn-1)
-      else if (all(BCs==PoisFFT_NeumannStag)) then
-        res = L / gn
       else
         res = 0
       end if
@@ -1402,12 +1425,11 @@
         res = gn
       else if (all(BCs==PoisFFT_Dirichlet)) then
         res = 2 * (gn+1)
-      else if (all(BCs==PoisFFT_DirichletStag)) then
-        res = 2 * gn
       else if (all(BCs==PoisFFT_Neumann)) then
         res = 2 * (gn-1)
-      else if (all(BCs==PoisFFT_NeumannStag)) then
-        res = 2 *  gn
+      else if (all(BCs==PoisFFT_DirichletStag .or. &
+                   BCs==PoisFFT_NeumannStag)) then
+        res = 2 * gn
       else
         res = 0
       end if
