@@ -78,6 +78,7 @@ module my_mpi
   interface error_stop
     module procedure error_stop_int
     module procedure error_stop_char
+    module procedure error_stop_char_int
   end interface
   
  contains
@@ -174,7 +175,18 @@ module my_mpi
     character(*),intent(in) :: ch
     integer ie
     if (master) then
-      write(*,*) "ERROR",ch
+      write(*,*) "ERROR: ",ch
+    end if
+    call MPI_finalize(ie)
+    stop
+  end subroutine
+
+  subroutine error_stop_char_int(ch, n)
+    character(*),intent(in) :: ch
+    integer,intent(in) :: n
+    integer ie
+    if (master) then
+      write(*,*) "ERROR: ",ch," code:",n
     end if
     call MPI_finalize(ie)
     stop
@@ -794,6 +806,7 @@ program testpoisson_MPI
   integer :: nx, ny, nz
   integer(c_intptr_t),dimension(3) :: nxyz,off,nxyz2,nsxyz2
   real(DRP) ::  S
+  integer :: seed_size
   integer :: ie = 0
   character(200) :: fname
 
@@ -897,7 +910,8 @@ program testpoisson_MPI
   if (ie/=0) call error_stop(60)
 
 
-  call random_seed(put=[(0,i=1,100)])
+  call random_seed(size=seed_size)
+  call random_seed(put=[(myim+i,i=1,seed_size)])
 
   do k=1,nz
    do j=1,ny
@@ -1112,68 +1126,83 @@ contains
     character :: lf=achar(10)
     character(70) :: str
     character(10) :: fm = '(*(1x,g0))'
+    character(len=:), allocatable :: header
+    integer(MPI_OFFSET_KIND) :: header_len
 
     call GetEndianness
     
     if (master) then
-      open(newunit=unit,file="out.vtk", &
-           access='stream',status='replace',form="unformatted",action="write")
-
-      write(unit) "# vtk DataFile Version 2.0",lf
-      write(unit) "CLMM output file",lf
-      write(unit) "BINARY",lf
-      write(unit) "DATASET RECTILINEAR_GRID",lf
+      header =  "# vtk DataFile Version 2.0"//lf
+      header =  header // "CLMM output file"//lf
+      header =  header //  "BINARY"//lf
+      header =  header //  "DATASET RECTILINEAR_GRID"//lf
       str="DIMENSIONS"
       write(str(12:),fm) ng(1),ng(2),ng(3)
-      write(unit) str,lf
+      header =  header //  str//lf
       str="X_COORDINATES"
       write(str(15:),fm) ng(1),"double"
-      write(unit) str,lf
-      write(unit) BigEnd([((i-0.5)*dx,i=1,ng(1))]),lf
+      header =  header //  str//lf
+      header =  header //  transfer(BigEnd([((i-0.5)*dx,i=1,ng(1))]),repeat('a',ng(1)*c_sizeof(dx)))//lf
       str="Y_COORDINATES"
       write(str(15:),fm) ng(2),"double"
-      write(unit) str,lf
-      write(unit) BigEnd([((j-0.5)*dy,j=1,ng(2))]),lf
+      header =  header //  str//lf
+      header =  header //  transfer(BigEnd([((j-0.5)*dy,j=1,ng(2))]),repeat('a',ng(2)*c_sizeof(dy)))//lf
       str="Z_COORDINATES"
       write(str(15:),fm) ng(3),"double"
-      write(unit) str,lf
-      write(unit) BigEnd([((k-0.5)*dz,k=1,ng(3))]),lf
+      header =  header //  str//lf
+      header =  header //  transfer(BigEnd([((k-0.5)*dz,k=1,ng(3))]),repeat('a',ng(3)*c_sizeof(dz)))//lf
       str="POINT_DATA"
       write(str(12:),fm) product(ng)
-      write(unit) str,lf
-      write(unit) lf
-      write(unit) "SCALARS Phi double",lf
-      write(unit) "LOOKUP_TABLE default",lf
-      close(unit)
+      header =  header //  str//lf
+      header =  header //  lf
+      header =  header //  "SCALARS Phi double"//lf
+      header =  header //  "LOOKUP_TABLE default"//lf
+      header_len = len(header)
     end if
+    call MPI_Bcast(header_len, storage_size(header_len)/8, MPI_BYTE, 0, glob_comm, ie)
     
-    call MPI_Barrier(glob_comm,ie)
-    
-    call MPI_File_open(glob_comm,"out.vtk", MPI_MODE_APPEND + MPI_MODE_WRONLY, MPI_INFO_NULL, fh, ie)
-    if (ie/=0) call error_stop("open")
-
     call MPI_Type_create_subarray(3, int(ng), int(nxyz), int(off), &
        MPI_ORDER_FORTRAN, MPI_RP, filetype, ie)
-    if (ie/=0) call error_stop("create_subarray")
+    if (ie/=0) call error_stop("create_subarray", ie)
     
     call MPI_type_commit(filetype, ie)
-    if (ie/=0) call error_stop("type_commit")
+    if (ie/=0) call error_stop("type_commit", ie)
+
     
-    call MPI_Barrier(glob_comm,ie)
-    call MPI_File_get_position(fh, pos, ie)
-    call MPI_Barrier(glob_comm,ie)
+    call MPI_File_open(glob_comm,"out.vtk", IOR(IOR(MPI_MODE_CREATE, MPI_MODE_WRONLY), MPI_MODE_EXCL), MPI_INFO_NULL, fh, ie)
     
-    call MPI_File_set_view(fh, pos, MPI_RP, filetype, "native", MPI_INFO_NULL, ie)
-    if (ie/=0) call error_stop("set_view")
+    if (ie/=0) then
+      call MPI_Barrier(glob_comm, ie)
+      
+      if (master) call MPI_File_delete("out.vtk",MPI_INFO_NULL, ie)
+      if (ie/=0) call error_stop("file delete", ie)
+      
+      call MPI_Barrier(glob_comm, ie)
+      
+      call MPI_File_open(glob_comm,"out.vtk", IOR(MPI_MODE_CREATE, MPI_MODE_WRONLY), MPI_INFO_NULL, fh, ie)
+      if (ie/=0) call error_stop("file open after delete", ie)
+    end if
+
+    call MPI_File_set_view(fh, 0_MPI_OFFSET_KIND, MPI_CHARACTER, MPI_CHARACTER, "native", MPI_INFO_NULL, ie)
+    if (ie/=0) call error_stop("set_view header", ie)
     
-    allocate(buffer(1:nx,1:ny,1:nz))
+    if (master) then
+       call MPI_File_write(fh, header, header_len, MPI_CHARACTER, MPI_STATUS_IGNORE, ie)
+       if (ie/=0) call error_stop("file write", ie)
+    end if
+    
+    call MPI_Barrier(glob_comm, ie)
+    call MPI_File_set_view(fh, header_len, MPI_RP, filetype, "native", MPI_INFO_NULL, ie)
+    if (ie/=0) call error_stop("set_view", ie)
+    
     buffer = BigEnd(Phi(1:nx,1:ny,1:nz))
-       
-    call MPI_File_write_all(fh, buffer, nx*ny*nz, MPI_RP, MPI_STATUS_IGNORE, ie)
-    if (ie/=0) call error_stop("write_all")
     
+    call MPI_File_write_all(fh, buffer, nx*ny*nz, MPI_RP, MPI_STATUS_IGNORE, ie)
+
+    if (ie/=0) call error_stop("write_all", ie)
+
     call MPI_File_close(fh, ie)
-    if (ie/=0) call error_stop("close")
+    if (ie/=0) call error_stop("close", ie)
     
   end subroutine
 
