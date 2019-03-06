@@ -668,7 +668,119 @@
     end subroutine PoisFFT_Solver3D_PPNs
 #endif
 
+    subroutine PoisFFT_Solver3D_PPNs_tridiagonal_z(D, Phi, RHS)
+      type(PoisFFT_Solver3D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      integer i,j,k
+      integer tid      !thread id
+      real(RP) :: lam, b1, b, bn, a, c, c1
 
+      !$omp parallel private(tid,i,j,k)
+      tid = 1
+      !$ tid = omp_get_thread_num()+1
+
+      !$omp do
+      do k=1,D%nz
+          D%Solvers2D(tid)%cwork = RHS(:,:,k)
+
+
+          call Execute(D%Solvers2D(tid)%forward,D%Solvers2D(tid)%cwork)
+
+          
+          D%cwork(:,:,k) = D%Solvers2D(tid)%cwork
+      end do
+      !$omp end do
+
+      a = (D%nz/D%Lz)**2
+      c = (D%nz/D%Lz)**2
+      b1 = 1
+      c1 = 0
+      b = - 2 * (D%nz/D%Lz)**2
+      if (D%nz==1) then
+        bn = 0
+      else
+        bn = - (D%nz/D%Lz)**2
+      end if
+      !$omp do private(lam)
+      do j=1,D%ny
+        do i=1,D%nx
+          lam = D%denomx(i) + D%denomy(j) 
+          if (i==1.and.j==1) then
+            call solve_tridiag_scal(a, b1, b, bn, c, c1, D%cwork(i,j,:))
+          else
+            call solve_tridiag_scal(a, bn+lam, b+lam, bn+lam, c, c, D%cwork(i,j,:))
+          end if
+        end do
+      end do      
+      !$omp end do
+
+      !$omp do
+      do k=1,D%nz
+          D%Solvers2D(tid)%cwork = D%cwork(:,:,k)
+
+
+          call Execute(D%Solvers2D(tid)%backward,D%Solvers2D(tid)%cwork)
+
+          
+          Phi(:,:,k) = real(D%Solvers2D(tid)%cwork, kind=RP)/ (D%gnx*D%gny)
+      end do
+      !$omp end do
+      !$omp end parallel
+   
+    contains
+    
+      subroutine solve_tridiag_scal(a, b1, b, bn, c, c1, x)
+          real(RP),intent(in) :: a, b1, b, bn, c, c1
+          complex(CP),dimension(:),intent(inout) :: x(:)
+          real(RP),dimension(:) :: cp(size(x)-1)
+          real(RP) :: m
+          integer :: i, n
+
+          n = size(x)
+  ! initialize c-prime and x-prime
+          x(1) = x(1)/ b1
+          if (n==1) return
+          cp(1) = c1 / b1 
+  ! solve for vectors c-prime and x-prime
+          do i = 2, n-1
+            m = b - cp(i-1)*a
+            cp(i) = c / m
+            x(i) = (x(i)-x(i-1)*a) / m
+          enddo
+          m = bn - cp(n-1)*a
+          x(n) = (x(n)-x(n-1)*a) / m
+  ! solve for x from the vectors c-prime and x-prime
+          do i = n-1, 1, -1
+            x(i) = x(i) - cp(i) * x(i+1)
+          end do
+
+      end subroutine solve_tridiag_scal  
+    
+      subroutine solve_tridiag_generic(a,b,c,d)
+          complex(CP),dimension(:),intent(in) :: a(2:),b(:),c(:)
+          complex(CP),dimension(:),intent(inout) :: d(:)
+          complex(CP),dimension(:) :: cp(size(c))
+          complex(CP) :: m
+          integer :: i, n
+
+          n = size(d)
+  ! initialize c-prime
+          cp(1) = c(1)/b(1)
+          d(1) = d(1)/b(1)
+  ! solve for vectors c-prime and d-prime
+          do i = 2,n
+            m = b(i)-cp(i-1)*a(i)
+            cp(i) = c(i)/m
+            d(i) = (d(i)-d(i-1)*a(i))/m
+          enddo
+  ! solve for x from the vectors c-prime and d-prime
+          do i = n-1, 1, -1
+            d(i) = d(i)-cp(i)*d(i+1)
+          end do
+
+      end subroutine solve_tridiag_generic    
+    end subroutine PoisFFT_Solver3D_PPNs_tridiagonal_z
 
 
     subroutine PoisFFT_Solver3D_PNsP(D, Phi, RHS)

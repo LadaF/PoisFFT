@@ -167,6 +167,7 @@
     integer(c_int), dimension(6) :: BCs
     real(RP), allocatable, dimension(:) :: denomx, denomy, denomz
     integer :: approximation = 0
+    logical :: tridiagonal_z = .false.
     
     type(PoisFFT_Plan3D) :: forward, backward
     complex(CP), dimension(:,:,:), &

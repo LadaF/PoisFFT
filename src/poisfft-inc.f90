@@ -69,13 +69,15 @@
 
 
     function PoisFFT_Solver3D__New(nxyz,Lxyz,BCs,approximation, &
-                                  gnxyz,offs,mpi_comm,nthreads) result(D)
+                                  gnxyz,offs,mpi_comm,nthreads, &
+                                  tridiagonal_z) result(D)
       type(PoisFFT_Solver3D) :: D
 
       integer, intent(in)   :: nxyz(3)
       real(RP), intent(in)  :: Lxyz(3)
       integer, intent(in)   :: bcs(6)
       integer, intent(in), optional :: approximation
+      logical, intent(in), optional :: tridiagonal_z
       integer, intent(in), optional :: gnxyz(3)
       integer, intent(in), optional :: offs(3)
       integer, intent(in), optional :: mpi_comm
@@ -115,6 +117,8 @@
       
       if (present(approximation)) D%approximation = approximation
       
+      if (present(tridiagonal_z)) D%tridiagonal_z = tridiagonal_z
+  
       if (present(mpi_comm)) then
         D%mpi%comm = mpi_comm
 #ifdef MPI      
@@ -255,6 +259,7 @@
         call Init_MPI_Buffers(D, 3)
 
 #else
+        if (D%tridiagonal_z) call allocate_fftw_complex(D)
 
         allocate(D%Solvers1D(D%nthreads))
 
@@ -712,14 +717,23 @@
       else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
                (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
                 all(D%BCs(5:6)==PoisFFT_NeumannStag))) then
-
-        call PoisFFT_Solver3D_PPNs(D,&
+        if (D%tridiagonal_z) then
+          call PoisFFT_Solver3D_PPNs_tridiagonal_z(D,&
                  Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
                      ngPhi(2)+1:ngPhi(2)+D%ny,&
                      ngPhi(3)+1:ngPhi(3)+D%nz),&
                  RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
                      ngRHS(2)+1:ngRHS(2)+D%ny,&
                      ngRHS(3)+1:ngRHS(3)+D%nz))
+        else
+          call PoisFFT_Solver3D_PPNs(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny,&
+                     ngPhi(3)+1:ngPhi(3)+D%nz),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny,&
+                     ngRHS(3)+1:ngRHS(3)+D%nz))
+        end if
 
       else if (all(D%BCs(1:2)==PoisFFT_Periodic) .and. &
                (all(D%BCs(3:6)==PoisFFT_Neumann) .or. &
