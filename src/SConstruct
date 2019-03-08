@@ -187,7 +187,7 @@ Depends(objs[-1], 'c_execute-inc.f90')
 objs += env.SharedObject(target='../bin/'+comp_dir+'/c_binding_c', source='c_binding.c')
 
 
-objs = filter(lambda o: str(o)[-4:] != '.mod', objs)
+objs = list(filter(lambda o: str(o)[-4:] != '.mod', objs))
 
 sobjs = env.Object(target='../bin/'+comp_dir+'/precisions', source='precisions.f90')
 sobjs += env.Object(target='../bin/'+comp_dir+'/parameters', source='parameters.f90')
@@ -211,7 +211,7 @@ Depends(sobjs[-1], 'c_new-inc.f90')
 Depends(sobjs[-1], 'c_execute-inc.f90')
 sobjs += env.Object(target='../bin/'+comp_dir+'/c_binding_c', source='c_binding.c')
 
-sobjs = filter(lambda o: str(o)[-4:] != '.mod', sobjs)
+sobjs = list(filter(lambda o: str(o)[-4:] != '.mod', sobjs))
 
 lib = env.SharedLibrary(target='../lib/'+comp_dir+'/libpoisfft', source = objs)
 #lib = lib + env.StaticLibrary(target='../lib/'+comp_dir+'/libpoisfft', source = sobjs)
@@ -219,14 +219,14 @@ lib = env.SharedLibrary(target='../lib/'+comp_dir+'/libpoisfft', source = objs)
 if str(mpi)=='yes':
     if openmp=='yes':
       testobj = env.StaticObject(F90FLAGS='-O3 -g',target='../bin/'+comp_dir+'/testhybrid', source='testhybrid.f90')
-      testobj = filter(lambda o: str(o)[-4:] != '.mod', testobj)
+      testobj = list(filter(lambda o: str(o)[-4:] != '.mod', testobj))
       
       libs = ['pfft_omp','pfftf_omp','fftw3_mpi','fftw3f_mpi','fftw3','fftw3f','fftw3_omp','fftw3f_omp']
       test = env.Program(LINKFLAGS=omp_flag+debug_flag, LIBS=libs,target='../bin/'+comp_dir+'/testhybrid', source = sobjs + testobj)
       env.Alias('test',['../bin/'+comp_dir+'/testhybrid'])
     else:
       testobj = env.StaticObject(F90FLAGS='-O3 -g',target='../bin/'+comp_dir+'/testmpi', source='testmpi.f90')
-      testobj = filter(lambda o: str(o)[-4:] != '.mod', testobj)
+      testobj = list(filter(lambda o: str(o)[-4:] != '.mod', testobj))
       
       libs = ['pfft','pfftf','fftw3_mpi','fftw3f_mpi','fftw3','fftw3f']
       test = env.Program(LINKFLAGS=omp_flag+debug_flag, LIBS=libs,target='../bin/'+comp_dir+'/testmpi', source = sobjs + testobj)
@@ -234,7 +234,7 @@ if str(mpi)=='yes':
 else:
     #Intel Fortran 14 causes infinite compilation for -O3 here. It is not very important to optimize the main test program.
     testobj = env.StaticObject(F90FLAGS='-O2 -g',target='../bin/'+comp_dir+'/testpoisson', source='testpoisson.f90')
-    testobj = filter(lambda o: str(o)[-4:] != '.mod', testobj)
+    testobj = list(filter(lambda o: str(o)[-4:] != '.mod', testobj))
     
     ctestobj = env.StaticObject(CFLAGS='-O3 -g'+debug_flag,target='../bin/'+comp_dir+'/c_testpoisson', source='testpoisson.c')
     
