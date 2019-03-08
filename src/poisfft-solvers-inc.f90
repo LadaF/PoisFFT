@@ -1096,6 +1096,79 @@
     
     
     
+    subroutine PoisFFT_Solver3D_1real2real(D, Phi, RHS)
+      !x and y has the same real (non-periodic) boundary condition, z has a different real boundary condition
+      type(PoisFFT_Solver3D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      integer i,j,k
+      integer tid      !thread id
+
+      !$omp parallel private(tid,i,j,k)
+      tid = 1
+      !$ tid = omp_get_thread_num()+1
+
+      ! Forward FFT of RHS in z dimension
+      !$omp do
+      do i = 1, D%nx
+        D%Solvers2D(tid)%rwork = RHS(i,:,:)
+        
+#ifdef MPI
+        call Execute_MPI(D%Solvers2D(tid)%forward)
+#else
+        call Execute(D%Solvers2D(tid)%forward, D%Solvers2D(tid)%rwork)
+#endif
+
+        Phi(i,:,:) = D%Solvers2D(tid)%rwork
+      end do
+      !$omp end do
+
+      
+      !$omp do collapse(2)
+      do k=1,D%nz
+        do j=1,D%ny
+          D%Solvers1D(tid)%rwork(:) = Phi(1:D%nx,j,k)
+
+
+          call Execute(D%Solvers1D(tid)%forward, D%Solvers1D(tid)%rwork)
+
+
+          do i=1,D%nx
+            D%Solvers1D(tid)%rwork(i) = D%Solvers1D(tid)%rwork(i)&
+                                          / (D%denomx(i) + D%denomy(j) + D%denomz(k))
+          end do
+
+
+          call Execute(D%Solvers1D(tid)%backward, D%Solvers1D(tid)%rwork)
+
+          Phi(1:D%nx,j,k) = D%Solvers1D(tid)%rwork / D%norm_factor
+
+        end do
+      end do
+      !$omp end do
+
+      
+      !$omp do
+      do i = 1, D%nx
+        D%Solvers2D(tid)%rwork = Phi(i,:,:)
+
+#ifdef MPI
+        call Execute_MPI(D%Solvers2D(tid)%backward)
+#else
+        call Execute(D%Solvers2D(tid)%backward, D%Solvers2D(tid)%rwork)
+#endif
+
+        Phi(i,:,:) = D%Solvers2D(tid)%rwork
+      end do
+      !$omp end do
+      !$omp end parallel
+    end subroutine PoisFFT_Solver3D_1real2real
+
+    
+    
+    
+    
+    
 #ifdef MPI    
     subroutine transform_1d_real_y(D1D, Phi, RHS, forward, use_rhs)
       type(PoisFFT_Solver1D), intent(inout), target :: D1D(:)

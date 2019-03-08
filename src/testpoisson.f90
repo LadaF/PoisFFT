@@ -1163,6 +1163,20 @@ program testpoisson
     do j = 1,ny
       do i = 1,nx
         x = dx*(i-0.5_rp); y = dy*(j-0.5_rp); z = dz*(k-0.5_rp)
+        RHS3D(i,j,k) = sin(3*pi*x/Lx) * sin(5*pi*y/Ly) *cos(1.5*pi*z/Lz)
+      end do
+    end do
+  end do
+  call Test3D([PoisFFT_NeumannStag, PoisFFT_DirichletStag,(PoisFFT_NeumannStag, i = 1,4)])
+
+
+  dx = Lx / nx
+  dy = Ly / ny
+  dz = Lz / nz
+  do k = 1,nz
+    do j = 1,ny
+      do i = 1,nx
+        x = dx*(i-0.5_rp); y = dy*(j-0.5_rp); z = dz*(k-0.5_rp)
         RHS3D(i,j,k) = sin(3*pi*x/Lx) * sin(5*pi*y/Ly) *sin(7*pi*z/Lz)
       end do
     end do
