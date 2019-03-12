@@ -731,6 +731,7 @@
     contains
     
       subroutine solve_tridiag_scal(a, b1, b, bn, c, c1, x)
+          !version that does not need array matrix coefficients on uniform grid
           real(RP),intent(in) :: a, b1, b, bn, c, c1
           complex(CP),dimension(:),intent(inout) :: x(:)
           real(RP),dimension(:) :: cp(size(x)-1)
