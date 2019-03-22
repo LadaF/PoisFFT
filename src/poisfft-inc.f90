@@ -617,6 +617,9 @@
                .and. & 
                (all(D%BCs(3:4)==D%BCs(5:6)) .and. &
                 any(D%BCs(1:2)/=D%BCs(3:4))) &
+               .and. &
+               (any(D%BCs==PoisFFT_Dirichlet .or. &
+                     D%BCs==PoisFFT_DirichletStag)) &
               ) then
 
         real_forw_yz = real_transform_type_forward(D%BCs(3:4))
@@ -890,6 +893,9 @@
                .and. & 
                (all(D%BCs(3:4)==D%BCs(5:6)) .and. &
                 any(D%BCs(1:2)/=D%BCs(3:4))) &
+               .and. &
+               (any(D%BCs==PoisFFT_Dirichlet .or. &
+                     D%BCs==PoisFFT_DirichletStag)) &
               ) then
 
         call PoisFFT_Solver3D_1real2real(D,&
