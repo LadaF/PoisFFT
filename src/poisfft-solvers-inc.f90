@@ -700,7 +700,7 @@
       
       !$omp do
       do j=1,D%ny
-        D%Solvers2D(tid)%cwork(1:D%nx,1:D%nz) = cmplx(Phi(1:D%nx,1:D%nz,k),0._RP,CP)
+        D%Solvers2D(tid)%cwork(1:D%nx,1:D%nz) = cmplx(Phi(1:D%nx,j,1:D%nz),0._RP,CP)
 
 
         call Execute(D%Solvers2D(tid)%forward, D%Solvers2D(tid)%cwork)
@@ -737,7 +737,7 @@
 
         call Execute(D%Solvers2D(tid)%backward, D%Solvers2D(tid)%cwork)
 
-        Phi(:,:,k) = real(D%Solvers2D(tid)%cwork,RP) / D%norm_factor
+        Phi(:,j,:) = real(D%Solvers2D(tid)%cwork,RP) / D%norm_factor
 
 
       end do
