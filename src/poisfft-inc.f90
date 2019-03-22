@@ -206,8 +206,10 @@
 
         call allocate_fftw_real(D%Solvers1D(3))
 
-        D%Solvers1D(3)%forward = PoisFFT_Plan1D(D%Solvers1D(3), [FFT_RealEven10])
-        D%Solvers1D(3)%backward = PoisFFT_Plan1D(D%Solvers1D(3), [FFT_RealEven01])
+        real_forw = real_transform_type_forward(D%BCs(5:6))
+        real_back = real_transform_type_backward(D%BCs(5:6))
+        D%Solvers1D(3)%forward = PoisFFT_Plan1D(D%Solvers1D(3), [real_forw, real_forw])
+        D%Solvers1D(3)%backward = PoisFFT_Plan1D(D%Solvers1D(3), [real_back, real_back])
 
         do i = 4, 2+D%nthreads
           D%Solvers1D(i) = D%Solvers1D(3)
@@ -262,8 +264,10 @@
 
         call allocate_fftw_real(D%Solvers1D(1))
 
-        D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_RealEven10])
-        D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_RealEven01])
+        real_forw = real_transform_type_forward(D%BCs(5:6))
+        real_back = real_transform_type_backward(D%BCs(5:6))
+        D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [real_forw, real_forw])
+        D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [real_back, real_back])
 
         do i = 2, D%nthreads
           D%Solvers1D(i) = D%Solvers1D(1)
@@ -303,8 +307,10 @@
 
         call allocate_fftw_real(D%Solvers1D(1))
 
-        D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_RealEven10])
-        D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [FFT_RealEven01])
+        real_forw = real_transform_type_forward(D%BCs(3:4))
+        real_back = real_transform_type_backward(D%BCs(3:4))
+        D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [real_forw, real_forw])
+        D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [real_back, real_back])
 
         do i = 2, D%nthreads
           D%Solvers1D(i) = D%Solvers1D(1)
@@ -512,6 +518,9 @@
                .and. & 
                (all(D%BCs(1:2)==D%BCs(3:4)) .and. &
                 any(D%BCs(1:2)/=D%BCs(5:6))) &
+               .and. &
+               (any(D%BCs==PoisFFT_Dirichlet .or. &
+                     D%BCs==PoisFFT_DirichletStag)) &
               ) then
 
         real_forw_xy = real_transform_type_forward(D%BCs(1:2))
@@ -733,6 +742,19 @@
                      ngRHS(2)+1:ngRHS(2)+D%ny,&
                      ngRHS(3)+1:ngRHS(3)+D%nz))
 
+      else if (all(D%BCs(1:2)==PoisFFT_Periodic) .and. &
+               all(D%BCs(5:6)==PoisFFT_Periodic) .and. &
+               (all(D%BCs(3:4)==PoisFFT_Neumann) .or. &
+                all(D%BCs(3:4)==PoisFFT_NeumannStag) )) then
+                
+        call PoisFFT_Solver3D_PNsP(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny,&
+                     ngPhi(3)+1:ngPhi(3)+D%nz),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny,&
+                     ngRHS(3)+1:ngRHS(3)+D%nz))
+
       else if ((all(D%BCs(1:4)==PoisFFT_Dirichlet) .or. &
                 all(D%BCs(1:4)==PoisFFT_DirichletStag)) .and. &
                all(D%BCs(5:6)==PoisFFT_Periodic)) then
@@ -752,6 +774,9 @@
                .and. & 
                (all(D%BCs(1:2)==D%BCs(3:4)) .and. &
                 any(D%BCs(1:2)/=D%BCs(5:6))) &
+               .and. &
+               (any(D%BCs==PoisFFT_Dirichlet .or. &
+                     D%BCs==PoisFFT_DirichletStag)) &
               ) then
 
         call PoisFFT_Solver3D_2real1real(D,&
