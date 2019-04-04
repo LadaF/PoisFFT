@@ -676,6 +676,18 @@
       integer tid      !thread id
       real(RP) :: lam, b1, b, bn, a, c, c1
 
+      a = (D%nz/D%Lz)**2
+      c = (D%nz/D%Lz)**2
+      b1 = 1
+      c1 = 0
+      b = - 2 * (D%nz/D%Lz)**2
+      if (D%nz==1) then
+        bn = 0
+      else
+        bn = - (D%nz/D%Lz)**2
+      end if
+      
+      
       !$omp parallel private(tid,i,j,k)
       tid = 1
       !$ tid = omp_get_thread_num()+1
@@ -692,16 +704,6 @@
       end do
       !$omp end do
 
-      a = (D%nz/D%Lz)**2
-      c = (D%nz/D%Lz)**2
-      b1 = 1
-      c1 = 0
-      b = - 2 * (D%nz/D%Lz)**2
-      if (D%nz==1) then
-        bn = 0
-      else
-        bn = - (D%nz/D%Lz)**2
-      end if
       !$omp do private(lam)
       do j=1,D%ny
         do i=1,D%nx
@@ -733,14 +735,14 @@
       subroutine solve_tridiag_scal(a, b1, b, bn, c, c1, x)
           !version that does not need array matrix coefficients on uniform grid
           real(RP),intent(in) :: a, b1, b, bn, c, c1
-          complex(CP),dimension(:),intent(inout) :: x(:)
-          real(RP),dimension(:) :: cp(size(x)-1)
+          complex(CP), intent(inout) :: x(:)
+          real(RP) :: cp(size(x)-1)
           real(RP) :: m
           integer :: i, n
 
           n = size(x)
   ! initialize c-prime and x-prime
-          x(1) = x(1)/ b1
+          x(1) = x(1) / b1
           if (n==1) return
           cp(1) = c1 / b1 
   ! solve for vectors c-prime and x-prime
@@ -759,10 +761,10 @@
       end subroutine solve_tridiag_scal  
     
       subroutine solve_tridiag_generic(a,b,c,d)
-          complex(CP),dimension(:),intent(in) :: a(2:),b(:),c(:)
-          complex(CP),dimension(:),intent(inout) :: d(:)
-          complex(CP),dimension(:) :: cp(size(c))
-          complex(CP) :: m
+          real(RP), intent(in) :: a(2:),b(:),c(:)
+          complex(CP), intent(inout) :: d(:)
+          real(RP) :: cp(size(c))
+          real(RP) :: m
           integer :: i, n
 
           n = size(d)
@@ -770,11 +772,12 @@
           cp(1) = c(1)/b(1)
           d(1) = d(1)/b(1)
   ! solve for vectors c-prime and d-prime
-          do i = 2,n
+          do i = 2,n-1
             m = b(i)-cp(i-1)*a(i)
-            cp(i) = c(i)/m
-            d(i) = (d(i)-d(i-1)*a(i))/m
+            cp(i) = c(i) / m
+            d(i) = (d(i)-d(i-1)*a(i)) / m
           enddo
+          d(n) = (d(n) - d(n-1)*a(n)) / (b(n) - a(n) * cp(n-1))
   ! solve for x from the vectors c-prime and d-prime
           do i = n-1, 1, -1
             d(i) = d(i)-cp(i)*d(i+1)
@@ -1204,6 +1207,193 @@
       !$omp end parallel
     end subroutine PoisFFT_Solver3D_2real1real
 
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    subroutine PoisFFT_Solver3D_nonuniform_Z_PPNs(D, Phi, RHS)
+      type(PoisFFT_Solver3D_nonuniform_Z), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      integer i, j, k
+      integer tid      !thread id
+      real(RP) :: lam
+      
+      !$omp parallel private(tid,i,j,k)
+      tid = 1
+      !$ tid = omp_get_thread_num()+1
+
+      !$omp do
+      do k = 1, D%nz
+          D%Solvers2D(tid)%cwork = RHS(:,:,k)
+
+
+          call Execute(D%Solvers2D(tid)%forward,D%Solvers2D(tid)%cwork)
+
+          
+          D%cwork(:,:,k) = D%Solvers2D(tid)%cwork
+      end do
+      !$omp end do
+
+      !$omp do private(lam)
+      do j = 1, D%ny
+        do i = 1, D%nx
+          lam = D%denomx(i) + D%denomy(j) 
+          if (i==1.and.j==1) then
+            call solve_tridiag(1._RP, 0._RP, lam, D%cwork(i,j,:))
+          else          
+            call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, D%cwork(i,j,:))
+          end if
+        end do
+      end do      
+      !$omp end do
+
+      !$omp do
+      do k = 1, D%nz
+          D%Solvers2D(tid)%cwork = D%cwork(:,:,k)
+
+          
+          call Execute(D%Solvers2D(tid)%backward,D%Solvers2D(tid)%cwork)
+          
+          
+          Phi(:,:,k) = real(D%Solvers2D(tid)%cwork, kind=RP) / (D%norm_factor)
+      end do
+      !$omp end do
+      !$omp end parallel
+     
+    contains
+    
+
+      subroutine solve_tridiag(b1, c1, lambdas, x)
+          real(RP), intent(in) :: b1, c1, lambdas
+          complex(CP), intent(inout) :: x(:)
+          real(RP) :: cp(D%gnz)
+          real(RP) :: m
+          integer :: i, n
+
+          n = D%gnz
+
+  ! initialize c-prime
+          m = b1 + lambdas
+          x(1) = x(1) / m
+          if (n==1) return
+          cp(1) = c1 / m
+  ! solve for vectors c-prime and x-prime
+          do i = 2, n-1
+            m = D%mat_b(i) + lambdas - cp(i-1)*D%mat_a(i)
+            cp(i) = D%mat_c(i)/m
+            x(i) = (x(i)-x(i-1)*D%mat_a(i)) / m
+          enddo
+          x(n) = (x(n)-x(n-1)*D%mat_a(n)) / &
+                 (D%mat_b(n) + lambdas - cp(n-1)*D%mat_a(n))
+  ! solve for x from the vectors c-prime and x-prime
+          do i = n-1, 1, -1
+            x(i) = x(i) - cp(i)*x(i+1)
+          end do
+
+      end subroutine solve_tridiag 
+    end subroutine PoisFFT_Solver3D_nonuniform_Z_PPNs
+
+  
+    subroutine PoisFFT_Solver3D_nonuniform_Z_FullNeumann(D, Phi, RHS)
+      type(PoisFFT_Solver3D_nonuniform_Z), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      integer i, j, k
+      integer tid      !thread id
+      real(RP) :: lam
+      
+      !$omp parallel private(tid,i,j,k)
+      tid = 1
+      !$ tid = omp_get_thread_num()+1
+
+      !$omp do
+      do k = 1, D%nz
+          D%Solvers2D(tid)%rwork = RHS(:,:,k)
+
+
+          call Execute(D%Solvers2D(tid)%forward,D%Solvers2D(tid)%rwork)
+
+          
+          Phi(:,:,k) = D%Solvers2D(tid)%rwork
+      end do
+      !$omp end do
+
+      !$omp do private(lam)
+      do j = 1, D%ny
+        do i = 1, D%nx
+          lam = D%denomx(i) + D%denomy(j) 
+          if (i==1.and.j==1) then
+            call solve_tridiag(1._RP, 0._RP, lam, Phi(i,j,:))
+          else          
+            call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, Phi(i,j,:))
+          end if
+        end do
+      end do      
+      !$omp end do
+
+      !$omp do
+      do k = 1, D%nz
+          D%Solvers2D(tid)%rwork = Phi(:,:,k)
+
+          
+          call Execute(D%Solvers2D(tid)%backward,D%Solvers2D(tid)%rwork)
+          
+          
+          Phi(:,:,k) = real(D%Solvers2D(tid)%rwork, kind=RP) / (D%norm_factor)
+      end do
+      !$omp end do
+      !$omp end parallel
+
+    contains
+    
+
+      subroutine solve_tridiag(b1, c1, lambdas, x)
+          real(RP), intent(in) :: b1, c1, lambdas
+          real(RP), intent(inout) :: x(:)
+          real(RP) :: cp(D%gnz)
+          real(RP) :: m
+          integer :: i, n
+
+          n = D%gnz
+
+  ! initialize c-prime
+          m = b1 + lambdas
+          x(1) = x(1) / m
+          if (n==1) return
+          cp(1) = c1 / m
+  ! solve for vectors c-prime and x-prime
+          do i = 2, n-1
+            m = D%mat_b(i) + lambdas - cp(i-1)*D%mat_a(i)
+            cp(i) = D%mat_c(i)/m
+            x(i) = (x(i)-x(i-1)*D%mat_a(i)) / m
+          enddo
+          x(n) = (x(n)-x(n-1)*D%mat_a(n)) / &
+                 (D%mat_b(n) + lambdas - cp(n-1)*D%mat_a(n))
+  ! solve for x from the vectors c-prime and x-prime
+          do i = n-1, 1, -1
+            x(i) = x(i) - cp(i)*x(i+1)
+          end do
+
+      end subroutine solve_tridiag 
+    end subroutine PoisFFT_Solver3D_nonuniform_Z_FullNeumann
+
+
+    
+    
+    
     
     
     

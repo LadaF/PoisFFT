@@ -233,17 +233,22 @@ if str(mpi)=='yes':
       env.Alias('test',['../bin/'+comp_dir+'/testmpi'])
 else:
     #Intel Fortran 14 causes infinite compilation for -O3 here. It is not very important to optimize the main test program.
-    testobj = env.StaticObject(F90FLAGS='-O2 -g',target='../bin/'+comp_dir+'/testpoisson', source='testpoisson.f90')
-    testobj = list(filter(lambda o: str(o)[-4:] != '.mod', testobj))
+    #testobj = env.StaticObject(F90FLAGS='-O2 -g',target='../bin/'+comp_dir+'/testpoisson', source='testpoisson.f90')
+    #testobj = list(filter(lambda o: str(o)[-4:] != '.mod', testobj))
+    
+    testobj_nonuniform_z = env.StaticObject(F90FLAGS='-O2 -g',target='../bin/'+comp_dir+'/testpoisson_nonuniform_z', source='test_nonuniform_z.f90')
+    testobj_nonuniform_z = list(filter(lambda o: str(o)[-4:] != '.mod', testobj_nonuniform_z))
     
     ctestobj = env.StaticObject(CFLAGS='-O3 -g'+debug_flag,target='../bin/'+comp_dir+'/c_testpoisson', source='testpoisson.c')
     
     cctestobj = env.StaticObject(CXXFLAGS='-O3 -g'+debug_flag,target='../bin/'+comp_dir+'/cc_testpoisson', source='testpoisson.cc')
     
-    test = env.Program(LINKFLAGS=omp_flag+debug_flag, LIBS=['fftw3','fftw3f','fftw3_omp'],target='../bin/'+comp_dir+'/testpoisson', source = sobjs + testobj)
+    #test = env.Program(LINKFLAGS=omp_flag+debug_flag, LIBS=['fftw3','fftw3f','fftw3_omp'],target='../bin/'+comp_dir+'/testpoisson', source = sobjs + testobj)
+    test = env.Program(LINKFLAGS=omp_flag+debug_flag, LIBS=['fftw3','fftw3f','fftw3_omp'],target='../bin/'+comp_dir+'/test_nonuniform_z', source = sobjs + testobj_nonuniform_z)
     test += env.Program(LINK=env['CC'],LINKFLAGS=omp_flag+debug_flag, LIBS=['m','fftw3','fftw3f','fftw3_omp']+fortran_libs,target='../bin/'+comp_dir+'/c_testpoisson', source = sobjs + ctestobj)
     test += env.Program(LINK=env['CXX'], LINKFLAGS=omp_flag+debug_flag, LIBS=['m','fftw3','fftw3f','fftw3_omp']+fortran_libs,target='../bin/'+comp_dir+'/cc_testpoisson', source = sobjs + cctestobj)
     env.Alias('test',['../bin/'+comp_dir+'/testpoisson',
+                      '../bin/'+comp_dir+'/test_nonuniform_z',
                       '../bin/'+comp_dir+'/c_testpoisson',
                       '../bin/'+comp_dir+'/cc_testpoisson'])
 

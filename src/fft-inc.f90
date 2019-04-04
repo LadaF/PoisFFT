@@ -167,7 +167,6 @@
     integer(c_int), dimension(6) :: BCs
     real(RP), allocatable, dimension(:) :: denomx, denomy, denomz
     integer :: approximation = 0
-    logical :: tridiagonal_z = .false.
     
     type(PoisFFT_Plan3D) :: forward, backward
     complex(CP), dimension(:,:,:), &
@@ -185,7 +184,15 @@
     type(PoisFFT_Solver1D),dimension(:),allocatable :: Solvers1D
     type(PoisFFT_Solver2D),dimension(:),allocatable :: Solvers2D
     type(mpi_vars_3D) :: mpi
- end type PoisFFT_Solver3D
+  end type PoisFFT_Solver3D
+ 
+  type, extends(PoisFFT_Solver3D) :: PoisFFT_Solver3D_nonuniform_Z
+    real(RP) :: z_start, z_end
+    real(RP), allocatable :: z(:), z_u(:)
+    real(RP), allocatable :: mat_a(:), mat_b(:), mat_c(:) !tridiagonal matrix elements, variable in z
+  end type
+ 
+ 
 
   interface deallocate_fftw
     module procedure deallocate_fftw_1D_complex

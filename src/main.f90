@@ -9,11 +9,13 @@ module PoisFFT
 
   use PoisFFT_SP, PoisFFT_Solver1D_SP => PoisFFT_Solver1D, &
                   PoisFFT_Solver2D_SP => PoisFFT_Solver2D, &
-                  PoisFFT_Solver3D_SP => PoisFFT_Solver3D
+                  PoisFFT_Solver3D_SP => PoisFFT_Solver3D, &
+                  PoisFFT_Solver3D_nonuniform_z_SP => PoisFFT_Solver3D_nonuniform_z
 
   use PoisFFT_DP, PoisFFT_Solver1D_DP => PoisFFT_Solver1D, &
                   PoisFFT_Solver2D_DP => PoisFFT_Solver2D, &
-                  PoisFFT_Solver3D_DP => PoisFFT_Solver3D
+                  PoisFFT_Solver3D_DP => PoisFFT_Solver3D, &
+                  PoisFFT_Solver3D_nonuniform_z_DP => PoisFFT_Solver3D_nonuniform_z
 contains
 #ifdef MPI    
     subroutine PoisFFT_InitMPIGrid(MPI_comm, np, PoisFFT_comm, ierror)
