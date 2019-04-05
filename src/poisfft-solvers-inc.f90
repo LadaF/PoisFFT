@@ -1520,7 +1520,7 @@
 
         !$omp end parallel
         
-#undef mpi
+#undef m
     end subroutine transform_1d_real_y
     
     
@@ -1643,7 +1643,7 @@
         
        !$omp end parallel
         
-#undef mpi
+#undef m
     end subroutine transform_1d_real_z
 
 #endif    
