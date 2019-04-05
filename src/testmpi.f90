@@ -934,6 +934,27 @@ program testpoisson_MPI
   
   call MPI_Barrier(glob_comm,ie)
   
+  if (master) write(*,*) "2D Periodic"
+
+  call compute2D([(PoisFFT_Periodic, i=1,4)])
+  
+
+  call MPI_Barrier(glob_comm,ie)
+  
+  if (master) write(*,*) "1D Periodic"
+
+  call compute1D([(PoisFFT_Periodic, i=1,2)])
+
+  
+  
+  
+  call MPI_AllReduce(sum(RHS), S, 1, MPI_RP, MPI_SUM, glob_comm, ie)
+ 
+  RHS = RHS - S / product(ng)
+  
+
+  call MPI_Barrier(glob_comm,ie)
+  
   if (master) write(*,*) "3D PNsNs"
 
   call compute3d([(PoisFFT_Periodic, i=1,2),(PoisFFT_NeumannStag, i=3,6)])
@@ -967,18 +988,6 @@ program testpoisson_MPI
   call compute3D([(PoisFFT_Periodic, i=1,6)])
  
  
-  call MPI_Barrier(glob_comm,ie)
-  
-  if (master) write(*,*) "2D Periodic"
-
-  call compute2D([(PoisFFT_Periodic, i=1,4)])
-  
-
-  call MPI_Barrier(glob_comm,ie)
-  
-  if (master) write(*,*) "1D Periodic"
-
-  call compute1D([(PoisFFT_Periodic, i=1,2)])
 
 
   call MPI_Barrier(glob_comm,ie)
@@ -1120,13 +1129,14 @@ contains
   
   subroutine save_vtk
     use Endianness
-    integer filetype, fh, unit
+    integer :: filetype, unit
+    integer :: fh = MPI_FILE_NULL
     integer(MPI_OFFSET_KIND) pos
     real(RP),allocatable :: buffer(:,:,:),buf(:)
     character :: lf=achar(10)
     character(70) :: str
     character(10) :: fm = '(*(1x,g0))'
-    character(len=:), allocatable :: header
+    character(len=:), allocatable :: header, tmp
     integer(MPI_OFFSET_KIND) :: header_len
 
     call GetEndianness
@@ -1139,18 +1149,31 @@ contains
       str="DIMENSIONS"
       write(str(12:),fm) ng(1),ng(2),ng(3)
       header =  header //  str//lf
+      
       str="X_COORDINATES"
       write(str(15:),fm) ng(1),"double"
       header =  header //  str//lf
-      header =  header //  transfer(BigEnd([((i-0.5)*dx,i=1,ng(1))]),repeat('a',ng(1)*c_sizeof(dx)))//lf
+      allocate( character(ng(1)*c_sizeof(dx)) :: tmp)
+      tmp = transfer(BigEnd([((i-0.5)*dx,i=1,ng(1))]), tmp)
+      header =  header //  tmp // lf
+      deallocate(tmp)
+      
       str="Y_COORDINATES"
       write(str(15:),fm) ng(2),"double"
-      header =  header //  str//lf
-      header =  header //  transfer(BigEnd([((j-0.5)*dy,j=1,ng(2))]),repeat('a',ng(2)*c_sizeof(dy)))//lf
+      header =  header //  str//lf      
+      allocate( character(ng(2)*c_sizeof(dy)) :: tmp)
+      tmp = transfer(BigEnd([((j-0.5)*dy,j=1,ng(2))]), tmp)
+      header =  header // tmp // lf
+      deallocate(tmp)
+      
       str="Z_COORDINATES"
       write(str(15:),fm) ng(3),"double"
       header =  header //  str//lf
-      header =  header //  transfer(BigEnd([((k-0.5)*dz,k=1,ng(3))]),repeat('a',ng(3)*c_sizeof(dz)))//lf
+      allocate( character(ng(3)*c_sizeof(dz)) :: tmp)
+      tmp = transfer(BigEnd([((k-0.5)*dz,k=1,ng(3))]), tmp)
+      header =  header // tmp // lf
+      deallocate(tmp)
+      
       str="POINT_DATA"
       write(str(12:),fm) product(ng)
       header =  header //  str//lf
@@ -1187,7 +1210,7 @@ contains
     if (ie/=0) call error_stop("set_view header", ie)
     
     if (master) then
-       call MPI_File_write(fh, header, header_len, MPI_CHARACTER, MPI_STATUS_IGNORE, ie)
+       call MPI_File_write(fh, header, int(header_len), MPI_CHARACTER, MPI_STATUS_IGNORE, ie)
        if (ie/=0) call error_stop("file write", ie)
     end if
     
