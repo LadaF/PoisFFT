@@ -792,7 +792,7 @@
 
     function PoisFFT_Solver1D_From3D(D3D,direction) result(D)
       type(PoisFFT_Solver1D)             :: D
-      type(PoisFFT_Solver3D), intent(in) :: D3D
+      class(PoisFFT_Solver3D), intent(in) :: D3D
       integer, intent(in)                :: direction
 #ifdef MPI
       integer :: ie, dims
@@ -851,7 +851,7 @@
 
     function PoisFFT_Solver2D_From3D(D3D,direction) result(D)
       type(PoisFFT_Solver2D)             :: D
-      type(PoisFFT_Solver3D), intent(in) :: D3D
+      class(PoisFFT_Solver3D), intent(in) :: D3D
       integer, intent(in)                :: direction
 #ifdef MPI
       integer :: ie, dims
@@ -1436,13 +1436,15 @@
 
       if (all(D%BCs==PoisFFT_Neumann) .or. &
                all(D%BCs==PoisFFT_NeumannStag)) then
-
+#ifdef MPI               
+        if (D%nthreads>1) call PoisFFT_PFFT_InitThreads(D%nthreads)
+#endif
         real_forw = real_transform_type_forward(D%BCs(1:2))
         real_back = real_transform_type_backward(D%BCs(1:2))        
 
         allocate(D%Solvers2D(D%nthreads))
 
-        D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D%PoisFFT_Solver3D,3)
+        D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
 
         call allocate_fftw_real(D%Solvers2D(1))
 
@@ -1457,13 +1459,17 @@
           call allocate_fftw_real(D%Solvers2D(i))
 
         end do
+        
+        allocate(D%Solvers1D(3))
+        D%Solvers1D(3) = PoisFFT_Solver1D_From3D(D,3)
+
 
       else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
                (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
                 all(D%BCs(5:6)==PoisFFT_NeumannStag) )) then
 
 #ifdef MPI
-        call allocate_fftw_complex(D%PoisFFT_Solver3D)
+        call allocate_fftw_complex(D)
         
         allocate(D%Solvers1D(3:2+D%nthreads))
 
@@ -1488,7 +1494,7 @@
 
           allocate(D%Solvers2D(1))
 
-          D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
+          D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D, 3)
 
           call allocate_fftw_complex(D%Solvers2D(1))
 
@@ -1499,7 +1505,7 @@
         else
           allocate(D%Solvers2D(D%nthreads))
 
-          D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D%PoisFFT_Solver3D,3)
+          D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
 
           call allocate_fftw_complex(D%Solvers2D(1))
 
@@ -1519,16 +1525,16 @@
           end do
         end if
 
-        call Init_MPI_Buffers(D%PoisFFT_Solver3D, 3)
+        call Init_MPI_Buffers(D, 3)
 
 #else
-        call allocate_fftw_complex(D%PoisFFT_Solver3D)
+        call allocate_fftw_complex(D)
 
         allocate(D%Solvers1D(D%nthreads))
 
         allocate(D%Solvers2D(D%nthreads))
 
-        D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D%PoisFFT_Solver3D,3)
+        D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
 
         call allocate_fftw_complex(D%Solvers2D(1))
 
@@ -1551,6 +1557,10 @@
         stop "Unknown combination of boundary conditions."
       endif
 
+#ifdef MPI
+      call Init_MPI_Buffers(D, 3)
+#endif   
+
 
       if (D%approximation==PoisFFT_FiniteDifference2) then
         D%denomx = eigenvalues(eig_fn_FD2, D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
@@ -1563,32 +1573,31 @@
         D%denomy = eigenvalues(eig_fn_spectral, D%BCs(3:4), D%Ly, D%ny, D%gny, D%offy)
       end if
       
-      allocate(D%mat_a(2:D%nz))
-      allocate(D%mat_b(1:D%nz))
-      allocate(D%mat_c(1:D%nz-1))
+      allocate(D%mat_a(2:D%gnz))
+      allocate(D%mat_b(1:D%gnz))
+      allocate(D%mat_c(1:max(1,D%gnz-1)))
     
-      do i = 2, D%nz
+      do i = 2, D%gnz
         D%mat_a(i) = 1 / (D%z(i)-D%z(i-1)) / (D%z_u(i) - D%z_u(i-1))
       end do
       i = 1
-      if (D%nz==1) then
+      if (D%gnz==1) then
         D%mat_b(1) = 0
       else
         D%mat_b(1) = -1 / (D%z(i+1)-D%z(i)) / (D%z_u(i) - D%z_u(i-1))
       end if
-      do i = 2, D%nz-1
+      do i = 2, D%gnz-1
         D%mat_b(i) = -1 / (D%z(i+1)-D%z(i)) / (D%z_u(i) - D%z_u(i-1))
         D%mat_b(i) = D%mat_b(i) - 1 / (D%z(i)-D%z(i-1)) / (D%z_u(i) - D%z_u(i-1))   
       end do
-      if (D%nz>1) then
-        i = D%nz
-        D%mat_b(D%nz) = -1 / (D%z(i)-D%z(i-1)) / (D%z_u(i) - D%z_u(i-1))
+      if (D%gnz>1) then
+        i = D%gnz
+        D%mat_b(D%gnz) = -1 / (D%z(i)-D%z(i-1)) / (D%z_u(i) - D%z_u(i-1))
       end if
       
-      do i = 1, D%nz-1
+      do i = 1, D%gnz-1
         D%mat_c(i) = 1 / (D%z(i+1)-D%z(i)) / (D%z_u(i) - D%z_u(i-1))
       end do
-      
     end subroutine PoisFFT_Solver3D_nonuniform_z_Init
     
     
@@ -1660,6 +1669,8 @@
     
     
 #include "poisfft-solvers-inc.f90"
+
+#include "poisfft-solvers-nonuniform_z-inc.f90"
 
 
 
@@ -1816,7 +1827,7 @@
         end subroutine
       end interface
       
-      type(PoisFFT_Solver3D), intent(inout), target :: D
+      class(PoisFFT_Solver3D), intent(inout), target :: D
       integer, intent(in) :: dir
       type(mpi_vars_1d), pointer :: mpi
       integer :: i, ie
@@ -1906,7 +1917,7 @@
 
         allocate(mpi%tmp1(1:D%nz,1:D%ny,1:D%nx))
         allocate(mpi%tmp2(0:sum(mpi%rcounts)-1))
-        allocate(mpi%rwork(sum(mpi%rnzs), D%ny, mpi%rnxs(1)))
+        allocate(mpi%rwork(sum(mpi%rnzs), D%ny, mpi%rnxs(1)))        
       else
         stop "Not implemented."
       end if

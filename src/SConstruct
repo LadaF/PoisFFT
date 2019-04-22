@@ -8,6 +8,7 @@ warnings = ARGUMENTS.get('warnings','')
 sanitize = ARGUMENTS.get('sanitize','')
 cray = ARGUMENTS.get('cray','')
 missing_pfft_r2r = ARGUMENTS.get('missing_pfft_r2r','')
+tridiagonal_tests = ARGUMENTS.get('tridiagonal_tests','')
 
 def from_env(s):
   try:
@@ -202,6 +203,7 @@ Depends(objs[-1], 'allocate_fftw-inc.f90')
 Depends(sobjs[-1], sobjs[3])
 sobjs += env.Object(target='../bin/'+comp_dir+'/poisfft', source='poisfft.f90')
 Depends(sobjs[-1], 'poisfft-solvers-inc.f90')
+Depends(sobjs[-1], 'poisfft-solvers-nonuniform_z-inc.f90')
 Depends(sobjs[-1], 'poisfft-inc.f90')
 Depends(sobjs[-1], 'loop_nest_3d.f90')
 sobjs += env.Object(target='../bin/'+comp_dir+'/main', source='main.f90')
@@ -217,38 +219,38 @@ lib = env.SharedLibrary(target='../lib/'+comp_dir+'/libpoisfft', source = objs)
 #lib = lib + env.StaticLibrary(target='../lib/'+comp_dir+'/libpoisfft', source = sobjs)
 
 if str(mpi)=='yes':
-    if openmp=='yes':
-      testobj = env.StaticObject(F90FLAGS='-O3 -g',target='../bin/'+comp_dir+'/testhybrid', source='testhybrid.f90')
-      testobj = list(filter(lambda o: str(o)[-4:] != '.mod', testobj))
-      
-      libs = ['pfft_omp','pfftf_omp','fftw3_mpi','fftw3f_mpi','fftw3','fftw3f','fftw3_omp','fftw3f_omp']
-      test = env.Program(LINKFLAGS=omp_flag+debug_flag, LIBS=libs,target='../bin/'+comp_dir+'/testhybrid', source = sobjs + testobj)
-      env.Alias('test',['../bin/'+comp_dir+'/testhybrid'])
+    if (tridiagonal_tests=='yes'):
+      suffix = '_nonuniform_z'
     else:
-      testobj = env.StaticObject(F90FLAGS='-O3 -g',target='../bin/'+comp_dir+'/testmpi', source='testmpi.f90')
-      testobj = list(filter(lambda o: str(o)[-4:] != '.mod', testobj))
+      suffix = ''
       
-      libs = ['pfft','pfftf','fftw3_mpi','fftw3f_mpi','fftw3','fftw3f']
-      test = env.Program(LINKFLAGS=omp_flag+debug_flag, LIBS=libs,target='../bin/'+comp_dir+'/testmpi', source = sobjs + testobj)
-      env.Alias('test',['../bin/'+comp_dir+'/testmpi'])
+    testobj = env.StaticObject(F90FLAGS='-O3 -g',target='../bin/'+comp_dir+'/testmpi'+suffix, source='testmpi'+suffix+'.f90')
+    testobj = list(filter(lambda o: str(o)[-4:] != '.mod', testobj))
+    
+    libs = ['fftw3_mpi','fftw3f_mpi','fftw3','fftw3f','fftw3_omp','fftw3f_omp']
+    if openmp=='yes':
+      libs = ['pfft_omp','pfftf_omp'] + libs
+    test = env.Program(LINKFLAGS=omp_flag+debug_flag, LIBS=libs,target='../bin/'+comp_dir+'/testmpi'+suffix, source = sobjs + testobj)
+    env.Alias('test',['../bin/'+comp_dir+'/testmpi'+suffix])
+
 else:
     #Intel Fortran 14 causes infinite compilation for -O3 here. It is not very important to optimize the main test program.
-    #testobj = env.StaticObject(F90FLAGS='-O2 -g',target='../bin/'+comp_dir+'/testpoisson', source='testpoisson.f90')
-    #testobj = list(filter(lambda o: str(o)[-4:] != '.mod', testobj))
+    if (tridiagonal_tests=='yes'):
+      suffix = '_nonuniform_z'
+    else:
+      suffix = ''
     
-    testobj_nonuniform_z = env.StaticObject(F90FLAGS='-O2 -g',target='../bin/'+comp_dir+'/testpoisson_nonuniform_z', source='test_nonuniform_z.f90')
-    testobj_nonuniform_z = list(filter(lambda o: str(o)[-4:] != '.mod', testobj_nonuniform_z))
+    testobj = env.StaticObject(F90FLAGS='-O2 -g',target='../bin/'+comp_dir+'/testpoisson'+suffix, source='testpoisson'+suffix+'.f90')
+    testobj = list(filter(lambda o: str(o)[-4:] != '.mod', testobj))
     
     ctestobj = env.StaticObject(CFLAGS='-O3 -g'+debug_flag,target='../bin/'+comp_dir+'/c_testpoisson', source='testpoisson.c')
     
     cctestobj = env.StaticObject(CXXFLAGS='-O3 -g'+debug_flag,target='../bin/'+comp_dir+'/cc_testpoisson', source='testpoisson.cc')
     
-    #test = env.Program(LINKFLAGS=omp_flag+debug_flag, LIBS=['fftw3','fftw3f','fftw3_omp'],target='../bin/'+comp_dir+'/testpoisson', source = sobjs + testobj)
-    test = env.Program(LINKFLAGS=omp_flag+debug_flag, LIBS=['fftw3','fftw3f','fftw3_omp'],target='../bin/'+comp_dir+'/test_nonuniform_z', source = sobjs + testobj_nonuniform_z)
+    test = env.Program(LINKFLAGS=omp_flag+debug_flag, LIBS=['fftw3','fftw3f','fftw3_omp'],target='../bin/'+comp_dir+'/testpoisson'+suffix, source = sobjs + testobj)
     test += env.Program(LINK=env['CC'],LINKFLAGS=omp_flag+debug_flag, LIBS=['m','fftw3','fftw3f','fftw3_omp']+fortran_libs,target='../bin/'+comp_dir+'/c_testpoisson', source = sobjs + ctestobj)
     test += env.Program(LINK=env['CXX'], LINKFLAGS=omp_flag+debug_flag, LIBS=['m','fftw3','fftw3f','fftw3_omp']+fortran_libs,target='../bin/'+comp_dir+'/cc_testpoisson', source = sobjs + cctestobj)
-    env.Alias('test',['../bin/'+comp_dir+'/testpoisson',
-                      '../bin/'+comp_dir+'/test_nonuniform_z',
+    env.Alias('test',['../bin/'+comp_dir+'/testpoisson'+suffix,
                       '../bin/'+comp_dir+'/c_testpoisson',
                       '../bin/'+comp_dir+'/cc_testpoisson'])
 

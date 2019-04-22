@@ -855,31 +855,22 @@ contains
   
   
   
-  subroutine Test3D(BCs, test_proc, tridiagonal_z)
+  subroutine Test3D(BCs, test_proc)
     integer, intent(in) :: BCs(6)
     integer :: i
     procedure(ResExact3D_Dir), optional :: test_proc
-    logical, optional :: tridiagonal_z
-    logical :: trdg
-    
-    if (present(tridiagonal_z)) then
-      trdg = tridiagonal_z
-    else
-      trdg = .false.
-    end if
     
     write(*,*) "----"
     write(*,'(1x,"3D  |",*(a,"|"))') (trim(char_BCs(BCs(i))), i=1,size(BCs))
     
-    if (present(test_proc)) call TestSpectral3D(BCs, test_proc, trdg)
-    call TestFD2_3D(BCs, trdg)
+    if (present(test_proc)) call TestSpectral3D(BCs, test_proc)
+    call TestFD2_3D(BCs)
     write(*,*)
   end subroutine
   
-  subroutine TestSpectral3D(BCs, test_proc, tridiagonal_z)
+  subroutine TestSpectral3D(BCs, test_proc)
     integer, intent(in) :: BCs(6)
     real(rp) :: R
-    logical :: tridiagonal_z
     
     interface
       subroutine  test_proc(Phi, R)
@@ -889,7 +880,7 @@ contains
       end subroutine
     end interface
     
-    call RunSpectral3D(BCs, tridiagonal_z)
+    call RunSpectral3D(BCs)
     
     call test_proc(Phi3D, R)
     
@@ -901,13 +892,11 @@ contains
     end if
   end subroutine
   
-  subroutine RunSpectral3D(BCs, tridiagonal_z)
+  subroutine RunSpectral3D(BCs)
     type(PoisFFT_Solver3D) :: Solver
     integer, intent(in) :: BCs(6)
-    logical, optional :: tridiagonal_z
     
-    Solver = PoisFFT_Solver3D([nx,ny,nz], [Lx,Ly,Lz], BCs, &
-                              tridiagonal_z=tridiagonal_z)
+    Solver = PoisFFT_Solver3D([nx,ny,nz], [Lx,Ly,Lz], BCs)
 
     call Execute(Solver, Phi3D, RHS3D)
 
@@ -915,12 +904,11 @@ contains
   end subroutine
 
   
-  subroutine TestFD2_3D(BCs, tridiagonal_z)
+  subroutine TestFD2_3D(BCs)
     integer, intent(in) :: BCs(6)
-    logical, optional :: tridiagonal_z
     real(rp) :: R
     
-    call RunFD2_3D(BCs, tridiagonal_z)
+    call RunFD2_3D(BCs)
     
     call Res3D(Phi3D, RHS3D, &
                dx**(-2), dx**(-2), dy**(-2), dy**(-2), dz**(-2), dz**(-2), &
@@ -933,13 +921,12 @@ contains
     end if
   end subroutine
   
-  subroutine RunFD2_3D(BCs, tridiagonal_z)
+  subroutine RunFD2_3D(BCs)
     type(PoisFFT_Solver3D) :: Solver
     integer, intent(in) :: BCs(6)
-    logical, optional :: tridiagonal_z
     
     Solver = PoisFFT_Solver3D([nx,ny,nz], [Lx,Ly,Lz], BCs, &
-                              approximation=2, tridiagonal_z=tridiagonal_z)
+                              approximation=2)
 
     call Execute(Solver, Phi3D, RHS3D)
 
@@ -1247,17 +1234,10 @@ program testpoisson
   RHS3D = RHS3D - sum(RHS3D)/(size(RHS3D,kind=size_kind))
   call Test3D([(PoisFFT_NeumannStag, i = 1,6)], ResExact3D_NeumStag)
 
-  write (*,*) "a) fully FFT:"
   dx = Lx / nx
   dy = Ly / ny
   dz = Lz / nz
   call Test3D([(PoisFFT_PERIODIC, i = 1,4),(PoisFFT_NeumannStag, i = 5,6)])
-
-  write (*,*) "b) x and y FFT, z tridiagonal:"
-  dx = Lx / nx
-  dy = Ly / ny
-  dz = Lz / nz
-  call Test3D([(PoisFFT_PERIODIC, i = 1,4),(PoisFFT_NeumannStag, i = 5,6)], tridiagonal_z=.true.)
 
   dx = Lx / nx
   dy = Ly / ny

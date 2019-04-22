@@ -14,7 +14,7 @@ module Globals
   implicit none
 
   real(rp), parameter :: pi = 3.141592653589793238462_rp!pi = 4*atan(1._rp)!
-  real(rp), parameter :: Lx = 2*pi, Ly = Lx*1.1, Lz = Lx/1.1
+  real(rp), parameter :: Lx = 2*pi, Ly = Lx*1.1_rp, Lz = Lx/1.1_rp
   integer :: nx = 21, ny = 32, nz = 25
   real(rp) :: dx,dy,dz
   real(rp), dimension(:,:,:), allocatable :: Phi3D, RHS3D
@@ -167,7 +167,7 @@ contains
           end if
 
           p = p - RHS(i,j,k)
-          p = abs(-p +Ap*Phi(i,j,k))!;print*,p
+          p = abs(-p +Ap*Phi(i,j,k))
           R = max(R,abs(p))
         end do
       end do
@@ -281,7 +281,10 @@ program testpoisson
   real(rp) :: xp, yp, zp
   character(len = 12) :: arg
   real(RP) :: avg, p
-
+  
+  
+  call random_seed(size=j)
+  call random_seed(put=[(i+1,i=1,j)])
   
   if (command_argument_count()>=3) then
     call get_command_argument(1,value = arg)
@@ -312,6 +315,7 @@ program testpoisson
     z(i) = (z_u(i)+z_u(i-1))/2
   end do
 
+  
   allocate(RHS3D(nx,ny,nz))
   allocate(Phi3D(0:nx+1,0:ny+1,0:nz+1))
 
@@ -320,21 +324,20 @@ program testpoisson
   do k = 1,nz
    do j = 1,ny
     do i = 1,nx
-     xp=(i-1._rp/2)*dx
-     yp=(j-1._rp/2)*dy
-     zp=(k-1._rp/2)*dz
+     xp = (i-1._rp/2)*dx
+     yp = (j-1._rp/2)*dy
+     zp = z(k)
      call random_number(RHS3D(i,j,k))
      avg = avg + RHS3D(i,j,k)*dx*dy*(z_u(k)-z_u(k-1))
-
      call random_number(Phi3D(i,j,k))
     end do
    end do
   end do
+
   avg = avg / (Lx*Ly*Lz)
   RHS3D = RHS3D - avg
 
 
-  write (*,*) "b) x and y FFT, z nonuniform:"
   dx = Lx / nx
   dy = Ly / ny
   call Test3D([(PoisFFT_PERIODIC, i = 1,4),(PoisFFT_NeumannStag, i = 5,6)])

@@ -85,6 +85,9 @@
     !3D buffer for contiguous 1D rows on which 1D FFT can be performed locally,
     ! constructed by local reordering of tmp2
     real(RP), allocatable :: rwork(:,:,:)
+    ! global indexes corresponding to the given y or z line in the rwork array.
+    integer, allocatable :: glob_i(:,:) ! value of global i, (:,:) local indexes of rwork
+    
   end type
 
   type PoisFFT_Solver1D

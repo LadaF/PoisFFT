@@ -1223,176 +1223,6 @@
     
     
     
-    subroutine PoisFFT_Solver3D_nonuniform_Z_PPNs(D, Phi, RHS)
-      type(PoisFFT_Solver3D_nonuniform_Z), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:,:)
-      real(RP), intent(in)  :: RHS(:,:,:)
-      integer i, j, k
-      integer tid      !thread id
-      real(RP) :: lam
-      
-      !$omp parallel private(tid,i,j,k)
-      tid = 1
-      !$ tid = omp_get_thread_num()+1
-
-      !$omp do
-      do k = 1, D%nz
-          D%Solvers2D(tid)%cwork = RHS(:,:,k)
-
-
-          call Execute(D%Solvers2D(tid)%forward,D%Solvers2D(tid)%cwork)
-
-          
-          D%cwork(:,:,k) = D%Solvers2D(tid)%cwork
-      end do
-      !$omp end do
-
-      !$omp do private(lam)
-      do j = 1, D%ny
-        do i = 1, D%nx
-          lam = D%denomx(i) + D%denomy(j) 
-          if (i==1.and.j==1) then
-            call solve_tridiag(1._RP, 0._RP, lam, D%cwork(i,j,:))
-          else          
-            call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, D%cwork(i,j,:))
-          end if
-        end do
-      end do      
-      !$omp end do
-
-      !$omp do
-      do k = 1, D%nz
-          D%Solvers2D(tid)%cwork = D%cwork(:,:,k)
-
-          
-          call Execute(D%Solvers2D(tid)%backward,D%Solvers2D(tid)%cwork)
-          
-          
-          Phi(:,:,k) = real(D%Solvers2D(tid)%cwork, kind=RP) / (D%norm_factor)
-      end do
-      !$omp end do
-      !$omp end parallel
-     
-    contains
-    
-
-      subroutine solve_tridiag(b1, c1, lambdas, x)
-          real(RP), intent(in) :: b1, c1, lambdas
-          complex(CP), intent(inout) :: x(:)
-          real(RP) :: cp(D%gnz)
-          real(RP) :: m
-          integer :: i, n
-
-          n = D%gnz
-
-  ! initialize c-prime
-          m = b1 + lambdas
-          x(1) = x(1) / m
-          if (n==1) return
-          cp(1) = c1 / m
-  ! solve for vectors c-prime and x-prime
-          do i = 2, n-1
-            m = D%mat_b(i) + lambdas - cp(i-1)*D%mat_a(i)
-            cp(i) = D%mat_c(i)/m
-            x(i) = (x(i)-x(i-1)*D%mat_a(i)) / m
-          enddo
-          x(n) = (x(n)-x(n-1)*D%mat_a(n)) / &
-                 (D%mat_b(n) + lambdas - cp(n-1)*D%mat_a(n))
-  ! solve for x from the vectors c-prime and x-prime
-          do i = n-1, 1, -1
-            x(i) = x(i) - cp(i)*x(i+1)
-          end do
-
-      end subroutine solve_tridiag 
-    end subroutine PoisFFT_Solver3D_nonuniform_Z_PPNs
-
-  
-    subroutine PoisFFT_Solver3D_nonuniform_Z_FullNeumann(D, Phi, RHS)
-      type(PoisFFT_Solver3D_nonuniform_Z), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:,:)
-      real(RP), intent(in)  :: RHS(:,:,:)
-      integer i, j, k
-      integer tid      !thread id
-      real(RP) :: lam
-      
-      !$omp parallel private(tid,i,j,k)
-      tid = 1
-      !$ tid = omp_get_thread_num()+1
-
-      !$omp do
-      do k = 1, D%nz
-          D%Solvers2D(tid)%rwork = RHS(:,:,k)
-
-
-          call Execute(D%Solvers2D(tid)%forward,D%Solvers2D(tid)%rwork)
-
-          
-          Phi(:,:,k) = D%Solvers2D(tid)%rwork
-      end do
-      !$omp end do
-
-      !$omp do private(lam)
-      do j = 1, D%ny
-        do i = 1, D%nx
-          lam = D%denomx(i) + D%denomy(j) 
-          if (i==1.and.j==1) then
-            call solve_tridiag(1._RP, 0._RP, lam, Phi(i,j,:))
-          else          
-            call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, Phi(i,j,:))
-          end if
-        end do
-      end do      
-      !$omp end do
-
-      !$omp do
-      do k = 1, D%nz
-          D%Solvers2D(tid)%rwork = Phi(:,:,k)
-
-          
-          call Execute(D%Solvers2D(tid)%backward,D%Solvers2D(tid)%rwork)
-          
-          
-          Phi(:,:,k) = real(D%Solvers2D(tid)%rwork, kind=RP) / (D%norm_factor)
-      end do
-      !$omp end do
-      !$omp end parallel
-
-    contains
-    
-
-      subroutine solve_tridiag(b1, c1, lambdas, x)
-          real(RP), intent(in) :: b1, c1, lambdas
-          real(RP), intent(inout) :: x(:)
-          real(RP) :: cp(D%gnz)
-          real(RP) :: m
-          integer :: i, n
-
-          n = D%gnz
-
-  ! initialize c-prime
-          m = b1 + lambdas
-          x(1) = x(1) / m
-          if (n==1) return
-          cp(1) = c1 / m
-  ! solve for vectors c-prime and x-prime
-          do i = 2, n-1
-            m = D%mat_b(i) + lambdas - cp(i-1)*D%mat_a(i)
-            cp(i) = D%mat_c(i)/m
-            x(i) = (x(i)-x(i-1)*D%mat_a(i)) / m
-          enddo
-          x(n) = (x(n)-x(n-1)*D%mat_a(n)) / &
-                 (D%mat_b(n) + lambdas - cp(n-1)*D%mat_a(n))
-  ! solve for x from the vectors c-prime and x-prime
-          do i = n-1, 1, -1
-            x(i) = x(i) - cp(i)*x(i+1)
-          end do
-
-      end subroutine solve_tridiag 
-    end subroutine PoisFFT_Solver3D_nonuniform_Z_FullNeumann
-
-
-    
-    
     
     
     
@@ -1431,7 +1261,7 @@
    
         !step1 local transpose
         if (use_rhs) then
-          !$omp do
+          !$omp do collapse(3)
           do k = 1, nz
             do i = 1, nx
               do j = 1, ny
@@ -1440,7 +1270,7 @@
             end do
           end do
         else
-          !$omp do
+          !$omp do collapse(3)
           do k = 1, nz
             do i = 1, nx
               do j = 1, ny
@@ -1472,7 +1302,7 @@
      
         ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
         if (forward) then
-          !$omp do
+          !$omp do collapse(2)
           do k=1,size(m%rwork,3)
             do j=1,size(m%rwork,2)
               !TODO: is this really alligned?
@@ -1480,7 +1310,7 @@
             end do
           end do
         else
-          !$omp do
+          !$omp do collapse(2)
           do k=1,size(m%rwork,3)
             do j=1,size(m%rwork,2)
               call Execute(D1D(tid)%backward,m%rwork(:,j,k))
@@ -1509,7 +1339,7 @@
                            m%comm, ie)
         !$omp end single
 
-        !$omp do
+        !$omp do collapse(3)
         do k = 1, nz
           do i = 1, nx
             do j = 1, ny
@@ -1555,7 +1385,7 @@
 
         !step1 local transpose
         if (use_rhs) then
-         !$omp do
+         !$omp do collapse(3)
           do j = 1, ny
             do i = 1, nx
               do k = 1, nz
@@ -1564,7 +1394,7 @@
             end do
           end do
         else
-         !$omp do
+         !$omp do collapse(3)
           do j = 1, ny
             do i = 1, nx
               do k = 1, nz
@@ -1596,14 +1426,14 @@
      
         ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
         if (forward) then
-          !$omp do
+          !$omp do collapse(2)
           do k=1,size(m%rwork,3)
             do j=1,size(m%rwork,2)
               call Execute(D1D(tid)%forward,m%rwork(:,j,k))
             end do
           end do
         else
-          !$omp do
+          !$omp do collapse(2)
           do k=1,size(m%rwork,3)
             do j=1,size(m%rwork,2)
               call Execute(D1D(tid)%backward,m%rwork(:,j,k))
@@ -1632,7 +1462,7 @@
                            m%comm, ie)
         !$omp end single
 
-        !$omp do
+        !$omp do collapse(3)
         do j = 1, ny
           do k = 1, nz
             do i = 1, nx
@@ -1640,11 +1470,11 @@
             end do
           end do
         end do
-        
        !$omp end parallel
         
 #undef m
     end subroutine transform_1d_real_z
-
+  
+    
 #endif    
     
