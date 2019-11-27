@@ -136,7 +136,7 @@ else:
 
 
   if '-J' not in env['FORTRANMODDIRPREFIX']:
-    env.Append(FORTRANMODDIRPREFIX = '-J')
+    env.Replace(FORTRANMODDIRPREFIX = '-J')
   
   fortran_libs = ['gfortran']
 
