@@ -20,7 +20,7 @@
 #endif
 
 
-      type( PoisFFT_SolverXD ), intent(inout)        :: D
+      class( PoisFFT_SolverXD ), intent(inout)        :: D
       type(c_ptr) :: p
 #if defined(MPI) && dimensions>1
       integer(c_size_t) :: cnt

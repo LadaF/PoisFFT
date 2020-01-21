@@ -28,6 +28,7 @@
 
   private
   public :: PoisFFT_Solver1D, PoisFFT_Solver2D, PoisFFT_Solver3D, &
+            PoisFFT_Solver3D_nonuniform_z, &
             Finalize, Execute
 
   real(RP), parameter, private :: pi = 3.141592653589793238462_RP
@@ -45,10 +46,15 @@
     module procedure PoisFFT_Solver3D__New
   end interface
 
+  interface PoisFFT_Solver3D_nonuniform_z
+    module procedure PoisFFT_Solver3D_nonuniform_z__New
+  end interface
+
   interface Finalize
     module procedure PoisFFT_Solver1D__Finalize
     module procedure PoisFFT_Solver2D__Finalize
     module procedure PoisFFT_Solver3D__Finalize
+    module procedure PoisFFT_Solver3D_nonuniform_z__Finalize
   end interface Finalize
 
 
@@ -56,12 +62,14 @@
     module procedure PoisFFT_Solver1D_Init
     module procedure PoisFFT_Solver2D_Init
     module procedure PoisFFT_Solver3D_Init
+    module procedure PoisFFT_Solver3D_nonuniform_z_Init
   end interface Init
 
   interface Execute
     module procedure PoisFFT_Solver1D__Execute
     module procedure PoisFFT_Solver2D__Execute
     module procedure PoisFFT_Solver3D__Execute
+    module procedure PoisFFT_Solver3D_nonuniform_z__Execute
   end interface Execute
 
 
@@ -726,50 +734,6 @@
         D%denomz = eigenvalues(eig_fn_spectral, D%BCs(5:6), D%Lz, D%nz, D%gnz, D%offz)
       end if
       
-    contains
-    
-      function real_transform_type_forward(BCs) result(res)
-        integer :: res
-        integer, intent(in) :: BCs(2)
-        
-        if (all(BCs==PoisFFT_Dirichlet)) then
-            res = FFT_RealOdd00
-        else if (all(BCs==PoisFFT_DirichletStag)) then
-            res = FFT_RealOdd10
-        else if (all(BCs==PoisFFT_Neumann)) then
-            res = FFT_RealEven00
-        else if (all(BCs==PoisFFT_NeumannStag)) then
-            res = FFT_RealEven10
-        else if (all(BCs==[PoisFFT_NeumannStag,PoisFFT_DirichletStag])) then
-            res = FFT_RealEven11
-        else if (all(BCs==[PoisFFT_DirichletStag,PoisFFT_NeumannStag])) then
-            res = FFT_RealOdd11
-        else
-            res = -1
-        end if
-      end function
-      
-      function real_transform_type_backward(BCs) result(res)
-        integer :: res
-        integer, intent(in) :: BCs(2)
-        
-        if (all(BCs==PoisFFT_Dirichlet)) then
-            res = FFT_RealOdd00
-        else if (all(BCs==PoisFFT_DirichletStag)) then
-            res = FFT_RealOdd01
-        else if (all(BCs==PoisFFT_Neumann)) then
-            res = FFT_RealEven00
-        else if (all(BCs==PoisFFT_NeumannStag)) then
-            res = FFT_RealEven01
-        else if (all(BCs==[PoisFFT_NeumannStag,PoisFFT_DirichletStag])) then
-            res = FFT_RealEven11
-        else if (all(BCs==[PoisFFT_DirichletStag,PoisFFT_NeumannStag])) then
-            res = FFT_RealOdd11
-        else
-            res = -1
-        end if
-      end function
-      
     end subroutine PoisFFT_Solver3D_Init
     
     
@@ -820,14 +784,13 @@
       else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
                (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
                 all(D%BCs(5:6)==PoisFFT_NeumannStag))) then
-
         call PoisFFT_Solver3D_PPNs(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
-                     ngPhi(2)+1:ngPhi(2)+D%ny,&
-                     ngPhi(3)+1:ngPhi(3)+D%nz),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
-                     ngRHS(2)+1:ngRHS(2)+D%ny,&
-                     ngRHS(3)+1:ngRHS(3)+D%nz))
+                Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                    ngPhi(2)+1:ngPhi(2)+D%ny,&
+                    ngPhi(3)+1:ngPhi(3)+D%nz),&
+                RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                    ngRHS(2)+1:ngRHS(2)+D%ny,&
+                    ngRHS(3)+1:ngRHS(3)+D%nz))
 
       else if (all(D%BCs(1:2)==PoisFFT_Periodic) .and. &
                (all(D%BCs(3:6)==PoisFFT_Neumann) .or. &
@@ -949,7 +912,7 @@
 
     function PoisFFT_Solver1D_From3D(D3D,direction) result(D)
       type(PoisFFT_Solver1D)             :: D
-      type(PoisFFT_Solver3D), intent(in) :: D3D
+      class(PoisFFT_Solver3D), intent(in) :: D3D
       integer, intent(in)                :: direction
 #ifdef MPI
       integer :: ie, dims
@@ -1008,7 +971,7 @@
 
     function PoisFFT_Solver2D_From3D(D3D,direction) result(D)
       type(PoisFFT_Solver2D)             :: D
-      type(PoisFFT_Solver3D), intent(in) :: D3D
+      class(PoisFFT_Solver3D), intent(in) :: D3D
       integer, intent(in)                :: direction
 #ifdef MPI
       integer :: ie, dims
@@ -1478,7 +1441,356 @@
 
 
 
+    
+    
+    
+    
+    
+    
+    
+    
+    function PoisFFT_Solver3D_nonuniform_z__New(nxyz,Lxy,z,z_u, &
+                                  BCs,approximation, &
+                                  gnxyz,offs,mpi_comm,nthreads,ierr) result(D)
+      type(PoisFFT_Solver3D_nonuniform_z) :: D
+
+      integer, intent(in)   :: nxyz(3)
+      real(RP), intent(in)  :: Lxy(2)
+      real(RP), intent(in)  :: z(:), z_u(0:)
+      integer, intent(in)   :: bcs(6)
+      integer, intent(in), optional :: approximation
+      integer, intent(in), optional :: gnxyz(3)
+      integer, intent(in), optional :: offs(3)
+      integer, intent(in), optional :: mpi_comm
+      integer, intent(in), optional :: nthreads
+      integer, intent(out),optional :: ierr
+      
+      if (present(ierr)) ierr = 0
+
+      D%nxyz = nxyz
+
+      D%Lx = Lxy(1)
+      D%Ly = Lxy(2)
+      D%Lz = 0
+
+      D%nx = nxyz(1)
+      D%ny = nxyz(2)
+      D%nz = nxyz(3)
+      
+      allocate(D%z(1:ubound(z,1)))
+      D%z = z
+      allocate(D%z_u(0:ubound(z_u,1)))
+      D%z_u(:) = z_u
+      
+      if (present(gnxyz)) then
+        D%gnx = gnxyz(1)
+        D%gny = gnxyz(2)
+        D%gnz = gnxyz(3)
+      else
+        D%gnx = D%nx
+        D%gny = D%ny
+        D%gnz = D%nz
+      end if
+
+      if (present(offs)) then
+        D%offx = offs(1)
+        D%offy = offs(2)
+        D%offz = offs(3)
+      end if
+
+      D%cnt = product(D%nxyz)
+      
+      D%gcnt = product(int([D%gnx, D%gny, D%gnz], kind(D%gcnt)))
+
+      D%BCs = BCs
+      
+      if (present(approximation)) D%approximation = approximation
+      
+      if (present(mpi_comm)) then
+        D%mpi%comm = mpi_comm
+#ifdef MPI      
+      else
+        stop "No PFFT comm present in PoisFFT_Solver3D__New."
+#endif
+      end if
+
+      if (present(nthreads)) then
+        D%nthreads = nthreads
+      else
+        D%nthreads = 1
+      endif
+
+      !create fftw plans and allocate working arrays
+      call Init(D)
+    end function PoisFFT_Solver3D_nonuniform_z__New
+    
+    
+    
+    
+    subroutine PoisFFT_Solver3D_nonuniform_z_Init(D, ierr, errmsg)
+      type(PoisFFT_Solver3D_nonuniform_z), intent(inout) :: D
+      integer,   intent(out), optional :: ierr
+      character, intent(out), optional :: errmsg
+      integer :: real_forw, real_back
+      integer :: real_forw_xy, real_back_xy
+      integer :: real_forw_z, real_back_z
+      integer :: i
+      !$omp parallel
+      !$omp single
+      !$ D%nthreads = omp_get_num_threads()
+      !$omp end single
+      !$omp end parallel
+
+      D%norm_factor = norm_factor(D%gnx,D%BCs(1:2)) * &
+                      norm_factor(D%gny,D%BCs(3:4))
+      
+      allocate(D%denomx(D%nx))
+      allocate(D%denomy(D%ny))
+      
+      
+#ifdef MPI
+      call PoisFFT_PFFT_init()
+#else
+      if (D%nthreads>1) call PoisFFT_InitThreads(1)
+#endif
+
+      if (all(D%BCs==PoisFFT_Neumann) .or. &
+               all(D%BCs==PoisFFT_NeumannStag)) then
+#ifdef MPI               
+        if (D%nthreads>1) call PoisFFT_PFFT_InitThreads(D%nthreads)
+#endif
+        real_forw = real_transform_type_forward(D%BCs(1:2))
+        real_back = real_transform_type_backward(D%BCs(1:2))        
+
+        allocate(D%Solvers2D(D%nthreads))
+
+        D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
+
+        call allocate_fftw_real(D%Solvers2D(1))
+
+        D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [real_forw, real_forw])
+        D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [real_back, real_back])
+
+        do i=2,D%nthreads
+          D%Solvers2D(i) = D%Solvers2D(1)
+          D%Solvers2D(i)%forward%planowner = .false.
+          D%Solvers2D(i)%backward%planowner = .false.
+
+          call allocate_fftw_real(D%Solvers2D(i))
+
+        end do
+        
+        allocate(D%Solvers1D(3))
+        D%Solvers1D(3) = PoisFFT_Solver1D_From3D(D,3)
+
+
+      else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
+               (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
+                all(D%BCs(5:6)==PoisFFT_NeumannStag) )) then
+
+#ifdef MPI
+        call allocate_fftw_complex(D)
+        
+        allocate(D%Solvers1D(3:2+D%nthreads))
+
+        D%Solvers1D(3) = PoisFFT_Solver1D_From3D(D,3)
+
+        call allocate_fftw_real(D%Solvers1D(3))
+
+        real_forw = real_transform_type_forward(D%BCs(5:6))
+        real_back = real_transform_type_backward(D%BCs(5:6))
+        D%Solvers1D(3)%forward = PoisFFT_Plan1D(D%Solvers1D(3), [real_forw, real_forw])
+        D%Solvers1D(3)%backward = PoisFFT_Plan1D(D%Solvers1D(3), [real_back, real_back])
+
+        do i = 4, 2+D%nthreads
+          D%Solvers1D(i) = D%Solvers1D(3)
+          D%Solvers1D(i)%forward%planowner = .false.
+          D%Solvers1D(i)%backward%planowner = .false.
+          call allocate_fftw_real(D%Solvers1D(i))
+        end do
+
+        if (D%ny<D%gny) then
+          if (D%nthreads>1) call PoisFFT_PFFT_InitThreads(D%nthreads)
+
+          allocate(D%Solvers2D(1))
+
+          D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D, 3)
+
+          call allocate_fftw_complex(D%Solvers2D(1))
+
+          D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_FORWARD])
+          D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_BACKWARD])
+
+          
+        else
+          allocate(D%Solvers2D(D%nthreads))
+
+          D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
+
+          call allocate_fftw_complex(D%Solvers2D(1))
+
+          D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), &
+                                                  [FFT_Complex, FFTW_FORWARD], &
+                                                  distributed=.false.)
+          D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), &
+                                                   [FFT_Complex, FFTW_BACKWARD], &
+                                                   distributed=.false.)
+
+          do i = 2, D%nthreads
+            D%Solvers2D(i) = D%Solvers2D(1)
+            D%Solvers2D(i)%forward%planowner = .false.
+            D%Solvers2D(i)%backward%planowner = .false.
+
+            call allocate_fftw_complex(D%Solvers2D(i))
+          end do
+        end if
+
+        call Init_MPI_Buffers(D, 3)
+
+#else
+        call allocate_fftw_complex(D)
+
+        allocate(D%Solvers1D(D%nthreads))
+
+        allocate(D%Solvers2D(D%nthreads))
+
+        D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
+
+        call allocate_fftw_complex(D%Solvers2D(1))
+
+        D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_FORWARD])
+        D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_BACKWARD])
+
+        do i = 2, D%nthreads
+          D%Solvers2D(i) = D%Solvers2D(1)
+          D%Solvers2D(i)%forward%planowner = .false.
+          D%Solvers2D(i)%backward%planowner = .false.
+
+          call allocate_fftw_complex(D%Solvers2D(i))
+        end do
+        
+!MPI
+#endif
+
+
+      else
+        stop "Unknown combination of boundary conditions."
+      endif
+
+#ifdef MPI
+      call Init_MPI_Buffers(D, 3)
+#endif   
+
+
+      if (D%approximation==PoisFFT_FiniteDifference2) then
+        D%denomx = eigenvalues(eig_fn_FD2, D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
+        D%denomy = eigenvalues(eig_fn_FD2, D%BCs(3:4), D%Ly, D%ny, D%gny, D%offy)
+      else if (D%approximation==PoisFFT_FiniteDifference4) then
+        D%denomx = eigenvalues(eig_fn_FD4, D%BCs(1:2), D%Lx, D%gnx, D%gnx, D%offx)
+        D%denomy = eigenvalues(eig_fn_FD4, D%BCs(3:4), D%Ly, D%gny, D%gny, D%offy)
+      else
+        D%denomx = eigenvalues(eig_fn_spectral, D%BCs(1:2), D%Lx, D%nx, D%gnx, D%offx)
+        D%denomy = eigenvalues(eig_fn_spectral, D%BCs(3:4), D%Ly, D%ny, D%gny, D%offy)
+      end if
+      
+      allocate(D%mat_a(2:D%gnz))
+      allocate(D%mat_b(1:D%gnz))
+      allocate(D%mat_c(1:max(1,D%gnz-1)))
+    
+      do i = 2, D%gnz
+        D%mat_a(i) = 1 / (D%z(i)-D%z(i-1)) / (D%z_u(i) - D%z_u(i-1))
+      end do
+      i = 1
+      if (D%gnz==1) then
+        D%mat_b(1) = 0
+      else
+        D%mat_b(1) = -1 / (D%z(i+1)-D%z(i)) / (D%z_u(i) - D%z_u(i-1))
+      end if
+      do i = 2, D%gnz-1
+        D%mat_b(i) = -1 / (D%z(i+1)-D%z(i)) / (D%z_u(i) - D%z_u(i-1))
+        D%mat_b(i) = D%mat_b(i) - 1 / (D%z(i)-D%z(i-1)) / (D%z_u(i) - D%z_u(i-1))   
+      end do
+      if (D%gnz>1) then
+        i = D%gnz
+        D%mat_b(D%gnz) = -1 / (D%z(i)-D%z(i-1)) / (D%z_u(i) - D%z_u(i-1))
+      end if
+      
+      do i = 1, D%gnz-1
+        D%mat_c(i) = 1 / (D%z(i+1)-D%z(i)) / (D%z_u(i) - D%z_u(i-1))
+      end do
+    end subroutine PoisFFT_Solver3D_nonuniform_z_Init
+    
+    
+
+
+    subroutine PoisFFT_Solver3D_nonuniform_z__Execute(D,Phi,RHS)
+      type(PoisFFT_Solver3D_nonuniform_z), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+
+      integer   :: ngPhi(3), ngRHS(3)
+
+      ngPhi = (ubound(Phi)-[D%nx,D%ny,D%nz])/2
+      ngRHS = (ubound(RHS)-[D%nx,D%ny,D%nz])/2
+
+      if (all(D%BCs==PoisFFT_Neumann) .or. &
+               all(D%BCs==PoisFFT_NeumannStag)) then
+
+        call PoisFFT_Solver3D_nonuniform_z_FullNeumann(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny,&
+                     ngPhi(3)+1:ngPhi(3)+D%nz),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny,&
+                     ngRHS(3)+1:ngRHS(3)+D%nz))
+
+      else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
+               (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
+                all(D%BCs(5:6)==PoisFFT_NeumannStag))) then
+                
+        call PoisFFT_Solver3D_nonuniform_z_PPNs(D,&
+                Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                    ngPhi(2)+1:ngPhi(2)+D%ny,&
+                    ngPhi(3)+1:ngPhi(3)+D%nz),&
+                RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                    ngRHS(2)+1:ngRHS(2)+D%ny,&
+                    ngRHS(3)+1:ngRHS(3)+D%nz))
+
+      endif
+
+    end subroutine PoisFFT_Solver3D_nonuniform_z__Execute
+    
+    
+    
+    
+    subroutine PoisFFT_Solver3D_nonuniform_z__Finalize(D)
+      type(PoisFFT_Solver3D_nonuniform_z), intent(inout) :: D
+      integer :: i
+
+      call Finalize(D%PoisFFT_Solver3D)
+      
+      deallocate(D%z, D%z_u)
+      
+      deallocate(D%mat_a, D%mat_b, D%mat_c)
+
+    endsubroutine PoisFFT_Solver3D_nonuniform_z__Finalize
+    
+    
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
 #include "poisfft-solvers-inc.f90"
+
+#include "poisfft-solvers-nonuniform_z-inc.f90"
 
 
 
@@ -1579,6 +1891,47 @@
       end if
     end function
     
+    function real_transform_type_forward(BCs) result(res)
+      integer :: res
+      integer, intent(in) :: BCs(2)
+      
+      if (all(BCs==PoisFFT_Dirichlet)) then
+          res = FFT_RealOdd00
+      else if (all(BCs==PoisFFT_DirichletStag)) then
+          res = FFT_RealOdd10
+      else if (all(BCs==PoisFFT_Neumann)) then
+          res = FFT_RealEven00
+      else if (all(BCs==PoisFFT_NeumannStag)) then
+          res = FFT_RealEven10
+      else if (all(BCs==[PoisFFT_NeumannStag,PoisFFT_DirichletStag])) then
+          res = FFT_RealEven11
+      else if (all(BCs==[PoisFFT_DirichletStag,PoisFFT_NeumannStag])) then
+          res = FFT_RealOdd11
+      else
+          res = -1
+      end if
+    end function
+    
+    function real_transform_type_backward(BCs) result(res)
+      integer :: res
+      integer, intent(in) :: BCs(2)
+      
+      if (all(BCs==PoisFFT_Dirichlet)) then
+          res = FFT_RealOdd00
+      else if (all(BCs==PoisFFT_DirichletStag)) then
+          res = FFT_RealOdd01
+      else if (all(BCs==PoisFFT_Neumann)) then
+          res = FFT_RealEven00
+      else if (all(BCs==PoisFFT_NeumannStag)) then
+          res = FFT_RealEven01
+      else if (all(BCs==[PoisFFT_NeumannStag,PoisFFT_DirichletStag])) then
+          res = FFT_RealEven11
+      else if (all(BCs==[PoisFFT_DirichletStag,PoisFFT_NeumannStag])) then
+          res = FFT_RealOdd11
+      else
+          res = -1
+      end if
+    end function
     
     
 
@@ -1594,7 +1947,7 @@
         end subroutine
       end interface
       
-      type(PoisFFT_Solver3D), intent(inout), target :: D
+      class(PoisFFT_Solver3D), intent(inout), target :: D
       integer, intent(in) :: dir
       type(mpi_vars_1d), pointer :: mpi
       integer :: i, ie
@@ -1684,7 +2037,7 @@
 
         allocate(mpi%tmp1(1:D%nz,1:D%ny,1:D%nx))
         allocate(mpi%tmp2(0:sum(mpi%rcounts)-1))
-        allocate(mpi%rwork(sum(mpi%rnzs), D%ny, mpi%rnxs(1)))
+        allocate(mpi%rwork(sum(mpi%rnzs), D%ny, mpi%rnxs(1)))        
       else
         stop "Not implemented."
       end if
