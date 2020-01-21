@@ -135,7 +135,9 @@ else:
   else:
     sanitize_flag = debug_flag + ''
 
-  env.Append(FORTRANMODDIRPREFIX = '-J')
+
+  if '-J' not in env['FORTRANMODDIRPREFIX']:
+    env.Replace(FORTRANMODDIRPREFIX = '-J')
   
   fortran_libs = ['gfortran']
 
