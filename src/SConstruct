@@ -218,7 +218,10 @@ sobjs += env.Object(target='../bin/'+comp_dir+'/c_binding_c', source='c_binding.
 sobjs = list(filter(lambda o: str(o)[-4:] != '.mod', sobjs))
 
 lib = env.SharedLibrary(target='../lib/'+comp_dir+'/libpoisfft', source = objs)
-#lib = lib + env.StaticLibrary(target='../lib/'+comp_dir+'/libpoisfft', source = sobjs)
+static_lib = env.StaticLibrary(target='../lib/'+comp_dir+'/libpoisfft', source = sobjs)
+
+env.Alias('lib',lib)
+env.Alias('static_lib',static_lib)
 
 if str(mpi)=='yes':
     if (tridiagonal_tests=='yes'):
