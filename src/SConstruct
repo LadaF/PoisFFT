@@ -235,6 +235,8 @@ if str(mpi)=='yes':
     libs = ['fftw3_mpi','fftw3f_mpi','fftw3','fftw3f','fftw3_omp','fftw3f_omp']
     if openmp=='yes':
       libs = ['pfft_omp','pfftf_omp'] + libs
+    else:
+      libs = ['pfft','pfftf'] + libs
     test = env.Program(LINKFLAGS=omp_flag+debug_flag, LIBS=libs,target='../bin/'+comp_dir+'/testmpi'+suffix, source = sobjs + testobj)
     env.Alias('test',['../bin/'+comp_dir+'/testmpi'+suffix])
 
