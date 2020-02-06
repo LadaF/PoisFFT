@@ -975,15 +975,34 @@
       integer, intent(in)                :: direction
 #ifdef MPI
       integer :: ie, dims
+      integer :: nps(2), coords(2)
+      logical :: pers(2)
       
       call MPI_Cartdim_get(D3D%mpi%comm, dims, ie)
       if (ie/=0) stop "Error executing MPI_Cartdim_get."
-      
+        
       if (dims==2) then
         !We see the dimensions reversed in Fortran!
         if (direction==1) then
-          D%mpi%comm = D3D%mpi%comm
-          D%mpi%comm_dim = 2
+          call MPI_Cart_get(D3D%mpi%comm, dims, nps, pers, coords, ie)
+          if (ie/=0) stop "Error executing MPI_Cart_get."
+      
+          if (product(nps)==1) then
+            D%mpi%np = 1
+            D%mpi%comm = MPI_COMM_SELF
+            D%mpi%comm_dim = 0
+          else if (nps(1)==1) then
+            call MPI_Cart_sub(D3D%mpi%comm, [.false.,.true.], D%mpi%comm, ie)
+            if (ie/=0) stop "Error executing MPI_Cart_sub."
+            D%mpi%comm_dim = 1
+          else if (nps(2)==1) then
+            call MPI_Cart_sub(D3D%mpi%comm, [.true.,.false.], D%mpi%comm, ie)
+            if (ie/=0) stop "Error executing MPI_Cart_sub."
+            D%mpi%comm_dim = 1
+          else
+            D%mpi%comm = D3D%mpi%comm
+            D%mpi%comm_dim = 2
+          end if
         else if (direction==2) then
           call MPI_Cart_sub(D3D%mpi%comm, [.true.,.false.], D%mpi%comm, ie)
           if (ie/=0) stop "Error executing MPI_Cart_sub."
