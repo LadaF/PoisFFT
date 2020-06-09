@@ -907,9 +907,9 @@ contains
   subroutine TestFD2_3D(BCs)
     integer, intent(in) :: BCs(6)
     real(rp) :: R
-    
+
     call RunFD2_3D(BCs)
-    
+   
     call Res3D(Phi3D, RHS3D, &
                dx**(-2), dx**(-2), dy**(-2), dy**(-2), dz**(-2), dz**(-2), &
                BCs, R)
@@ -1238,6 +1238,11 @@ program testpoisson
   dy = Ly / ny
   dz = Lz / nz
   call Test3D([(PoisFFT_PERIODIC, i = 1,4),(PoisFFT_NeumannStag, i = 5,6)])
+
+  dx = Lx / nx
+  dy = Ly / ny
+  dz = Lz / nz
+  call Test3D([(PoisFFT_NeumannStag, i = 1,2),(PoisFFT_PERIODIC, i = 3,6)])
 
   dx = Lx / nx
   dy = Ly / ny
