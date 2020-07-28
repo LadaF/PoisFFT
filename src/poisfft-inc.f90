@@ -306,6 +306,45 @@
 !MPI
 #endif
 
+      else if (all(D%BCs(3:6)==PoisFFT_Periodic) .and. &
+               (all(D%BCs(1:2)==PoisFFT_Neumann) .or. &
+                all(D%BCs(1:2)==PoisFFT_NeumannStag))) then
+                
+        allocate(D%Solvers1D(D%nthreads))
+
+        D%Solvers1D(1) = PoisFFT_Solver1D_From3D(D,1)
+
+        call allocate_fftw_real(D%Solvers1D(1))
+
+        real_forw = real_transform_type_forward(D%BCs(1:2))
+        real_back = real_transform_type_backward(D%BCs(1:2))
+        D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [real_forw, real_forw])
+        D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [real_back, real_back])
+
+        do i = 2, D%nthreads
+          D%Solvers1D(i) = D%Solvers1D(1)
+          D%Solvers1D(i)%forward%planowner = .false.
+          D%Solvers1D(i)%backward%planowner = .false.
+          call allocate_fftw_real(D%Solvers1D(i))
+        end do
+
+        allocate(D%Solvers2D(D%nthreads))
+
+        D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,1)
+
+        call allocate_fftw_complex(D%Solvers2D(1))
+
+        D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_FORWARD])
+        D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_BACKWARD])
+
+        do i = 2, D%nthreads
+          D%Solvers2D(i) = D%Solvers2D(1)
+          D%Solvers2D(i)%forward%planowner = .false.
+          D%Solvers2D(i)%backward%planowner = .false.
+
+          call allocate_fftw_complex(D%Solvers2D(i))
+        end do                
+                
       else if (all(D%BCs(1:2)==PoisFFT_Periodic) .and. &
                all(D%BCs(5:6)==PoisFFT_Periodic) .and. &
                (all(D%BCs(3:4)==PoisFFT_Neumann) .or. &
@@ -785,6 +824,17 @@
                (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
                 all(D%BCs(5:6)==PoisFFT_NeumannStag))) then
         call PoisFFT_Solver3D_PPNs(D,&
+                Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                    ngPhi(2)+1:ngPhi(2)+D%ny,&
+                    ngPhi(3)+1:ngPhi(3)+D%nz),&
+                RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                    ngRHS(2)+1:ngRHS(2)+D%ny,&
+                    ngRHS(3)+1:ngRHS(3)+D%nz))
+
+      else if (all(D%BCs(3:6)==PoisFFT_Periodic) .and. &
+               (all(D%BCs(1:2)==PoisFFT_Neumann) .or. &
+                all(D%BCs(1:2)==PoisFFT_NeumannStag))) then
+        call PoisFFT_Solver3D_NsPP(D,&
                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
                     ngPhi(2)+1:ngPhi(2)+D%ny,&
                     ngPhi(3)+1:ngPhi(3)+D%nz),&
