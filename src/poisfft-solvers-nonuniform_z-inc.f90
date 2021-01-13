@@ -301,7 +301,7 @@
         !$omp do collapse(2)
         do k=1,size(m%rwork,3)
           do j=1,size(m%rwork,2)
-            glob_i = k + D1D(1)%mpi%rank * D%nx / D1D(1)%mpi%np
+            glob_i = k + D1D(1)%mpi%rank * (D%nx / D1D(1)%mpi%np)
             lam = D%denomx(glob_i) + D%denomy(j)
             if (glob_i==1.and.j+D%offy==1) then
                 call solve_tridiag(1._RP, 0._RP, lam, m%rwork(:,j,k))
