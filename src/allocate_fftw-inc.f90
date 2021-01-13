@@ -29,7 +29,12 @@
       cnt =  pfft_local_size_dft(dimensions,int(gdims,c_intptr_t), &
                   D%mpi%comm, PFFT_TRANSPOSED_NONE, &
                   a1,a2,a3,a4)
-      if (.not.all(a1(dimensions:1:-1)==D%nxyz)) stop "Error. Inconsistent size of local arrays!"
+      if (.not.all(a1(dimensions:1:-1)==D%nxyz)) then
+        write(*,*) "PoisFFT Error. Inconsistent size of local arrays from pfft_local_size_dft!"
+        write(*,*) a1(dimensions:1:-1)
+        write(*,*) D%nxyz
+        stop
+      end if  
       p = fftw_malloc( storage_size( dataf )/storage_size('a') * cnt )
 #elif defined(MPI) && dimensions==1
       p = fftw_malloc( storage_size( dataf )/storage_size('a') * int(D%gnx, c_size_t ))
