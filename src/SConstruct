@@ -102,7 +102,7 @@ elif str(comp)=='intel':
   if str(openmp)=='no':
     omp_flag = ''
   else:
-    omp_flag = ' -openmp'
+    omp_flag = ' -qopenmp'
   env.Append(F90FLAGS='-cpp -g -O3')
   comp_dir='intel'
   
