@@ -306,6 +306,110 @@
 !MPI
 #endif
 
+      else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
+                ( (any(D%BCs(5:6)==PoisFFT_DirichletStag) .or.any(D%BCs(5:6)==PoisFFT_Dirichlet)) .and. &
+                  all(D%BCs(5:6)==PoisFFT_DirichletStag .or. &
+                      D%BCs(5:6)==PoisFFT_Dirichlet .or. &
+                      D%BCs(5:6)==PoisFFT_NeumannStag .or. &
+                      D%BCs(5:6)==PoisFFT_Neumann))) then
+
+#ifdef MPI
+        allocate(D%Solvers1D(3:2+D%nthreads))
+
+        D%Solvers1D(3) = PoisFFT_Solver1D_From3D(D,3)
+
+        call allocate_fftw_real(D%Solvers1D(3))
+
+        real_forw = real_transform_type_forward(D%BCs(5:6))
+        real_back = real_transform_type_backward(D%BCs(5:6))
+        D%Solvers1D(3)%forward = PoisFFT_Plan1D(D%Solvers1D(3), [real_forw, real_forw])
+        D%Solvers1D(3)%backward = PoisFFT_Plan1D(D%Solvers1D(3), [real_back, real_back])
+
+        do i = 4, 2+D%nthreads
+          D%Solvers1D(i) = D%Solvers1D(3)
+          D%Solvers1D(i)%forward%planowner = .false.
+          D%Solvers1D(i)%backward%planowner = .false.
+          call allocate_fftw_real(D%Solvers1D(i))
+        end do
+
+        if (D%ny<D%gny) then
+          if (D%nthreads>1) call PoisFFT_PFFT_InitThreads(D%nthreads)
+
+          allocate(D%Solvers2D(1))
+
+          D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
+
+          call allocate_fftw_complex(D%Solvers2D(1))
+
+          D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_FORWARD])
+          D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_BACKWARD])
+
+          
+        else
+          allocate(D%Solvers2D(D%nthreads))
+
+          D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
+
+          call allocate_fftw_complex(D%Solvers2D(1))
+
+          D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), &
+                                                  [FFT_Complex, FFTW_FORWARD], &
+                                                  distributed=.false.)
+          D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), &
+                                                   [FFT_Complex, FFTW_BACKWARD], &
+                                                   distributed=.false.)
+
+          do i = 2, D%nthreads
+            D%Solvers2D(i) = D%Solvers2D(1)
+            D%Solvers2D(i)%forward%planowner = .false.
+            D%Solvers2D(i)%backward%planowner = .false.
+
+            call allocate_fftw_complex(D%Solvers2D(i))
+          end do
+        end if
+
+        call Init_MPI_Buffers(D, 3)
+
+#else
+        allocate(D%Solvers1D(D%nthreads))
+
+        D%Solvers1D(1) = PoisFFT_Solver1D_From3D(D,3)
+
+        call allocate_fftw_real(D%Solvers1D(1))
+
+        real_forw = real_transform_type_forward(D%BCs(5:6))
+        real_back = real_transform_type_backward(D%BCs(5:6))
+        D%Solvers1D(1)%forward = PoisFFT_Plan1D(D%Solvers1D(1), [real_forw, real_forw])
+        D%Solvers1D(1)%backward = PoisFFT_Plan1D(D%Solvers1D(1), [real_back, real_back])
+
+        do i = 2, D%nthreads
+          D%Solvers1D(i) = D%Solvers1D(1)
+          D%Solvers1D(i)%forward%planowner = .false.
+          D%Solvers1D(i)%backward%planowner = .false.
+          call allocate_fftw_real(D%Solvers1D(i))
+        end do
+
+        allocate(D%Solvers2D(D%nthreads))
+
+        D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
+
+        call allocate_fftw_complex(D%Solvers2D(1))
+
+        D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_FORWARD])
+        D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [FFT_Complex, FFTW_BACKWARD])
+
+        do i = 2, D%nthreads
+          D%Solvers2D(i) = D%Solvers2D(1)
+          D%Solvers2D(i)%forward%planowner = .false.
+          D%Solvers2D(i)%backward%planowner = .false.
+
+          call allocate_fftw_complex(D%Solvers2D(i))
+        end do
+      
+       !MPI
+#endif
+
+
       else if (all(D%BCs(3:6)==PoisFFT_Periodic) .and. &
                (all(D%BCs(1:2)==PoisFFT_Neumann) .or. &
                 all(D%BCs(1:2)==PoisFFT_NeumannStag))) then
@@ -824,6 +928,21 @@
                (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
                 all(D%BCs(5:6)==PoisFFT_NeumannStag))) then
         call PoisFFT_Solver3D_PPNs(D,&
+                Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                    ngPhi(2)+1:ngPhi(2)+D%ny,&
+                    ngPhi(3)+1:ngPhi(3)+D%nz),&
+                RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                    ngRHS(2)+1:ngRHS(2)+D%ny,&
+                    ngRHS(3)+1:ngRHS(3)+D%nz))
+
+
+      else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
+                ( (any(D%BCs(5:6)==PoisFFT_DirichletStag) .or.any(D%BCs(5:6)==PoisFFT_Dirichlet)) .and. &
+                  all(D%BCs(5:6)==PoisFFT_DirichletStag .or. &
+                      D%BCs(5:6)==PoisFFT_Dirichlet .or. &
+                      D%BCs(5:6)==PoisFFT_NeumannStag .or. &
+                      D%BCs(5:6)==PoisFFT_Neumann))) then
+        call PoisFFT_Solver3D_PPD(D,&
                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
                     ngPhi(2)+1:ngPhi(2)+D%ny,&
                     ngPhi(3)+1:ngPhi(3)+D%nz),&
@@ -1375,6 +1494,7 @@
 
     subroutine Poisfft_Solver1D_Init(D)
       type(PoisFFT_Solver1D), intent(inout) :: D
+      integer :: real_forw, real_back
       
       D%norm_factor = norm_factor(D%gnx,D%BCs(1:2))
       
@@ -1387,47 +1507,12 @@
         D%forward = PoisFFT_Plan1D(D, [FFT_Complex, FFTW_FORWARD])
         D%backward = PoisFFT_Plan1D(D, [FFT_Complex, FFTW_BACKWARD])
 
-      else if (all(D%BCs==PoisFFT_Dirichlet)) then
-
-        call allocate_fftw_real(D)
-
-        D%forward = PoisFFT_Plan1D(D, [FFT_RealOdd00])
-        D%backward = PoisFFT_Plan1D(D, [FFT_RealOdd00])
-        
-      else if (all(D%BCs==PoisFFT_DirichletStag)) then
-
-        call allocate_fftw_real(D)
-
-        D%forward = PoisFFT_Plan1D(D, [FFT_RealOdd10])
-        D%backward = PoisFFT_Plan1D(D, [FFT_RealOdd01])
-        
-      else if (all(D%BCs==PoisFFT_Neumann)) then
-
-        call allocate_fftw_real(D)
-
-        D%forward = PoisFFT_Plan1D(D, [FFT_RealEven00])
-        D%backward = PoisFFT_Plan1D(D, [FFT_RealEven00])
-        
-      else if (all(D%BCs==PoisFFT_NeumannStag)) then
-
-        call allocate_fftw_real(D)
-
-        D%forward = PoisFFT_Plan1D(D, [FFT_RealEven10])
-        D%backward = PoisFFT_Plan1D(D, [FFT_RealEven01])
-        
-      else if (all(D%BCs==[PoisFFT_NeumannStag, PoisFFT_DirichletStag])) then
+      else 
       
         call allocate_fftw_real(D)
 
-        D%forward = PoisFFT_Plan1D(D, [FFT_RealEven11])
-        D%backward = PoisFFT_Plan1D(D, [FFT_RealEven11])
-        
-      else if (all(D%BCs==[PoisFFT_DirichletStag, PoisFFT_NeumannStag])) then
-      
-        call allocate_fftw_real(D)
-
-        D%forward = PoisFFT_Plan1D(D, [FFT_RealOdd11])
-        D%backward = PoisFFT_Plan1D(D, [FFT_RealOdd11])
+        D%forward = PoisFFT_Plan1D(D, [real_transform_type_forward(D%BCs(1:2))])
+        D%backward = PoisFFT_Plan1D(D, [real_transform_type_backward(D%BCs(1:2))])
         
       endif
       
@@ -1487,7 +1572,6 @@
         call PoisFFT_Solver1D_FullDirichlet(D,&
                  Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
                  RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
-                 
       endif
 
     end subroutine PoisFFT_Solver1D__Execute
@@ -1898,6 +1982,10 @@
         forall(i=1:n) res(i) = f((i+off-0.5_RP)*dkx_h)
       else if (all(BCs==[PoisFFT_DirichletStag,PoisFFT_NeumannStag])) then
         forall(i=1:n) res(i) = f((i+off-0.5_RP)*dkx_h)
+      else if (all(BCs==[PoisFFT_Neumann,PoisFFT_Dirichlet])) then
+        forall(i=1:n) res(i) = f((i+off-0.5_RP)*dkx_h)
+      else if (all(BCs==[PoisFFT_Dirichlet,PoisFFT_Neumann])) then
+        forall(i=1:n) res(i) = f((i+off-0.5_RP)*dkx_h)
       end if
 
       res = res / (grid_dx(gn, L, BCs))**2
@@ -1936,8 +2024,9 @@
         res = L / gn
       else if (all(BCs==PoisFFT_Neumann)) then
         res = L / (gn-1)
-      else
-        res = 0
+      else if (all(BCs==PoisFFT_Dirichlet .or. &
+                   BCs==PoisFFT_Neumann)) then
+        res = L / gn
       end if
     end function
 
@@ -1955,8 +2044,9 @@
       else if (all(BCs==PoisFFT_DirichletStag .or. &
                    BCs==PoisFFT_NeumannStag)) then
         res = 2 * gn
-      else
-        res = 0
+      else if (all(BCs==PoisFFT_Dirichlet .or. &
+                   BCs==PoisFFT_Neumann)) then
+        res = 2 * gn
       end if
     end function
     
@@ -1976,8 +2066,10 @@
           res = FFT_RealEven11
       else if (all(BCs==[PoisFFT_DirichletStag,PoisFFT_NeumannStag])) then
           res = FFT_RealOdd11
-      else
-          res = -1
+      else if (all(BCs==[PoisFFT_Neumann,PoisFFT_Dirichlet])) then
+          res = FFT_RealEven01
+      else if (all(BCs==[PoisFFT_Dirichlet,PoisFFT_Neumann])) then
+          res = FFT_RealOdd01
       end if
     end function
     
@@ -1997,8 +2089,10 @@
           res = FFT_RealEven11
       else if (all(BCs==[PoisFFT_DirichletStag,PoisFFT_NeumannStag])) then
           res = FFT_RealOdd11
-      else
-          res = -1
+      else if (all(BCs==[PoisFFT_Neumann,PoisFFT_Dirichlet])) then
+          res = FFT_RealEven10
+      else if (all(BCs==[PoisFFT_Dirichlet,PoisFFT_Neumann])) then
+          res = FFT_RealOdd10
       end if
     end function
     

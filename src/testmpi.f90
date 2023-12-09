@@ -317,11 +317,19 @@ contains
           if (iim==1) Phi(0,:,:) = Phi(1,:,:)
         elseif (BCs(1)==PoisFFT_DirichletStag) then
           if (iim==1) Phi(0,:,:) = -Phi(1,:,:)
+        elseif (BCs(1)==PoisFFT_Neumann) then
+          if (iim==1) Phi(0,:,:) = Phi(2,:,:)
+        elseif (BCs(1)==PoisFFT_Dirichlet) then
+          if (iim==1) Phi(0,:,:) = 0
         end if
         if (BCs(2)==PoisFFT_NeumannStag) then
           if (iim==nxims) Phi(nx+1,:,:) = Phi(nx,:,:)
         elseif (BCs(2)==PoisFFT_DirichletStag) then
           if (iim==nxims) Phi(nx+1,:,:) = -Phi(nx,:,:)
+        elseif (BCs(2)==PoisFFT_Neumann) then
+          if (iim==nxims) Phi(nx+1,:,:) = Phi(nx-1,:,:)
+        elseif (BCs(2)==PoisFFT_Dirichlet) then
+          if (iim==nxims) Phi(nx+1,:,:) = 0
         end if
       end if
 
@@ -347,11 +355,19 @@ contains
           if (jim==1) Phi(:,0,:) = Phi(:,1,:)
         elseif (BCs(3)==PoisFFT_DirichletStag) then
           if (jim==1) Phi(:,0,:) = -Phi(:,1,:)
+        elseif (BCs(3)==PoisFFT_Neumann) then
+          if (jim==1) Phi(:,0,:) = Phi(:,2,:)
+        elseif (BCs(3)==PoisFFT_Dirichlet) then
+          if (jim==1) Phi(:,0,:) = 0
         end if
         if (BCs(4)==PoisFFT_NeumannStag) then
           if (jim==nyims) Phi(:,ny+1,:) = Phi(:,ny,:)
         elseif (BCs(4)==PoisFFT_DirichletStag) then
           if (jim==nyims) Phi(:,ny+1,:) = -Phi(:,ny,:)
+        elseif (BCs(4)==PoisFFT_Neumann) then
+          if (jim==nyims) Phi(:,ny+1,:) = Phi(:,ny-1,:)
+        elseif (BCs(4)==PoisFFT_Dirichlet) then
+          if (jim==nyims) Phi(:,ny+1,:) = 0
         end if
       end if
 
@@ -376,11 +392,19 @@ contains
           if (kim==1) Phi(:,:,0) = Phi(:,:,1)
         elseif (BCs(5)==PoisFFT_DirichletStag) then
           if (kim==1) Phi(:,:,0) = -Phi(:,:,1)
+        elseif (BCs(5)==PoisFFT_Neumann) then
+          if (kim==1) Phi(:,:,0) = Phi(:,:,2)
+        elseif (BCs(5)==PoisFFT_Dirichlet) then
+          if (kim==1) Phi(:,:,0) = 0
         end if
         if (BCs(6)==PoisFFT_NeumannStag) then
           if (kim==nzims) Phi(:,:,nz+1) = Phi(:,:,nz)
         elseif (BCs(6)==PoisFFT_DirichletStag) then
           if (kim==nzims) Phi(:,:,nz+1) = -Phi(:,:,nz)
+        elseif (BCs(6)==PoisFFT_Neumann) then
+          if (kim==nzims) Phi(:,:,nz+1) = Phi(:,:,nz-1)
+        elseif (BCs(6)==PoisFFT_Dirichlet) then
+          if (kim==nzims) Phi(:,:,nz+1) = 0
         end if
       end if
               
@@ -805,7 +829,7 @@ program testpoisson_MPI
   character(len=50) :: ch50
   integer :: nx, ny, nz
   integer(c_intptr_t),dimension(3) :: nxyz,off,nxyz2,nsxyz2
-  real(DRP) ::  S
+  real(DRP) ::  S,p
   integer :: seed_size
   integer :: ie = 0
   character(200) :: fname
@@ -983,13 +1007,82 @@ program testpoisson_MPI
 
   call MPI_Barrier(glob_comm,ie)
   
+  if (master) write(*,*) "3D Dirichlet"
+  
+  dx = Ls(1)/(ng(1)+1); dy = Ls(2)/(ng(2)+1); dz = Ls(3)/(ng(3)+1)
+  call compute3D([(PoisFFT_Dirichlet, i=1,6)])
+  dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3))
+
+
+  call MPI_Barrier(glob_comm,ie)
+  
+  if (master) write(*,*) "3D Neumann:"
+
+  S = 0
+  do k = 1,nz
+    do j = 1,ny
+      do i = 1,nx
+        p = RHS(i,j,k)
+        if ((i==1..and.iim==1).or.(i==nx.and.iim==nxims)) p = p / 2
+        if ((j==1..and.jim==1).or.(j==ny.and.jim==nyims)) p = p / 2
+        if ((k==1..and.kim==1).or.(k==nz.and.kim==nzims)) p = p / 2
+        S = S + p
+      end do
+    end do
+  end do
+  call MPI_AllReduce(MPI_IN_PLACE, S, 1, MPI_RP, MPI_SUM, glob_comm, ie)
+  RHS = RHS - S/product(ng-1)
+  dx = Ls(1)/(ng(1)-1); dy = Ls(2)/(ng(2)-1); dz = Ls(3)/(ng(3)-1)
+  call compute3D([(PoisFFT_Neumann, i=1,6)])
+  dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3))
+  call MPI_AllReduce(sum(RHS), S, 1, MPI_RP, MPI_SUM, glob_comm, ie)
+  RHS = RHS - S / product(ng)
+
+  
+  call MPI_Barrier(glob_comm,ie)
+  
   if (master) write(*,*) "3D Periodic"
 
   call compute3D([(PoisFFT_Periodic, i=1,6)])
  
  
+  call MPI_Barrier(glob_comm,ie)
+  
+  if (master) write(*,*) "3D PPD"
+
+  dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3)+1)
+  call compute3d([(PoisFFT_Periodic, i=1,4),(PoisFFT_Dirichlet, i=5,6)])
+  dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3))
+ 
+ 
+  call MPI_Barrier(glob_comm,ie)
+  
+  if (master) write(*,*) "3D PPDN"
+
+  call compute3d([(PoisFFT_Periodic, i=1,4),PoisFFT_Dirichlet,PoisFFT_Neumann])
 
 
+  call MPI_Barrier(glob_comm,ie)
+  
+  if (master) write(*,*) "3D PPN"
+
+  S = 0
+  do k = 1,nz
+    do j = 1,ny
+      do i = 1,nx
+        p = RHS(i,j,k)
+        if ((k==1.and.kim==1).or.(k==nz.and.kim==nzims)) p = p / 2
+        S = S + p
+      end do
+    end do
+  end do
+  call MPI_AllReduce(MPI_IN_PLACE, S, 1, MPI_RP, MPI_SUM, glob_comm, ie)
+  RHS = RHS - S/product(ng-[0,0,1])
+  dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3)-1)
+  call compute3d([(PoisFFT_Periodic, i=1,4),(PoisFFT_Neumann, i=5,6)])
+  dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3))
+ 
+ 
   call MPI_Barrier(glob_comm,ie)
 
   call save_vtk  

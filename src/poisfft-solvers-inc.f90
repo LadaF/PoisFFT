@@ -670,6 +670,188 @@
 
 
 
+
+
+
+
+
+#ifdef MPI
+    subroutine PoisFFT_Solver3D_PPD(D, Phi, RHS)
+      type(PoisFFT_Solver3D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      integer i,j,k
+      integer tid
+
+      
+      if (D%Solvers1D(3)%mpi_transpose_needed) then
+      
+        call transform_1d_real_z(D%Solvers1D(3:), Phi, RHS, forward=.true., use_rhs=.true.)
+      
+      else
+        !$omp parallel private(tid,i,j,k)
+        tid  = 0
+        !$ tid = omp_get_thread_num()
+        !$omp do collapse(2)
+        do j=1,D%ny
+          do i=1,D%nx
+            D%Solvers1D(3+tid)%rwork = RHS(i,j,:)
+
+
+            call Execute(D%Solvers1D(3+tid)%forward,D%Solvers1D(3+tid)%rwork)
+
+
+            Phi(i,j,:) = D%Solvers1D(3+tid)%rwork
+          end do
+        end do
+        !$omp end parallel
+      end if
+     
+      if (D%ny<D%gny) then
+
+        do k=1,D%nz
+
+          !$omp parallel workshare
+          D%Solvers2D(1)%cwork(1:D%nx,1:D%ny) = cmplx(Phi(1:D%nx,1:D%ny,k),0._RP,CP)
+          !$omp end parallel workshare
+
+          call Execute_MPI(D%Solvers2D(1)%forward, D%Solvers2D(1)%cwork)
+
+          !$omp parallel do collapse(2)
+          do j=1,D%ny
+            do i=1,D%nx
+              D%Solvers2D(1)%cwork(i,j) = D%Solvers2D(1)%cwork(i,j)&
+                                              / (D%denomx(i) + D%denomy(j) + D%denomz(k))
+            end do
+          end do
+          !$omp end parallel do
+
+          call Execute_MPI(D%Solvers2D(1)%backward, D%Solvers2D(1)%cwork)
+
+          !$omp parallel workshare
+          Phi(:,:,k) = real(D%Solvers2D(1)%cwork,RP) / D%norm_factor
+          !$omp end parallel workshare
+
+        end do
+
+      else
+
+        !$omp parallel private(tid,i,j,k)
+        tid  = 1
+        !$ tid = omp_get_thread_num()+1
+
+        !$omp do
+        do k=1,D%nz
+          D%Solvers2D(tid)%cwork(1:D%nx,1:D%ny) = cmplx(Phi(1:D%nx,1:D%ny,k),0._RP,CP)
+
+          call Execute(D%Solvers2D(tid)%forward, D%Solvers2D(tid)%cwork)
+
+          do j=1,D%ny
+            do i=1,D%nx
+              D%Solvers2D(tid)%cwork(i,j) = D%Solvers2D(tid)%cwork(i,j)&
+                                              / (D%denomx(i) + D%denomy(j) + D%denomz(k))
+            end do
+          end do
+
+          call Execute(D%Solvers2D(tid)%backward, D%Solvers2D(tid)%cwork)
+
+          Phi(:,:,k) = real(D%Solvers2D(tid)%cwork,RP) / D%norm_factor
+        end do
+        !$omp end parallel
+
+      end if
+
+
+      if (D%Solvers1D(3)%mpi_transpose_needed) then
+
+        call transform_1d_real_z(D%Solvers1D(3:), Phi, RHS, forward=.false., use_rhs=.false.)
+        
+      else
+        !$omp parallel private(tid,i,j,k)
+        tid  = 0
+        !$ tid = omp_get_thread_num()
+        !$omp do collapse(2)
+        do j=1,D%ny
+          do i=1,D%nx
+            D%Solvers1D(3+tid)%rwork = Phi(i,j,:)
+
+
+            call Execute(D%Solvers1D(3+tid)%backward,D%Solvers1D(3+tid)%rwork)
+
+
+            Phi(i,j,:) = D%Solvers1D(3+tid)%rwork
+          end do
+        end do
+        !$omp end parallel
+      end if
+    end subroutine PoisFFT_Solver3D_PPD
+#else
+    subroutine PoisFFT_Solver3D_PPD(D, Phi, RHS)
+      type(PoisFFT_Solver3D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      integer i,j,k
+      integer tid      !thread id
+
+      !$omp parallel private(tid,i,j,k)
+      tid = 1
+      !$ tid = omp_get_thread_num()+1
+
+      ! Forward FFT of RHS in z dimension according to Wilhelmson, Ericksen, JCP 1977
+      !$omp do
+      do j=1,D%ny
+        do i=1,D%nx
+          D%Solvers1D(tid)%rwork = RHS(i,j,:)
+
+
+          call Execute(D%Solvers1D(tid)%forward,D%Solvers1D(tid)%rwork)
+
+
+          Phi(i,j,:) = D%Solvers1D(tid)%rwork
+        end do
+      end do
+      !$omp end do
+
+      
+      !$omp do
+      do k=1,D%nz
+        D%Solvers2D(tid)%cwork(1:D%nx,1:D%ny) = cmplx(Phi(1:D%nx,1:D%ny,k),0._RP,CP)
+
+        call Execute(D%Solvers2D(tid)%forward, D%Solvers2D(tid)%cwork)
+
+          do j=1,D%ny
+            do i=1,D%nx
+              D%Solvers2D(tid)%cwork(i,j) = D%Solvers2D(tid)%cwork(i,j)&
+                                              / (D%denomx(i) + D%denomy(j) + D%denomz(k))
+            end do
+          end do
+
+        call Execute(D%Solvers2D(tid)%backward, D%Solvers2D(tid)%cwork)
+
+        Phi(:,:,k) = real(D%Solvers2D(tid)%cwork,RP) / D%norm_factor
+
+      end do
+      !$omp end do
+
+      
+      !$omp do
+      do j=1,D%ny
+        do i=1,D%nx
+          D%Solvers1D(tid)%rwork = Phi(i,j,:)
+
+
+          call Execute(D%Solvers1D(tid)%backward,D%Solvers1D(tid)%rwork)
+
+
+          Phi(i,j,:) = D%Solvers1D(tid)%rwork
+        end do
+      end do
+      !$omp end do
+      !$omp end parallel
+    end subroutine PoisFFT_Solver3D_PPD
+#endif
+    
+    
     subroutine PoisFFT_Solver3D_NsPP(D, Phi, RHS)
       type(PoisFFT_Solver3D), intent(inout) :: D
       real(RP), intent(out) :: Phi(:,:,:)
