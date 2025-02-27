@@ -20,23 +20,14 @@ def from_env(s):
 if str(comp)=='sun':
   env = Environment(tools=['link','sunf90','sunf95','suncc','sunc++'])
 elif str(comp)=='intel':
-  env = Environment(tools=['default','ifort','intelc'])
+  env = Environment(tools=['default','ifort','intelc'], CC='icx', CXX='icpx', FC='ifx', F90='ifx', FORTRAN='ifx', LINK='ifx')
 elif str(comp)=='cray':
   env = Environment()
 else:
   env = Environment()
-  
-if cray=='yes':
-  env.Append(ENV=os.environ)
 
+env.Append(ENV=os.environ)
 
-from_env('PATH')
-from_env('LIBRARY_PATH')
-from_env('LD_LIBRARY_PATH')
-from_env('C_INCLUDE_PATH')
-from_env('CPATH')
-from_env('CPLUS_INCLUDE_PATH')
-from_env('INTEL_LICENSE_FILE')
 
 #HACK for some computers setting only LD_LIBRARY_PATH
 try:
@@ -66,7 +57,11 @@ except KeyError:
   pass
 
 if str(mpi)=='yes':
-  if str(comp)!='cray':
+  if str(comp)=='intel':
+    env.Replace(LINK = 'mpiifx', F90='mpiifx', CC='mpiicx')
+  elif str(comp)=='cray':
+    pass
+  else:
     env.Replace(LINK = 'mpif90', F90='mpif90', CC='mpicc')
   env.Append(F90FLAGS=' -DMPI')
   env.Append(CFLAGS=' -DMPI')
@@ -77,7 +72,6 @@ if (mpi=='yes') and (not openmp=='yes'):
   openmp = 'no'
 
 if str(comp)=='sun':
-  #env = Environment(tools=['link','sunf90','sunf95','suncc','sunc++'])
   if str(openmp)=='no':
     omp_flag = ''
   else:
@@ -98,7 +92,6 @@ if str(comp)=='sun':
   fortran_libs = []
  
 elif str(comp)=='intel':
-  #env = Environment(tools=['default','ifort','intelc'])
   if str(openmp)=='no':
     omp_flag = ''
   else:
