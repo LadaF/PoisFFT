@@ -80,6 +80,7 @@
         else
           plan%planptr = fftw_plan_gen(nxyzs , D%cwork, D%cwork,&
                           plan%dir, FFTW_MEASURE)
+          plan%method = FFT_DISTRIBUTED_NONE
         end if
 #else
         plan%planptr = fftw_plan_gen(nxyzs , D%cwork, D%cwork,&
@@ -108,6 +109,7 @@
         else
           plan%planptr = fftw_plan_gen(nxyzs , D%rwork, D%rwork,&
                           realplantypes , FFTW_MEASURE)
+          plan%method = FFT_DISTRIBUTED_NONE
         end if
 #else
         plan%planptr = fftw_plan_gen(nxyzs , D%rwork, D%rwork,&

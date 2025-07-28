@@ -3,6 +3,7 @@
 #define RP DRP
 #define CP DCP
 #define MPI_RP MPI_DOUBLE_PRECISION
+#define MPI_CP MPI_DOUBLE_COMPLEX
 
 #define _RP _DRP
 
@@ -11,6 +12,7 @@
 #define RP SRP
 #define CP SCP
 #define MPI_RP MPI_REAL
+#define MPI_CP MPI_COMPLEX
 
 #define _RP _SRP
 #define _CP _SCP
@@ -1736,6 +1738,9 @@
         allocate(D%Solvers1D(3))
         D%Solvers1D(3) = PoisFFT_Solver1D_From3D(D,3)
 
+#ifdef MPI
+        call Init_MPI_Buffers(D, 3)
+#endif
 
       else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
                (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
@@ -1785,6 +1790,7 @@
           D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), &
                                                   [FFT_Complex, FFTW_FORWARD], &
                                                   distributed=.false.)
+
           D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), &
                                                    [FFT_Complex, FFTW_BACKWARD], &
                                                    distributed=.false.)
@@ -1796,11 +1802,13 @@
 
             call allocate_fftw_complex(D%Solvers2D(i))
           end do
+
         end if
 
-        call Init_MPI_Buffers(D, 3)
+        call Init_MPI_Buffers(D, 3, complex=.true.)
 
 #else
+
         call allocate_fftw_complex(D)
 
         allocate(D%Solvers1D(D%nthreads))
@@ -1821,7 +1829,7 @@
 
           call allocate_fftw_complex(D%Solvers2D(i))
         end do
-        
+
 !MPI
 #endif
 
@@ -1829,10 +1837,6 @@
       else
         stop "Unknown combination of boundary conditions."
       endif
-
-#ifdef MPI
-      call Init_MPI_Buffers(D, 3)
-#endif   
 
 
       if (D%approximation==PoisFFT_FiniteDifference2) then
@@ -2100,7 +2104,7 @@
 
     
 #ifdef MPI     
-    subroutine Init_MPI_Buffers(D, dir)
+    subroutine Init_MPI_Buffers(D, dir, complex)
       interface
         subroutine MPI_ALLTOALL(SENDBUF, SENDCOUNT, SENDTYPE, RECVBUF, RECVCOUNT,&
                                 RECVTYPE, COMM, IERROR)
@@ -2112,9 +2116,14 @@
       
       class(PoisFFT_Solver3D), intent(inout), target :: D
       integer, intent(in) :: dir
+      logical, intent(in), optional :: complex
       type(mpi_vars_1d), pointer :: mpi
       integer :: i, ie
-      
+      logical :: complex_buffers
+
+      complex_buffers = .false.
+      if (present(complex)) complex_buffers = complex
+
       mpi => D%Solvers1D(dir)%mpi
     
       allocate(mpi%snxs(mpi%np))
@@ -2162,9 +2171,15 @@
           mpi%sumrnzs(i) = sum(mpi%rnzs(1:i-1))
         end do
 
-        allocate(mpi%tmp1(1:D%ny,1:D%nz,1:D%nx))
-        allocate(mpi%tmp2(0:sum(mpi%rcounts)-1))
-        allocate(mpi%rwork(sum(mpi%rnzs), D%nz, mpi%rnxs(1)))
+        if (complex_buffers) then
+          allocate(mpi%ctmp1(1:D%ny,1:D%nz,1:D%nx))
+          allocate(mpi%ctmp2(0:sum(mpi%rcounts)-1))
+          allocate(mpi%cwork(sum(mpi%rnzs), D%nz, mpi%rnxs(1)))
+        else
+          allocate(mpi%tmp1(1:D%ny,1:D%nz,1:D%nx))
+          allocate(mpi%tmp2(0:sum(mpi%rcounts)-1))
+          allocate(mpi%rwork(sum(mpi%rnzs), D%nz, mpi%rnxs(1)))
+        end if
         
       else if (dir==3) then
       
@@ -2198,9 +2213,15 @@
           mpi%sumrnzs(i) = sum(mpi%rnzs(1:i-1))
         end do
 
-        allocate(mpi%tmp1(1:D%nz,1:D%ny,1:D%nx))
-        allocate(mpi%tmp2(0:sum(mpi%rcounts)-1))
-        allocate(mpi%rwork(sum(mpi%rnzs), D%ny, mpi%rnxs(1)))        
+        if (complex_buffers) then
+          allocate(mpi%ctmp1(1:D%nz,1:D%ny,1:D%nx))
+          allocate(mpi%ctmp2(0:sum(mpi%rcounts)-1))
+          allocate(mpi%cwork(sum(mpi%rnzs), D%ny, mpi%rnxs(1)))
+        else
+          allocate(mpi%tmp1(1:D%nz,1:D%ny,1:D%nx))
+          allocate(mpi%tmp2(0:sum(mpi%rcounts)-1))
+          allocate(mpi%rwork(sum(mpi%rnzs), D%ny, mpi%rnxs(1)))
+        end if
       else
         stop "Not implemented."
       end if
@@ -2212,3 +2233,4 @@
 #undef _RP
 #undef _CP
 #undef MPI_RP
+#undef MPI_CP

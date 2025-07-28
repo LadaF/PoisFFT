@@ -723,17 +723,24 @@ program testpoisson_MPI
 
   call MPI_Barrier(glob_comm,ie)
   
+
+
   if (master) write(*,*) "3D staggered Neumann:"
 
   call compute3D([(PoisFFT_NeumannStag, i=1,6)])
 
- 
- 
+  call MPI_Barrier(glob_comm,ie)
 
+  if (master) write(*,*) "3D PPNs:"
+
+  call compute3D([(PoisFFT_Periodic, i=1,4),(PoisFFT_NeumannStag, i=5,6)])
 
   call MPI_Barrier(glob_comm,ie)
 
-  call save_vtk  
+
+
+
+!   call save_vtk
   
   
   deallocate(Phi, RHS)

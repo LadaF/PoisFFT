@@ -33,6 +33,7 @@
   integer, parameter :: FFT_RealOdd10   = FFTW_RODFT10
   integer, parameter :: FFT_RealOdd11   = FFTW_RODFT11
 
+  integer, parameter :: FFT_DISTRIBUTED_NONE = 0
   integer, parameter :: FFT_DISTRIBUTED_FFTW = 1
   integer, parameter :: FFT_DISTRIBUTED_PFFT = 2
 
@@ -57,6 +58,7 @@
     type(c_ptr)         :: planptr = c_null_ptr
     logical             :: planowner = .false.
     logical             :: distributed = .false.
+    integer             :: method = FFT_DISTRIBUTED_PFFT
     integer(c_int)      :: dir
   end type PoisFFT_Plan3D
 
@@ -85,6 +87,13 @@
     !3D buffer for contiguous 1D rows on which 1D FFT can be performed locally,
     ! constructed by local reordering of tmp2
     real(RP), allocatable :: rwork(:,:,:)
+    !contiguous 3D buffer for locally transposed RHS
+    complex(CP), allocatable :: ctmp1(:,:,:)
+    !1D buffer for globally transposed blocks of tmp1 from different processes after MPI_Alltoallv
+    complex(CP), allocatable :: ctmp2(:)
+    !3D buffer for contiguous 1D rows on which 1D FFT can be performed locally,
+    ! constructed by local reordering of tmp2
+    complex(CP), allocatable :: cwork(:,:,:)
     ! global indexes corresponding to the given y or z line in the rwork array.
     integer, allocatable :: glob_i(:,:) ! value of global i, (:,:) local indexes of rwork
     
@@ -445,6 +454,12 @@
           call fftw_mpi_execute_complex(plan%planptr, data, data)
         else
           stop "Error, missing `data` argument in a call to Execute_MPI with FFTW."
+        end if
+      else if (plan%method==FFT_DISTRIBUTED_NONE) then
+        if (present(data)) then
+          call Execute(plan, data)
+        else
+          stop "Error, missing `data` argument in a call to Execute_MPI with a non-distributed plan."
         end if
       else
         call pfft_execute_gen(plan%planptr)
