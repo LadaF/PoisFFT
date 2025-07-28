@@ -263,85 +263,85 @@
 
 #define m D1D%mpi
   
-        !$omp parallel private(i,j,k,tid)
-        tid = 1
-        !$ tid = omp_get_thread_num()+1
+      !$omp parallel private(i,j,k,tid)
+      tid = 1
+      !$ tid = omp_get_thread_num()+1
 
-        !step1 local transpose
-        !$omp do collapse(3)
-        do j = 1, ny
-          do i = 1, nx
-            do k = 1, nz
-              m%tmp1(k,j,i) = Phi(i,j,k)
-            end do
-          end do
-        end do
-
-        
-        !step2 exchange
-        !$omp single
-        call MPI_AllToAllV(m%tmp1, m%scounts, m%sdispls, MPI_RP, &
-                           m%tmp2, m%rcounts, m%rdispls, MPI_RP, &
-                           m%comm, ie)
-        !$omp end single
-                           
-        !step3 local reordering of blocks
-        !$omp do collapse(3)
-        do l = 1, m%np
-          do k = 0, m%rnxs(1)-1
-            do j = 0, ny-1
-              do i = 0, m%rnzs(l)-1
-                m%rwork(i+m%sumrnzs(l)+1, j+1, k+1) = &
-                  m%tmp2(i + j*m%rnzs(l) + k*(ny*m%rnzs(l)) + m%rdispls(l))
-              end do
-            end do
-          end do
-        end do
-     
-        !$omp do collapse(2)
-        do k=1,size(m%rwork,3)
-          do j=1,size(m%rwork,2)
-            glob_i = k + D1D%mpi%rank * (D%nx / D1D%mpi%np)
-            lam = D%denomx(glob_i) + D%denomy(j)
-            if (glob_i==1.and.j+D%offy==1) then
-                call solve_tridiag(D%mat_b(1), 0._RP, lam, m%rwork(:,j,k))
-            else          
-                call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, m%rwork(:,j,k))
-            end if
-          end do
-        end do
-
-        !step3' local reordering of blocks
-        !$omp do collapse(3)
-        do l = 1, m%np
-          do k = 0, m%rnxs(1)-1
-            do j = 0, ny-1
-              do i = 0, m%rnzs(l)-1
-                m%tmp2(i + j*m%rnzs(l) + k*(ny*m%rnzs(l)) + m%rdispls(l)) = &
-                  m%rwork(i+m%sumrnzs(l)+1, j+1, k+1)
-              end do
-            end do
-          end do
-        end do
-
-      
-        !step2' exchange
-        !$omp single
-        call MPI_AllToAllV(m%tmp2, m%rcounts, m%rdispls, MPI_RP, &
-                           m%tmp1, m%scounts, m%sdispls, MPI_RP, &
-                           m%comm, ie)
-        !$omp end single
-
-        !$omp do collapse(3)
-        do j = 1, ny
+      !step1 local transpose
+      !$omp do collapse(3)
+      do j = 1, ny
+        do i = 1, nx
           do k = 1, nz
-            do i = 1, nx
-              Phi(i,j,k) = m%tmp1(k,j,i)
+            m%tmp1(k,j,i) = Phi(i,j,k)
+          end do
+        end do
+      end do
+
+
+      !step2 exchange
+      !$omp single
+      call MPI_AllToAllV(m%tmp1, m%scounts, m%sdispls, MPI_RP, &
+                          m%tmp2, m%rcounts, m%rdispls, MPI_RP, &
+                          m%comm, ie)
+      !$omp end single
+
+      !step3 local reordering of blocks
+      !$omp do collapse(3)
+      do l = 1, m%np
+        do k = 0, m%rnxs(1)-1
+          do j = 0, ny-1
+            do i = 0, m%rnzs(l)-1
+              m%rwork(i+m%sumrnzs(l)+1, j+1, k+1) = &
+                m%tmp2(i + j*m%rnzs(l) + k*(ny*m%rnzs(l)) + m%rdispls(l))
             end do
           end do
         end do
-        
-       !$omp end parallel
+      end do
+
+      !$omp do collapse(2)
+      do k=1,size(m%rwork,3)
+        do j=1,size(m%rwork,2)
+          glob_i = k + D1D%mpi%rank * (D%nx / D1D%mpi%np)
+          lam = D%denomx(glob_i) + D%denomy(j)
+          if (glob_i==1.and.j+D%offy==1) then
+              call solve_tridiag(D%mat_b(1), 0._RP, lam, m%rwork(:,j,k))
+          else
+              call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, m%rwork(:,j,k))
+          end if
+        end do
+      end do
+
+      !step3' local reordering of blocks
+      !$omp do collapse(3)
+      do l = 1, m%np
+        do k = 0, m%rnxs(1)-1
+          do j = 0, ny-1
+            do i = 0, m%rnzs(l)-1
+              m%tmp2(i + j*m%rnzs(l) + k*(ny*m%rnzs(l)) + m%rdispls(l)) = &
+                m%rwork(i+m%sumrnzs(l)+1, j+1, k+1)
+            end do
+          end do
+        end do
+      end do
+
+
+      !step2' exchange
+      !$omp single
+      call MPI_AllToAllV(m%tmp2, m%rcounts, m%rdispls, MPI_RP, &
+                          m%tmp1, m%scounts, m%sdispls, MPI_RP, &
+                          m%comm, ie)
+      !$omp end single
+
+      !$omp do collapse(3)
+      do j = 1, ny
+        do k = 1, nz
+          do i = 1, nx
+            Phi(i,j,k) = m%tmp1(k,j,i)
+          end do
+        end do
+      end do
+
+      !$omp end parallel
         
 #undef m       
     contains
@@ -406,86 +406,86 @@
 
 #define m D1D%mpi
 
-        !$omp parallel private(i,j,k,tid)
-        tid = 1
-        !$ tid = omp_get_thread_num()+1
+      !$omp parallel private(i,j,k,tid)
+      tid = 1
+      !$ tid = omp_get_thread_num()+1
 
-        !step1 local transpose
-        !$omp do collapse(3)
-        do j = 1, ny
-          do i = 1, nx
-            do k = 1, nz
-              m%ctmp1(k,j,i) = D%cwork(i,j,k)
-            end do
-          end do
-        end do
-
-
-        !step2 exchange
-        !$omp single
-        call MPI_AllToAllV(m%ctmp1, m%scounts, m%sdispls, MPI_CP, &
-                           m%ctmp2, m%rcounts, m%rdispls, MPI_CP, &
-                           m%comm, ie)
-        !$omp end single
-
-        !step3 local reordering of blocks
-        !$omp do collapse(3)
-        do l = 1, m%np
-          do k = 0, m%rnxs(1)-1
-            do j = 0, ny-1
-              do i = 0, m%rnzs(l)-1
-                m%cwork(i+m%sumrnzs(l)+1, j+1, k+1) = &
-                  m%ctmp2(i + j*m%rnzs(l) + k*(ny*m%rnzs(l)) + m%rdispls(l))
-              end do
-            end do
-          end do
-        end do
-
-
-        !$omp do collapse(2)
-        do k=1,size(m%cwork,3)
-          do j=1,size(m%cwork,2)
-            glob_i = k + D1D%mpi%rank * (D%nx / D1D%mpi%np)
-            lam = D%denomx(glob_i) + D%denomy(j)
-            if (glob_i==1.and.j+D%offy==1) then
-                call solve_tridiag(D%mat_b(1), 0._RP, lam, m%cwork(:,j,k))
-            else
-                call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, m%cwork(:,j,k))
-            end if
-          end do
-        end do
-
-        !step3' local reordering of blocks
-        !$omp do collapse(3)
-        do l = 1, m%np
-          do k = 0, m%rnxs(1)-1
-            do j = 0, ny-1
-              do i = 0, m%rnzs(l)-1
-                m%ctmp2(i + j*m%rnzs(l) + k*(ny*m%rnzs(l)) + m%rdispls(l)) = &
-                  m%cwork(i+m%sumrnzs(l)+1, j+1, k+1)
-              end do
-            end do
-          end do
-        end do
-
-
-        !step2' exchange
-        !$omp single
-        call MPI_AllToAllV(m%ctmp2, m%rcounts, m%rdispls, MPI_CP, &
-                           m%ctmp1, m%scounts, m%sdispls, MPI_CP, &
-                           m%comm, ie)
-        !$omp end single
-
-        !$omp do collapse(3)
-        do j = 1, ny
+      !step1 local transpose
+      !$omp do collapse(3)
+      do j = 1, ny
+        do i = 1, nx
           do k = 1, nz
-            do i = 1, nx
-              D%cwork(i,j,k) = m%ctmp1(k,j,i)
+            m%ctmp1(k,j,i) = D%cwork(i,j,k)
+          end do
+        end do
+      end do
+
+
+      !step2 exchange
+      !$omp single
+      call MPI_AllToAllV(m%ctmp1, m%scounts, m%sdispls, MPI_CP, &
+                          m%ctmp2, m%rcounts, m%rdispls, MPI_CP, &
+                          m%comm, ie)
+      !$omp end single
+
+      !step3 local reordering of blocks
+      !$omp do collapse(3)
+      do l = 1, m%np
+        do k = 0, m%rnxs(1)-1
+          do j = 0, ny-1
+            do i = 0, m%rnzs(l)-1
+              m%cwork(i+m%sumrnzs(l)+1, j+1, k+1) = &
+                m%ctmp2(i + j*m%rnzs(l) + k*(ny*m%rnzs(l)) + m%rdispls(l))
             end do
           end do
         end do
+      end do
 
-       !$omp end parallel
+
+      !$omp do collapse(2)
+      do k=1,size(m%cwork,3)
+        do j=1,size(m%cwork,2)
+          glob_i = k + D1D%mpi%rank * (D%nx / D1D%mpi%np)
+          lam = D%denomx(glob_i) + D%denomy(j)
+          if (glob_i==1.and.j+D%offy==1) then
+              call solve_tridiag(D%mat_b(1), 0._RP, lam, m%cwork(:,j,k))
+          else
+              call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, m%cwork(:,j,k))
+          end if
+        end do
+      end do
+
+      !step3' local reordering of blocks
+      !$omp do collapse(3)
+      do l = 1, m%np
+        do k = 0, m%rnxs(1)-1
+          do j = 0, ny-1
+            do i = 0, m%rnzs(l)-1
+              m%ctmp2(i + j*m%rnzs(l) + k*(ny*m%rnzs(l)) + m%rdispls(l)) = &
+                m%cwork(i+m%sumrnzs(l)+1, j+1, k+1)
+            end do
+          end do
+        end do
+      end do
+
+
+      !step2' exchange
+      !$omp single
+      call MPI_AllToAllV(m%ctmp2, m%rcounts, m%rdispls, MPI_CP, &
+                          m%ctmp1, m%scounts, m%sdispls, MPI_CP, &
+                          m%comm, ie)
+      !$omp end single
+
+      !$omp do collapse(3)
+      do j = 1, ny
+        do k = 1, nz
+          do i = 1, nx
+            D%cwork(i,j,k) = m%ctmp1(k,j,i)
+          end do
+        end do
+      end do
+
+      !$omp end parallel
 
 #undef m
     contains
