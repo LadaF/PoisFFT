@@ -23,7 +23,7 @@
         do j = 1, D%ny
           do i = 1, D%nx
             lam = D%denomx(i) + D%denomy(j)
-            if (i==1.and.j==1) then
+            if (i+D%offx==1.and.j+D%offy==1) then
               call solve_tridiag(1._RP, 0._RP, lam, D%cwork(i,j,:))
             else
               call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, D%cwork(i,j,:))
@@ -61,7 +61,7 @@
       do j = 1, D%ny
         do i = 1, D%nx
           lam = D%denomx(i) + D%denomy(j) 
-          if (i+D%offx==1.and.j+D%offy==1) then
+          if (i==1.and.j==1) then
             call solve_tridiag(D%mat_b(1), 0._RP, lam, D%cwork(i,j,:))
           else          
             call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, D%cwork(i,j,:))
