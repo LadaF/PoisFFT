@@ -79,7 +79,7 @@
 
 
     function PoisFFT_Solver3D__New(nxyz,Lxyz,BCs,approximation, &
-                                  gnxyz,offs,mpi_comm,nthreads) result(D)
+                                  gnxyz,offs,mpi_comm,nthreads,planning) result(D)
       type(PoisFFT_Solver3D) :: D
 
       integer, intent(in)   :: nxyz(3)
@@ -90,6 +90,7 @@
       integer, intent(in), optional :: offs(3)
       integer, intent(in), optional :: mpi_comm
       integer, intent(in), optional :: nthreads
+      integer, intent(in), optional :: planning
 
       D%nxyz = nxyz
 
@@ -138,6 +139,8 @@
       else
         D%nthreads = 1
       endif
+
+      if (present(planning)) D%planning = planning
 
       !create fftw plans and allocate working arrays
       call Init(D)
@@ -1136,6 +1139,8 @@
       D%cnt = D%nx
       
       D%gcnt = int(D%gnx, kind(D%gcnt))
+
+      D%planning = D3D%planning
     end function PoisFFT_Solver1D_From3D
 
 
@@ -1220,13 +1225,15 @@
       D%cnt = D%nx * D%ny
       
       D%gcnt = int(D%gnx, kind(D%gcnt)) * int(D%gny, kind(D%gcnt))
+
+      D%planning = D3D%planning
     end function PoisFFT_Solver2D_From3D
 
 
 
 
     function PoisFFT_Solver2D__New(nxyz,Lxyz,BCs,approximation, &
-                                  gnxyz,offs,mpi_comm,nthreads) result(D)
+                                  gnxyz,offs,mpi_comm,nthreads,planning) result(D)
       type(PoisFFT_Solver2D) :: D
 
       integer, intent(in)   :: nxyz(2)
@@ -1237,6 +1244,7 @@
       integer, intent(in), optional :: offs(2)
       integer, intent(in), optional  :: mpi_comm
       integer, intent(in), optional :: nthreads
+      integer, intent(in), optional :: planning
 
       D%nxyz = nxyz
 
@@ -1280,6 +1288,8 @@
       else
         D%nthreads = 1
       endif
+
+      if (present(planning)) D%planning = planning
 
       !create fftw plans and allocate working array
       call Init(D)
@@ -1430,7 +1440,7 @@
 
 
     function PoisFFT_Solver1D__New(nxyz,Lxyz,BCs,approximation, &
-                                  gnxyz,offs,mpi_comm,nthreads) result(D)
+                                  gnxyz,offs,mpi_comm,nthreads,planning) result(D)
       type(PoisFFT_Solver1D) :: D
 
       integer, intent(in)   :: nxyz(1)
@@ -1441,6 +1451,7 @@
       integer, intent(in), optional :: offs(1)
       integer, intent(in), optional :: mpi_comm
       integer, intent(in), optional :: nthreads
+      integer, intent(in), optional :: planning
 #ifdef MPI
       integer :: ie, dims
 #endif
@@ -1486,6 +1497,8 @@
       else
         D%nthreads = 1
       endif
+
+      if (present(planning)) D%planning = planning
 
        !create fftw plans and allocate working array
       call Init(D)
@@ -1606,7 +1619,7 @@
     
     function PoisFFT_Solver3D_nonuniform_z__New(nxyz,Lxy,z,z_u, &
                                   BCs,approximation, &
-                                  gnxyz,offs,mpi_comm,nthreads,ierr) result(D)
+                                  gnxyz,offs,mpi_comm,nthreads,ierr,planning) result(D)
       type(PoisFFT_Solver3D_nonuniform_z) :: D
 
       integer, intent(in)   :: nxyz(3)
@@ -1618,6 +1631,7 @@
       integer, intent(in), optional :: offs(3)
       integer, intent(in), optional :: mpi_comm
       integer, intent(in), optional :: nthreads
+      integer, intent(in), optional :: planning
       integer, intent(out),optional :: ierr
       
       if (present(ierr)) ierr = 0
@@ -1674,6 +1688,8 @@
       else
         D%nthreads = 1
       endif
+
+      if (present(planning)) D%planning = planning
 
       !create fftw plans and allocate working arrays
       call Init(D)

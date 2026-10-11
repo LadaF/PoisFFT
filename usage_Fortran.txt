@@ -70,6 +70,7 @@ There are other (optional) arguments for the initializer:
       integer, intent(in), optional :: offs(3)
       integer, intent(in), optional :: mpi_comm
       integer, intent(in), optional :: nthreads
+      integer, intent(in), optional :: planning
 
 `approximation` can change the spectral approximation of the Poisson equation to the 
 2nd order central finite difference, if it is equal to `PoisFFT_FiniteDifference2` 
@@ -84,6 +85,11 @@ or `2`.
 `nthreads` contains the number of threads requested. By default OpenMP uses full number 
 of threads available. It can be used to disable threading too, or when using POSIX 
 threads.
+
+`planning` selects how the FFTW and PFFT plans are created: `PoisFFT_Measure` 
+(default, `FFTW_MEASURE`) measures the fastest plans, which can differ from run to 
+run and with them the rounding of the results; `PoisFFT_Estimate` (`FFTW_ESTIMATE`) 
+gives the same plans and bitwise reproducible results in every run.
 
 The call to the initializer can take much longer than the subsequent calls to 
 `Execute()`.

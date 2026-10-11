@@ -15,6 +15,7 @@
 #endif
   use iso_c_binding
   use PoisFFT_Precisions
+  use PoisFFT_Parameters, only: PoisFFT_Measure, PoisFFT_Estimate
   use fftw3
 #ifdef MPI
   use pfft
@@ -125,6 +126,7 @@
                        pointer :: rwork => null()
     logical :: mpi_transpose_needed = .false.
     integer :: nthreads = 1
+    integer :: planning = PoisFFT_Measure
     type(mpi_vars_1D) :: mpi
   end type PoisFFT_Solver1D
 
@@ -160,6 +162,7 @@
 #endif
                        pointer :: rwork => null()
     integer :: nthreads = 1
+    integer :: planning = PoisFFT_Measure
     type(mpi_vars_2D) :: mpi
   end type PoisFFT_Solver2D
   
@@ -192,6 +195,7 @@
 #endif
                        pointer :: rwork => null()
     integer :: nthreads = 1
+    integer :: planning = PoisFFT_Measure
     !will be used in splitting for some boundary conditions
     type(PoisFFT_Solver1D),dimension(:),allocatable :: Solvers1D
     type(PoisFFT_Solver2D),dimension(:),allocatable :: Solvers2D
