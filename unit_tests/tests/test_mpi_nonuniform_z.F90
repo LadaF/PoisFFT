@@ -3,7 +3,8 @@
 !
 !  mpirun -n <npy*npz> test_mpi_nonuniform_z_dp <npy> <npz> [case]
 !
-!See test_nonuniform_z.F90 for the method. The z profile f is a fixed
+!See test_nonuniform_z.F90 for the method and test_mpi_eigen_3d.F90 for the
+!meaning of `case`. The z profile f is a fixed
 !deterministic function, so that it is the same on all processes.
 program test_mpi_nonuniform_z
   use mpi

@@ -26,9 +26,10 @@ and the failed checks; full logs are in `build/<variant>/logs`. Set `UT_VERBOSE=
 to print every check, `UT_MAX_REPORT=N` to change the number of reported
 failures per program (default 40). `scons` exits with an error if any run failed.
 
-The MPI tests start one `mpirun` per boundary-condition case and process grid, so
-that a crash in one solver does not hide the others; the full MPI run takes a few
-minutes, mostly MPI start-up.
+The MPI tests run all boundary-condition cases in one `mpirun` per process grid.
+If such a run does not pass, the runner repeats it once per case, so that a crash
+in one solver does not hide the results of the others (`split=yes` always runs the
+cases separately).
 
 ## Layout
 
@@ -37,6 +38,7 @@ minutes, mostly MPI start-up.
 | `support/unit_test_utils.f90` | assertions (`check`, `check_err`), summary and exit code |
 | `support/reference_modes.f90` | independent analytic eigenvectors and eigenvalues of the discrete 1D Laplacian for every boundary condition pair and approximation |
 | `support/precision.h` | `-DSINGLE` selects the single-precision solver types |
+| `support/bc_combos.f90` | the 31 combinations of boundary conditions of the 3D tests, shared by the serial and MPI tests |
 | `support/mpi_test_grid.F90` | process grid, local block of the global grid, global error reduction |
 | `tests/test_fft.F90` | `FFT_SP/DP`: all r2r kinds and the complex DFT in 1D/2D/3D against the FFTW definitions, order of the plan types, forward/backward normalization |
 | `tests/test_eigen_1d.F90` | 1D solver: every mode, all 9 boundary-condition pairs, spectral/FD2/FD4, even and odd sizes |
@@ -44,7 +46,7 @@ minutes, mostly MPI start-up.
 | `tests/test_eigen_3d.F90` | 3D solver: every specialized solver routine (31 boundary-condition combinations) |
 | `tests/test_solver_api.F90` | ghost layers, RHS not modified, repeated calls, `PoisFFT_Estimate` reproducibility, `PoisFFT_Measure`, linearity, zero mean of singular problems, re-creating solvers |
 | `tests/test_nonuniform_z.F90` | `PoisFFT_Solver3D_nonuniform_z` against a manufactured solution on stretched and uniform grids, agreement with `PoisFFT_Solver3D` FD2 |
-| `tests/test_mpi_eigen_3d.F90` | distributed 3D solver, one representative per solver routine |
+| `tests/test_mpi_eigen_3d.F90` | distributed 3D solver, the same 31 combinations as the serial test |
 | `tests/test_mpi_nonuniform_z.F90` | distributed non-uniform z solver |
 
 ## Method

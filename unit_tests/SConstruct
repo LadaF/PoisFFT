@@ -16,6 +16,7 @@
 #   threads=N          OMP_NUM_THREADS for the test runs (default 2)
 #   grids=1x1,2x1,...  MPI process grids npy x npz (default 1x1,2x1,1x2,2x2)
 #   timeout=S          time limit of a single test run in seconds (default 300)
+#   split=yes          MPI tests: always run every case in a separate mpirun
 #   src=DIR            library sources to test (default ../src), e.g. a patched copy;
 #                      the build directory is then build/<variant>-<name of DIR>
 #   fftw_inc=, fftw_lib=, pfft_inc=, pfft_lib=   additional search paths
@@ -40,6 +41,7 @@ grids = [tuple(int(x) for x in g.split('x'))
          for g in args.get('grids', '1x1,2x1,1x2,2x2').split(',')]
 timeout = float(args.get('timeout', '300'))
 selected = [s for s in args.get('tests', '').split(',') if s]
+split = args.get('split', 'no') == 'yes'
 
 variant = 'mpi' if mpi else 'serial'
 src_dir = os.path.abspath(args.get('src', os.path.join('..', 'src')))
@@ -132,15 +134,17 @@ Depends(lib_objs[5], [os.path.join(src_dir, f) for f in
 # ---------------------------------------------------------------- support
 support_objs = obj('support/unit_test_utils.f90')
 support_objs += obj('support/reference_modes.f90')
+support_objs += obj('support/bc_combos.f90')
 if mpi:
     support_objs += obj('support/mpi_test_grid.F90')
 chain(lib_objs + support_objs)
 
 # ---------------------------------------------------------------- tests
-# name: (source, MPI cases or None). With MPI cases the program is run once
-# for every case number and every process grid.
+# name: (source, MPI cases or None). A program with MPI cases is run for
+# every process grid with all cases at once and, if that run does not pass,
+# once for every case to isolate the failing ones (always with split=yes).
 if mpi:
-    test_list = [('mpi_eigen_3d', 'tests/test_mpi_eigen_3d.F90', list(range(1, 15))),
+    test_list = [('mpi_eigen_3d', 'tests/test_mpi_eigen_3d.F90', list(range(1, 32))),
                  ('mpi_nonuniform_z', 'tests/test_mpi_nonuniform_z.F90', list(range(1, 5)))]
 else:
     test_list = [('fft', 'tests/test_fft.F90', None),
@@ -169,7 +173,8 @@ env.Alias('build', [p[1] for p in programs])
 
 # ---------------------------------------------------------------- runner
 def run_commands():
-    """List of (label, command) of all test runs."""
+    """List of (label, command, fallback) of all test runs. fallback is the
+    list of (label, command) of the single cases, run if the command fails."""
     runs = []
     launcher = os.environ.get('MPIRUN', 'mpirun').split()
     for exe_name, exe, cases in programs:
@@ -177,15 +182,52 @@ def run_commands():
             continue
         path = os.path.abspath(str(exe[0]))
         if cases is None:
-            runs.append((exe_name, [path]))
+            runs.append((exe_name, [path], []))
         else:
             for npy, npz in grids:
-                for c in cases:
-                    label = '%s grid=%dx%d case=%d' % (exe_name, npy, npz, c)
-                    cmd = launcher + ['--oversubscribe', '-n', str(npy * npz),
-                                      path, str(npy), str(npz), str(c)]
-                    runs.append((label, cmd))
+                def mpi_cmd(c):
+                    return launcher + ['--oversubscribe', '-n', str(npy * npz),
+                                       path, str(npy), str(npz), str(c)]
+                label = '%s grid=%dx%d' % (exe_name, npy, npz)
+                single = [('%s case=%d' % (label, c), mpi_cmd(c)) for c in cases]
+                if split:
+                    runs += [(l, c, []) for l, c in single]
+                else:
+                    runs.append((label + ' all cases', mpi_cmd(0), single))
     return runs
+
+
+def run_one(label, cmd, env):
+    log_name = os.path.join(log_dir, label.replace(' ', '_').replace('=', '-') + '.log')
+    start = time.time()
+    try:
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                              env=env, timeout=timeout)
+        output = proc.stdout.decode(errors='replace')
+        if proc.returncode == 0:
+            status = 'PASS'
+        elif 'checks passed' in output:
+            status = 'FAIL'
+        else:
+            # terminated before printing its summary
+            status = 'CRASH'
+    except subprocess.TimeoutExpired as e:
+        output = (e.stdout or b'').decode(errors='replace')
+        status = 'TIMEOUT'
+    elapsed = time.time() - start
+    with open(log_name, 'w') as f:
+        f.write(' '.join(cmd) + '\n' + output)
+    print('%-8s %-60s %6.1f s' % (status, label, elapsed))
+    return status, output, log_name
+
+
+def print_output(output, log_name):
+    # the test programs print only the failed checks and the summary
+    lines = output.splitlines()
+    for line in lines[:60]:
+        print('         | ' + line)
+    if len(lines) > 60:
+        print('         | ... (%d more lines in %s)' % (len(lines) - 60, log_name))
 
 
 def run_tests(target, source, env):
@@ -193,36 +235,21 @@ def run_tests(target, source, env):
     run_env = dict(os.environ)
     run_env['OMP_NUM_THREADS'] = threads
     results = []
-    for label, cmd in run_commands():
-        log_name = os.path.join(log_dir, label.replace(' ', '_').replace('=', '-') + '.log')
-        start = time.time()
-        try:
-            proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                  env=run_env, timeout=timeout)
-            output = proc.stdout.decode(errors='replace')
-            if proc.returncode == 0:
-                status = 'PASS'
-            elif 'checks passed' in output:
-                status = 'FAIL'
-            else:
-                # terminated before printing its summary
-                status = 'CRASH'
-        except subprocess.TimeoutExpired as e:
-            output = (e.stdout or b'').decode(errors='replace')
-            status = 'TIMEOUT'
-        elapsed = time.time() - start
-        with open(log_name, 'w') as f:
-            f.write(' '.join(cmd) + '\n' + output)
-        results.append((label, status, elapsed))
-        print('%-8s %-55s %6.1f s' % (status, label, elapsed))
-        if status != 'PASS':
-            # the test programs print only the failed checks and the summary
-            lines = output.splitlines()
-            for line in lines[:60]:
-                print('         | ' + line)
-            if len(lines) > 60:
-                print('         | ... (%d more lines in %s)' % (len(lines) - 60, log_name))
-    n_bad = sum(1 for r in results if r[1] != 'PASS')
+    for label, cmd, fallback in run_commands():
+        status, output, log_name = run_one(label, cmd, run_env)
+        if status == 'PASS':
+            results.append(status)
+        elif fallback:
+            print('         | running the cases separately')
+            for l, c in fallback:
+                st, out, log = run_one(l, c, run_env)
+                results.append(st)
+                if st != 'PASS':
+                    print_output(out, log)
+        else:
+            results.append(status)
+            print_output(output, log_name)
+    n_bad = sum(1 for r in results if r != 'PASS')
     print('\n%d of %d test runs passed, logs in %s' % (len(results) - n_bad, len(results), log_dir))
     return 1 if n_bad else 0
 

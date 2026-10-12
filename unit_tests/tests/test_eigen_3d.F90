@@ -9,49 +9,13 @@ program test_eigen_3d
   use PoisFFT, Solver3D => SOLVER3D
   use reference_modes
   use unit_test_utils
+  use bc_combos
   implicit none
 
   integer, parameter :: rp = RP_KIND
   real(rp), parameter :: tol = 100 * epsilon(1._rp)
   real(dp), parameter :: Ls(3) = [2.3_dp, 1.7_dp, 1.1_dp]
 
-  integer, parameter :: P = PoisFFT_Periodic, D = PoisFFT_Dirichlet, &
-                        N = PoisFFT_Neumann, Ds = PoisFFT_DirichletStag, &
-                        Ns = PoisFFT_NeumannStag
-  integer, parameter :: n_combos = 31
-  integer, parameter :: combos(6, n_combos) = reshape([ &
-      P, P, P, P, P, P,           & !FullPeriodic
-      D, D, D, D, D, D,           & !FullDirichlet
-      Ds,Ds,Ds,Ds,Ds,Ds,          &
-      N, N, N, N, N, N,           & !FullNeumann
-      Ns,Ns,Ns,Ns,Ns,Ns,          &
-      P, P, P, P, N, N,           & !PPNs
-      P, P, P, P, Ns,Ns,          &
-      P, P, P, P, D, D,           & !PPD
-      P, P, P, P, Ds,Ds,          &
-      P, P, P, P, Ds,Ns,          &
-      P, P, P, P, Ns,Ds,          &
-      P, P, P, P, D, N,           &
-      P, P, P, P, N, D,           &
-      N, N, P, P, P, P,           & !NsPP
-      Ns,Ns,P, P, P, P,           &
-      P, P, N, N, P, P,           & !PNsP
-      P, P, Ns,Ns,P, P,           &
-      P, P, N, N, N, N,           & !PNsNs
-      P, P, Ns,Ns,Ns,Ns,          &
-      D, D, D, D, P, P,           & !DDP
-      Ds,Ds,Ds,Ds,P, P,           &
-      D, D, D, D, N, N,           & !2real1real
-      Ds,Ds,Ds,Ds,Ns,Ns,          &
-      Ns,Ns,Ns,Ns,Ds,Ds,          &
-      Ds,Ns,Ds,Ns,Ns,Ns,          &
-      Ds,Ds,Ds,Ds,Ns,Ds,          &
-      N, N, D, D, D, D,           & !1real2real
-      Ns,Ns,Ds,Ds,Ds,Ds,          &
-      Ds,Ds,Ns,Ns,Ns,Ns,          &
-      Ns,Ds,Ds,Ds,Ds,Ds,          &
-      D, D, N, N, N, N            &
-    ], [6, n_combos])
   integer, parameter :: approxs(3) = [PoisFFT_Spectral, &
                                       PoisFFT_FiniteDifference2, &
                                       PoisFFT_FiniteDifference4]
@@ -61,11 +25,11 @@ program test_eigen_3d
 
   call ut_init("test_eigen_3d " // PREC_NAME)
 
-  do ic = 1, n_combos
+  do ic = 1, n_combos_3d
     do ia = 1, size(approxs)
-      call ut_section("3D " // bc_pair_name(combos(:,ic)) // " " // approx_name(approxs(ia)))
+      call ut_section("3D " // bc_pair_name(combos_3d(:,ic)) // " " // approx_name(approxs(ia)))
       do is = 1, size(sizes, 2)
-        call test_all_modes(combos(:,ic), approxs(ia), sizes(:,is))
+        call test_all_modes(combos_3d(:,ic), approxs(ia), sizes(:,is))
       end do
     end do
   end do
