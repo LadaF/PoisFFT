@@ -1,0 +1,234 @@
+# Unit tests of PoisFFT.
+#
+# Usage (in this directory):
+#
+#   scons                     build the library from ../src and the tests, run all tests
+#   scons build               only build
+#   scons mpi=yes             the same for the MPI library and the distributed tests
+#   scons tests=fft,eigen_1d  run only the tests whose name contains one of the strings
+#
+# Options:
+#   mpi=yes|no         MPI build (default no)
+#   prec=dp|sp|both    precision of the test programs (default both)
+#   debug=yes|no       runtime checks -fcheck=bounds,... (default yes)
+#   fpe=yes|no         trap floating point exceptions invalid,zero,overflow (default no)
+#   openmp=yes|no      OpenMP (default yes without MPI, no with MPI)
+#   threads=N          OMP_NUM_THREADS for the test runs (default 2)
+#   grids=1x1,2x1,...  MPI process grids npy x npz (default 1x1,2x1,1x2,2x2)
+#   timeout=S          time limit of a single test run in seconds (default 300)
+#   src=DIR            library sources to test (default ../src), e.g. a patched copy;
+#                      the build directory is then build/<variant>-<name of DIR>
+#   fftw_inc=, fftw_lib=, pfft_inc=, pfft_lib=   additional search paths
+#
+# The environment variables FC and MPIFC select the compilers, MPIRUN the MPI
+# launcher (default mpirun). Each test program prints only its failed checks
+# and a summary, set UT_VERBOSE=1 to print all checks. The logs are kept in
+# build/<variant>/logs. The command fails if any test fails.
+
+import os
+import subprocess
+import time
+
+args = ARGUMENTS
+mpi = args.get('mpi', 'no') == 'yes'
+prec = args.get('prec', 'both')
+debug = args.get('debug', 'yes') == 'yes'
+fpe = args.get('fpe', 'no') == 'yes'
+openmp = args.get('openmp', 'no' if mpi else 'yes') == 'yes'
+threads = args.get('threads', '2')
+grids = [tuple(int(x) for x in g.split('x'))
+         for g in args.get('grids', '1x1,2x1,1x2,2x2').split(',')]
+timeout = float(args.get('timeout', '300'))
+selected = [s for s in args.get('tests', '').split(',') if s]
+
+variant = 'mpi' if mpi else 'serial'
+src_dir = os.path.abspath(args.get('src', os.path.join('..', 'src')))
+if 'src' in args:
+    variant += '-' + os.path.basename(src_dir.rstrip('/'))
+build_dir = os.path.join('build', variant)
+log_dir = os.path.join(build_dir, 'logs')
+
+env = Environment(ENV=os.environ, tools=['default', 'gfortran'])
+
+if mpi:
+    fc = os.environ.get('MPIFC', 'mpif90')
+else:
+    fc = os.environ.get('FC', '') or 'gfortran'
+env.Replace(FORTRAN=fc, F90=fc, F03=fc, F08=fc, LINK=fc, SHLINK=fc)
+
+# some systems set only LD_LIBRARY_PATH for the libraries
+if 'LD_LIBRARY_PATH' in os.environ:
+    env.AppendENVPath('LIBRARY_PATH', os.environ['LD_LIBRARY_PATH'])
+lib_path = [p for p in os.environ.get('LIBRARY_PATH', '').split(':') +
+            os.environ.get('LD_LIBRARY_PATH', '').split(':') if p]
+inc_path = [p for p in os.environ.get('CPATH', '').split(':') if p]
+for key in ['fftw_lib', 'pfft_lib']:
+    if key in args:
+        lib_path.insert(0, args[key])
+for key in ['fftw_inc', 'pfft_inc']:
+    if key in args:
+        inc_path.insert(0, args[key])
+
+flags = ['-cpp', '-g', '-O2', '-fbacktrace']
+if debug:
+    flags += ['-fcheck=bounds,pointer,do,mem']
+if fpe:
+    flags += ['-ffpe-trap=invalid,zero,overflow']
+if openmp:
+    flags += ['-fopenmp']
+if mpi:
+    flags += ['-DMPI']
+
+mod_dir = os.path.abspath(build_dir)
+env.Replace(FORTRANMODDIRPREFIX='-J', FORTRANMODDIR=mod_dir)
+for v in ['FORTRANFLAGS', 'F90FLAGS', 'F03FLAGS', 'F08FLAGS']:
+    env.Replace(**{v: flags})
+env.Replace(FORTRANPATH=[mod_dir, src_dir, os.path.abspath('support')] + inc_path,
+            F90PATH=[mod_dir, src_dir, os.path.abspath('support')] + inc_path)
+env.Replace(LINKFLAGS=['-fopenmp'] if openmp else [])
+env.Replace(LIBPATH=lib_path)
+
+libs = ['fftw3', 'fftw3f']
+if openmp:
+    libs = ['fftw3_omp', 'fftw3f_omp'] + libs
+if mpi:
+    libs = ['pfft', 'pfftf', 'fftw3_mpi', 'fftw3f_mpi'] + libs
+env.Replace(LIBS=libs)
+
+
+def obj(source, name=None, defines=()):
+    """Compile one source into the build directory. The Fortran module
+    dependencies between the library sources are given explicitly by the
+    order of compilation (see below), the include files are scanned."""
+    base = name or os.path.splitext(os.path.basename(source))[0]
+    target = os.path.join(build_dir, base + '.o')
+    extra = ['-D' + d for d in defines]
+    o = env.Object(target=target, source=source,
+                   FORTRANFLAGS=flags + extra, F90FLAGS=flags + extra,
+                   F03FLAGS=flags + extra, F08FLAGS=flags + extra)
+    return [x for x in o if not str(x).endswith('.mod')]
+
+
+def chain(objects):
+    # each object needs the modules of all previous ones
+    for i in range(1, len(objects)):
+        Depends(objects[i], objects[i-1])
+    return objects
+
+
+# ---------------------------------------------------------------- library
+lib_sources = ['precisions.f90', 'parameters.f90', 'customfftw3.f90',
+               'custompfft.f90', 'fft.f90', 'poisfft.f90', 'main.f90']
+lib_objs = []
+for s in lib_sources:
+    lib_objs += obj(os.path.join(src_dir, s))
+chain(lib_objs)
+Depends(lib_objs[4], [os.path.join(src_dir, f) for f in
+                      ['fft-inc.f90', 'plan_new-inc.f90', 'allocate_fftw-inc.f90']])
+Depends(lib_objs[5], [os.path.join(src_dir, f) for f in
+                      ['poisfft-inc.f90', 'poisfft-solvers-inc.f90',
+                       'poisfft-solvers-nonuniform_z-inc.f90', 'loop_nest_3d.f90']])
+
+# ---------------------------------------------------------------- support
+support_objs = obj('support/unit_test_utils.f90')
+support_objs += obj('support/reference_modes.f90')
+if mpi:
+    support_objs += obj('support/mpi_test_grid.F90')
+chain(lib_objs + support_objs)
+
+# ---------------------------------------------------------------- tests
+# name: (source, MPI cases or None). With MPI cases the program is run once
+# for every case number and every process grid.
+if mpi:
+    test_list = [('mpi_eigen_3d', 'tests/test_mpi_eigen_3d.F90', list(range(1, 15))),
+                 ('mpi_nonuniform_z', 'tests/test_mpi_nonuniform_z.F90', list(range(1, 5)))]
+else:
+    test_list = [('fft', 'tests/test_fft.F90', None),
+                 ('eigen_1d', 'tests/test_eigen_1d.F90', None),
+                 ('eigen_2d', 'tests/test_eigen_2d.F90', None),
+                 ('eigen_3d', 'tests/test_eigen_3d.F90', None),
+                 ('solver_api', 'tests/test_solver_api.F90', None),
+                 ('nonuniform_z', 'tests/test_nonuniform_z.F90', None)]
+
+precisions = {'dp': [], 'sp': ['SINGLE']}
+if prec in precisions:
+    precisions = {prec: precisions[prec]}
+
+programs = []   # (name, executable node, cases)
+for name, source, cases in test_list:
+    for p, defines in sorted(precisions.items()):
+        exe_name = 'test_%s_%s' % (name, p)
+        o = obj(source, name=exe_name, defines=defines)
+        Depends(o, lib_objs + support_objs + ['support/precision.h'])
+        exe = env.Program(target=os.path.join(build_dir, exe_name),
+                          source=o + support_objs + lib_objs)
+        programs.append((exe_name, exe, cases))
+
+env.Alias('build', [p[1] for p in programs])
+
+
+# ---------------------------------------------------------------- runner
+def run_commands():
+    """List of (label, command) of all test runs."""
+    runs = []
+    launcher = os.environ.get('MPIRUN', 'mpirun').split()
+    for exe_name, exe, cases in programs:
+        if selected and not any(s in exe_name for s in selected):
+            continue
+        path = os.path.abspath(str(exe[0]))
+        if cases is None:
+            runs.append((exe_name, [path]))
+        else:
+            for npy, npz in grids:
+                for c in cases:
+                    label = '%s grid=%dx%d case=%d' % (exe_name, npy, npz, c)
+                    cmd = launcher + ['--oversubscribe', '-n', str(npy * npz),
+                                      path, str(npy), str(npz), str(c)]
+                    runs.append((label, cmd))
+    return runs
+
+
+def run_tests(target, source, env):
+    os.makedirs(log_dir, exist_ok=True)
+    run_env = dict(os.environ)
+    run_env['OMP_NUM_THREADS'] = threads
+    results = []
+    for label, cmd in run_commands():
+        log_name = os.path.join(log_dir, label.replace(' ', '_').replace('=', '-') + '.log')
+        start = time.time()
+        try:
+            proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                  env=run_env, timeout=timeout)
+            output = proc.stdout.decode(errors='replace')
+            if proc.returncode == 0:
+                status = 'PASS'
+            elif 'checks passed' in output:
+                status = 'FAIL'
+            else:
+                # terminated before printing its summary
+                status = 'CRASH'
+        except subprocess.TimeoutExpired as e:
+            output = (e.stdout or b'').decode(errors='replace')
+            status = 'TIMEOUT'
+        elapsed = time.time() - start
+        with open(log_name, 'w') as f:
+            f.write(' '.join(cmd) + '\n' + output)
+        results.append((label, status, elapsed))
+        print('%-8s %-55s %6.1f s' % (status, label, elapsed))
+        if status != 'PASS':
+            # the test programs print only the failed checks and the summary
+            lines = output.splitlines()
+            for line in lines[:60]:
+                print('         | ' + line)
+            if len(lines) > 60:
+                print('         | ... (%d more lines in %s)' % (len(lines) - 60, log_name))
+    n_bad = sum(1 for r in results if r[1] != 'PASS')
+    print('\n%d of %d test runs passed, logs in %s' % (len(results) - n_bad, len(results), log_dir))
+    return 1 if n_bad else 0
+
+
+check = env.Command('check-' + variant, [p[1] for p in programs],
+                    Action(run_tests, 'Running the unit tests'))
+AlwaysBuild(check)
+env.Alias('check', check)
+Default(check)
