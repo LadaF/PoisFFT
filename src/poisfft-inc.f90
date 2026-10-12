@@ -1983,8 +1983,9 @@
       dkx_h = dkx / 2
       
       if (all(BCs==PoisFFT_Periodic)) then
+        !the wave number of the DFT mode m = i-1+off is min(m, gn-m)
         do i = 1, n
-          if (i+off<gn/2) then
+          if (i-1+off<=gn/2) then
             res(i) = f((i-1+off)*dkx)
           else
             res(i) = f((gn-(i-1+off))*dkx)
