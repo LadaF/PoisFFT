@@ -356,6 +356,61 @@
 
 
 
+    !Non-periodic in x and z (any supported pairs), periodic in y. One 3D
+    !real-to-real transform with the halfcomplex transform in y, whose order
+    !of coefficients matches eigenvalues(). Under MPI the general separable
+    !solver is used.
+    subroutine PoisFFT_Solver3D_RealPeriodicReal(D, Phi, RHS)
+      type(PoisFFT_Solver3D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      integer i,j,k
+      real(RP) :: denom
+
+#ifdef MPI
+      call PoisFFT_Solver3D_Separable_MPI(D, Phi, RHS)
+#else
+      !$omp parallel private(i,j,k,denom)
+
+      !$omp workshare
+      D%rwork = RHS
+      !$omp end workshare
+
+      !$omp end parallel
+
+      call Execute(D%forward, D%rwork)
+
+      !$omp parallel private(i,j,k,denom)
+      !$omp do
+      do k=1,D%nz
+        do j=1,D%ny
+          do i=1,D%nx
+            denom = D%denomx(i) + D%denomy(j) + D%denomz(k)
+            !zero only for the null mode of the all-Neumann problems
+            if (denom /= 0) then
+              D%rwork(i,j,k) = D%rwork(i,j,k) / denom
+            else
+              D%rwork(i,j,k) = 0
+            end if
+          end do
+        end do
+      end do
+      !$omp end do
+      !$omp end parallel
+
+      call Execute(D%backward, D%rwork)
+
+      !$omp parallel
+      !$omp workshare
+      Phi = D%rwork / D%norm_factor
+      !$omp end workshare
+      !$omp end parallel
+#endif
+    end subroutine PoisFFT_Solver3D_RealPeriodicReal
+
+
+
+
 
     subroutine PoisFFT_Solver3D_FullNeumann(D, Phi, RHS)
       type(PoisFFT_Solver3D), intent(inout) :: D

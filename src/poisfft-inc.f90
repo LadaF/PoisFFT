@@ -752,6 +752,23 @@
 #endif
 
 
+      else if (real_periodic_real(D%BCs)) then
+
+#ifdef MPI
+        call PoisFFT_Solver3D_Separable_MPI_Init(D)
+#else
+        if (D%nthreads>1) call PoisFFT_InitThreads(D%nthreads)
+
+        call allocate_fftw_real(D)
+
+        !the kinds in the C order of dimensions: z, y, x
+        D%forward = PoisFFT_Plan3D(D, [real_transform_type_forward(D%BCs(5:6)), &
+                                       real_transform_type_forward(D%BCs(3:4)), &
+                                       real_transform_type_forward(D%BCs(1:2))])
+        D%backward = PoisFFT_Plan3D(D, [real_transform_type_backward(D%BCs(5:6)), &
+                                        real_transform_type_backward(D%BCs(3:4)), &
+                                        real_transform_type_backward(D%BCs(1:2))])
+#endif
 
       else
         stop "Unknown combination of boundary conditions."
@@ -926,6 +943,16 @@
               ) then
 
         call PoisFFT_Solver3D_1real2real(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
+                     ngPhi(2)+1:ngPhi(2)+D%ny,&
+                     ngPhi(3)+1:ngPhi(3)+D%nz),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
+                     ngRHS(2)+1:ngRHS(2)+D%ny,&
+                     ngRHS(3)+1:ngRHS(3)+D%nz))
+
+      else if (real_periodic_real(D%BCs)) then
+
+        call PoisFFT_Solver3D_RealPeriodicReal(D,&
                  Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
                      ngPhi(2)+1:ngPhi(2)+D%ny,&
                      ngPhi(3)+1:ngPhi(3)+D%nz),&
@@ -2109,6 +2136,17 @@
       if (.not.BC_pairs_supported(BCs)) &
         stop "Unknown combination of boundary conditions."
     end subroutine
+
+    !Non-periodic in x and z (any supported pairs, they may differ) and
+    !periodic in y, solved by PoisFFT_Solver3D_RealPeriodicReal.
+    !The pairs must be checked by check_BC_pairs before.
+    logical function real_periodic_real(BCs) result(res)
+      integer, intent(in) :: BCs(6)
+
+      res = all(BCs(3:4)==PoisFFT_Periodic) .and. &
+            .not.any(BCs(1:2)==PoisFFT_Periodic) .and. &
+            .not.any(BCs(5:6)==PoisFFT_Periodic)
+    end function
 
     logical function BC_pairs_supported(BCs) result(res)
       integer, intent(in) :: BCs(:)

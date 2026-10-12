@@ -46,8 +46,25 @@ The simplest usage is like this
 The first function initializes the solver. The first argument is the array with
 number of points in each directions. Then an array with the physical dimensions of
 the grid. The third array argument specifies the boundary conditions on each outside
-boundary. Only limited number of combinations is supported, namely when all types 
-are equal.
+boundary in the order x start, x end, y start, y end, z start, z end. Only a limited
+number of combinations is supported, otherwise the program stops with the message
+"Unknown combination of boundary conditions.".
+
+In one direction the pair must be periodic on both ends, or a non-periodic pair:
+both ends the same, or Neumann with Dirichlet in any order (both regular or both
+staggered).
+
+The 1D solver supports any such pair, the 2D solver the same type on all sides.
+The 3D solver supports:
+
+  - the same type on all sides
+  - periodic in x and y, any non-periodic pair in z
+  - periodic in x, Neumann (regular or staggered) in y and z
+  - periodic in x and z, Neumann in y; Neumann in x, periodic in y and z
+  - Dirichlet (regular or staggered) in x and y, periodic in z
+  - non-periodic in all directions with the same pair in x and y, or in y and z,
+    and with a Dirichlet condition on at least one boundary
+  - non-periodic in x and z (any pairs), periodic in y
 
 You can choose from these types of boundary conditions:
 
