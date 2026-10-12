@@ -90,6 +90,7 @@ contains
     type(Solver_nuz) :: solver
     real(dp) :: z(gn(3)), z_u(0:gn(3)), f(gn(3)), af(gn(3))
     real(dp) :: vx(gn(1)), vy(gn(2)), lx, ly, err
+    real(rp) :: scale
     real(rp), allocatable :: rhs(:,:,:), phi(:,:,:), exact(:,:,:)
     logical :: ok
     integer :: mx, my, i, j, k, kg
@@ -124,13 +125,14 @@ contains
 
         call Execute(solver, phi, rhs)
 
+        !see test_nonuniform_z.F90 for the scale
+        scale = maxval(abs(exact))
         if (lx + ly == 0) then
           exact = exact - real(global_mean(exact), rp)
           phi = phi - real(global_mean(phi), rp)
         end if
 
-        err = global_rel_err(real(maxval(abs(phi - exact)), dp), &
-                             real(maxval(abs(exact)), dp))
+        err = global_rel_err(real(maxval(abs(phi - exact)), dp), real(scale, dp))
         write(label, '("n=",i0,"x",i0,"x",i0," mode ",i0,",",i0)') gn, mx, my
         !see test_nonuniform_z.F90 for the tolerance of the x-y null mode
         call check_err(trim(label), err, real(merge(10*tol, tol, lx + ly == 0), dp))

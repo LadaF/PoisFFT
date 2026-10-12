@@ -94,6 +94,7 @@ contains
     type(Solver_nuz) :: solver
     real(dp) :: z(nxyz(3)), z_u(0:nxyz(3)), f(nxyz(3)), af(nxyz(3))
     real(dp) :: vx(nxyz(1)), vy(nxyz(2)), lx, ly
+    real(rp) :: scale
     real(rp), allocatable :: rhs(:,:,:), phi(:,:,:), exact(:,:,:)
     logical :: ok
     integer :: mx, my, j, k
@@ -123,6 +124,9 @@ contains
 
         call Execute(solver, phi, rhs)
 
+        !the scale is taken before subtracting the mean, the exact solution
+        !can be a constant (nz==1), which is zero up to rounding afterwards
+        scale = maxval(abs(exact))
         if (lx + ly == 0) then
           exact = exact - sum(exact) / size(exact)
           phi = phi - sum(phi) / size(phi)
@@ -132,7 +136,7 @@ contains
               merge(" stretched", " uniform  ", stretched), mx, my
         !the x-y null mode is a singular tridiagonal system in z made regular
         !by modifying its first row, it is worse conditioned on stretched grids
-        call check_err(trim(label), rel_err(phi, exact), &
+        call check_err(trim(label), maxval(abs(phi - exact)) / scale, &
                        merge(10*tol, tol, lx + ly == 0))
       end do
     end do
