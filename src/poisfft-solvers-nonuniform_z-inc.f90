@@ -95,8 +95,16 @@
 
   ! initialize c-prime
           m = b1 + lambdas
+          if (n==1) then
+            !a single layer in z, m==0 for the singular x-y null mode
+            if (m/=0) then
+              x(1) = x(1) / m
+            else
+              x(1) = 0
+            end if
+            return
+          end if
           x(1) = x(1) / m
-          if (n==1) return
           cp(1) = c1 / m
   ! solve for vectors c-prime and x-prime
           do i = 2, n-1
@@ -212,8 +220,16 @@
 
   ! initialize c-prime
           m = b1 + lambdas
+          if (n==1) then
+            !a single layer in z, m==0 for the singular x-y null mode
+            if (m/=0) then
+              x(1) = x(1) / m
+            else
+              x(1) = 0
+            end if
+            return
+          end if
           x(1) = x(1) / m
-          if (n==1) return
           cp(1) = c1 / m
   ! solve for vectors c-prime and x-prime
           do i = 2, n-1
@@ -357,8 +373,16 @@
 
   ! initialize c-prime
           m = b1 + lambdas
+          if (n==1) then
+            !a single layer in z, m==0 for the singular x-y null mode
+            if (m/=0) then
+              x(1) = x(1) / m
+            else
+              x(1) = 0
+            end if
+            return
+          end if
           x(1) = x(1) / m
-          if (n==1) return
           cp(1) = c1 / m
   ! solve for vectors c-prime and x-prime
           do i = 2, n-1
@@ -501,8 +525,16 @@
 
   ! initialize c-prime
           m = b1 + lambdas
+          if (n==1) then
+            !a single layer in z, m==0 for the singular x-y null mode
+            if (m/=0) then
+              x(1) = x(1) / m
+            else
+              x(1) = 0
+            end if
+            return
+          end if
           x(1) = x(1) / m
-          if (n==1) return
           cp(1) = c1 / m
   ! solve for vectors c-prime and x-prime
           do i = 2, n-1
