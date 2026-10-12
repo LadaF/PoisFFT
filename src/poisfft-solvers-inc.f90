@@ -860,6 +860,12 @@
       integer i,j,k
       integer tid      !thread id
 
+#ifdef MPI
+      !no specialized MPI version, the general separable solver is used
+      call PoisFFT_Solver3D_Separable_MPI(D, Phi, RHS)
+      return
+#endif
+
       !$omp parallel private(tid,i,j,k)
       tid = 1
       !$ tid = omp_get_thread_num()+1
@@ -953,6 +959,12 @@
       real(RP), intent(in)  :: RHS(:,:,:)
       integer i,j,k
       integer tid      !thread id
+
+#ifdef MPI
+      !no specialized MPI version, the general separable solver is used
+      call PoisFFT_Solver3D_Separable_MPI(D, Phi, RHS)
+      return
+#endif
 
       !$omp parallel private(tid,i,j,k)
       tid = 1
@@ -1235,6 +1247,12 @@
       integer i,j,k
       integer tid      !thread id
 
+#ifdef MPI
+      !no specialized MPI version, the general separable solver is used
+      call PoisFFT_Solver3D_Separable_MPI(D, Phi, RHS)
+      return
+#endif
+
       !$omp parallel private(tid,i,j,k)
       tid = 1
       !$ tid = omp_get_thread_num()+1
@@ -1306,6 +1324,12 @@
       real(RP), intent(in)  :: RHS(:,:,:)
       integer i,j,k
       integer tid      !thread id
+
+#ifdef MPI
+      !no specialized MPI version, the general separable solver is used
+      call PoisFFT_Solver3D_Separable_MPI(D, Phi, RHS)
+      return
+#endif
 
       !$omp parallel private(tid,i,j,k)
       tid = 1
@@ -1397,6 +1421,12 @@
       integer i,j,k
       integer tid      !thread id
 
+#ifdef MPI
+      !no specialized MPI version, the general separable solver is used
+      call PoisFFT_Solver3D_Separable_MPI(D, Phi, RHS)
+      return
+#endif
+
       !$omp parallel private(tid,i,j,k)
       tid = 1
       !$ tid = omp_get_thread_num()+1
@@ -1462,7 +1492,130 @@
     
     
     
-#ifdef MPI    
+#ifdef MPI
+    !General MPI solver for the combinations of boundary conditions without
+    !a specialized MPI version (initialized by PoisFFT_Solver3D_Separable_MPI_Init).
+    !Real 1D transforms in z and y (globally transposed when the direction is
+    !distributed, see transform_1d_real_y/z), then in x (always local), where
+    !the division by the eigenvalues is done. Periodic directions use the
+    !halfcomplex transform, its order of coefficients matches eigenvalues().
+    subroutine PoisFFT_Solver3D_Separable_MPI(D, Phi, RHS)
+      type(PoisFFT_Solver3D), intent(inout), target :: D
+      real(RP), intent(out) :: Phi(:,:,:)
+      real(RP), intent(in)  :: RHS(:,:,:)
+      integer :: i, j, k
+      integer :: tid
+      real(RP) :: denom
+
+      call transform_z(forward=.true., use_rhs=.true.)
+
+      call transform_y(forward=.true.)
+
+      !$omp parallel private(tid,i,j,k,denom)
+      tid  = 0
+      !$ tid = omp_get_thread_num()
+      !$omp do collapse(2)
+      do k = 1, D%nz
+        do j = 1, D%ny
+          associate(S => D%Solvers1D(1+3*tid))
+            S%rwork = Phi(:,j,k)
+
+            call Execute(S%forward, S%rwork)
+
+            do i = 1, D%nx
+              denom = D%denomx(i) + D%denomy(j) + D%denomz(k)
+              !zero only for the null mode of the singular problems
+              if (denom /= 0) then
+                S%rwork(i) = S%rwork(i) / denom
+              else
+                S%rwork(i) = 0
+              end if
+            end do
+
+            call Execute(S%backward, S%rwork)
+
+            Phi(:,j,k) = S%rwork / D%norm_factor
+          end associate
+        end do
+      end do
+      !$omp end do
+      !$omp end parallel
+
+      call transform_y(forward=.false.)
+
+      call transform_z(forward=.false., use_rhs=.false.)
+
+    contains
+
+      subroutine transform_z(forward, use_rhs)
+        logical, intent(in) :: forward, use_rhs
+        integer :: i, j, tid
+
+        if (D%Solvers1D(3)%mpi_transpose_needed) then
+          call transform_1d_real_z(D%Solvers1D(3::3), Phi, RHS, forward, use_rhs)
+        else
+          !$omp parallel private(tid,i,j)
+          tid  = 0
+          !$ tid = omp_get_thread_num()
+          !$omp do collapse(2)
+          do j = 1, D%ny
+            do i = 1, D%nx
+              associate(S => D%Solvers1D(3+3*tid))
+                if (use_rhs) then
+                  S%rwork = RHS(i,j,:)
+                else
+                  S%rwork = Phi(i,j,:)
+                end if
+
+                if (forward) then
+                  call Execute(S%forward, S%rwork)
+                else
+                  call Execute(S%backward, S%rwork)
+                end if
+
+                Phi(i,j,:) = S%rwork
+              end associate
+            end do
+          end do
+          !$omp end do
+          !$omp end parallel
+        end if
+      end subroutine
+
+      subroutine transform_y(forward)
+        logical, intent(in) :: forward
+        integer :: i, k, tid
+
+        if (D%Solvers1D(2)%mpi_transpose_needed) then
+          call transform_1d_real_y(D%Solvers1D(2::3), Phi, RHS, forward, use_rhs=.false.)
+        else
+          !$omp parallel private(tid,i,k)
+          tid  = 0
+          !$ tid = omp_get_thread_num()
+          !$omp do collapse(2)
+          do k = 1, D%nz
+            do i = 1, D%nx
+              associate(S => D%Solvers1D(2+3*tid))
+                S%rwork = Phi(i,:,k)
+
+                if (forward) then
+                  call Execute(S%forward, S%rwork)
+                else
+                  call Execute(S%backward, S%rwork)
+                end if
+
+                Phi(i,:,k) = S%rwork
+              end associate
+            end do
+          end do
+          !$omp end do
+          !$omp end parallel
+        end if
+      end subroutine
+
+    end subroutine PoisFFT_Solver3D_Separable_MPI
+
+
     subroutine transform_1d_real_y(D1D, Phi, RHS, forward, use_rhs)
       type(PoisFFT_Solver1D), intent(inout), target :: D1D(:)
       real(RP), intent(inout) :: Phi(:,:,:)

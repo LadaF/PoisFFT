@@ -24,7 +24,8 @@
 
 
 
-  integer, parameter :: FFT_Complex = 0
+  !must differ from all FFTW r2r kinds (FFTW_R2HC is 0)
+  integer, parameter :: FFT_Complex = -1
   integer, parameter :: FFT_RealEven00  = FFTW_REDFT00
   integer, parameter :: FFT_RealEven01  = FFTW_REDFT01
   integer, parameter :: FFT_RealEven10  = FFTW_REDFT10
@@ -33,6 +34,9 @@
   integer, parameter :: FFT_RealOdd01   = FFTW_RODFT01
   integer, parameter :: FFT_RealOdd10   = FFTW_RODFT10
   integer, parameter :: FFT_RealOdd11   = FFTW_RODFT11
+  !real periodic transforms with the halfcomplex output
+  integer, parameter :: FFT_RealToHalfComplex = FFTW_R2HC
+  integer, parameter :: FFT_HalfComplexToReal = FFTW_HC2R
 
   integer, parameter :: FFT_DISTRIBUTED_NONE = 0
   integer, parameter :: FFT_DISTRIBUTED_FFTW = 1
