@@ -82,11 +82,12 @@
 
       call Execute(D%forward, D%cwork)
 
+      D%cwork(1) = 0
       forall(i=2:D%nx) &
         D%cwork(i) = D%cwork(i) / D%denomx(i)
 
       call Execute(D%backward, D%cwork)
-      
+
       Phi = real(D%cwork,RP) / D%norm_factor
 #endif
 
