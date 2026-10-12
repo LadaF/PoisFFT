@@ -46,6 +46,7 @@ cases separately).
 | `tests/test_eigen_3d.F90` | 3D solver: every specialized solver routine (31 boundary-condition combinations) |
 | `tests/test_solver_api.F90` | ghost layers, RHS not modified, repeated calls, `PoisFFT_Estimate` reproducibility, `PoisFFT_Measure`, linearity, zero mean of singular problems, re-creating solvers |
 | `tests/test_nonuniform_z.F90` | `PoisFFT_Solver3D_nonuniform_z` against a manufactured solution on stretched and uniform grids, agreement with `PoisFFT_Solver3D` FD2 |
+| `tests/test_unsupported_bcs.F90` | unsupported boundary conditions are rejected with "Unknown combination of boundary conditions." by all solver types (serial, double precision only; every case runs as a separate process, the runner checks the output) |
 | `tests/test_mpi_eigen_3d.F90` | distributed 3D solver, the same 31 combinations as the serial test |
 | `tests/test_mpi_nonuniform_z.F90` | distributed non-uniform z solver |
 

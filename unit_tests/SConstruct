@@ -168,13 +168,27 @@ for name, source, cases in test_list:
                           source=o + support_objs + lib_objs)
         programs.append((exe_name, exe, cases))
 
-env.Alias('build', [p[1] for p in programs])
+# programs that must stop with an error message: (name, source, number of
+# cases); case 0 must be accepted, cases 1..n rejected (serial build only)
+stop_tests = [] if mpi else [('unsupported_bcs', 'tests/test_unsupported_bcs.F90', 17)]
+stop_programs = []
+for name, source, n_cases in stop_tests:
+    exe_name = 'test_%s' % name
+    o = obj(source, name=exe_name)
+    Depends(o, lib_objs + support_objs)
+    exe = env.Program(target=os.path.join(build_dir, exe_name),
+                      source=o + support_objs + lib_objs)
+    stop_programs.append((exe_name, exe, n_cases))
+
+env.Alias('build', [p[1] for p in programs] + [p[1] for p in stop_programs])
 
 
 # ---------------------------------------------------------------- runner
 def run_commands():
-    """List of (label, command, fallback) of all test runs. fallback is the
-    list of (label, command) of the single cases, run if the command fails."""
+    """List of (label, command, fallback, expect) of all test runs. fallback
+    is the list of (label, command) of the single cases, run if the command
+    fails. expect is None (the program reports its checks), 'accept' or
+    'reject' (the program must stop with the unsupported BC message)."""
     runs = []
     launcher = os.environ.get('MPIRUN', 'mpirun').split()
     for exe_name, exe, cases in programs:
@@ -182,7 +196,7 @@ def run_commands():
             continue
         path = os.path.abspath(str(exe[0]))
         if cases is None:
-            runs.append((exe_name, [path], []))
+            runs.append((exe_name, [path], [], None))
         else:
             for npy, npz in grids:
                 def mpi_cmd(c):
@@ -191,20 +205,34 @@ def run_commands():
                 label = '%s grid=%dx%d' % (exe_name, npy, npz)
                 single = [('%s case=%d' % (label, c), mpi_cmd(c)) for c in cases]
                 if split:
-                    runs += [(l, c, []) for l, c in single]
+                    runs += [(l, c, [], None) for l, c in single]
                 else:
-                    runs.append((label + ' all cases', mpi_cmd(0), single))
+                    runs.append((label + ' all cases', mpi_cmd(0), single, None))
+    for exe_name, exe, n_cases in stop_programs:
+        if selected and not any(s in exe_name for s in selected):
+            continue
+        path = os.path.abspath(str(exe[0]))
+        runs.append(('%s case=0 (valid)' % exe_name, [path, '0'], [], 'accept'))
+        for c in range(1, n_cases + 1):
+            runs.append(('%s case=%d' % (exe_name, c), [path, str(c)], [], 'reject'))
     return runs
 
 
-def run_one(label, cmd, env):
-    log_name = os.path.join(log_dir, label.replace(' ', '_').replace('=', '-') + '.log')
+def run_one(label, cmd, env, expect=None):
+    log_name = os.path.join(log_dir, label.replace(' ', '_').replace('=', '-')
+                            .replace('(', '').replace(')', '') + '.log')
     start = time.time()
     try:
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                               env=env, timeout=timeout)
         output = proc.stdout.decode(errors='replace')
-        if proc.returncode == 0:
+        if expect == 'reject':
+            # stop with a message gives the exit code 0, check the output
+            rejected = 'Unknown combination of boundary conditions' in output
+            status = 'PASS' if rejected and 'NOT REJECTED' not in output else 'FAIL'
+        elif expect == 'accept':
+            status = 'PASS' if proc.returncode == 0 and 'all accepted' in output else 'FAIL'
+        elif proc.returncode == 0:
             status = 'PASS'
         elif 'checks passed' in output:
             status = 'FAIL'
@@ -235,8 +263,8 @@ def run_tests(target, source, env):
     run_env = dict(os.environ)
     run_env['OMP_NUM_THREADS'] = threads
     results = []
-    for label, cmd, fallback in run_commands():
-        status, output, log_name = run_one(label, cmd, run_env)
+    for label, cmd, fallback, expect in run_commands():
+        status, output, log_name = run_one(label, cmd, run_env, expect)
         if status == 'PASS':
             results.append(status)
         elif fallback:
@@ -254,7 +282,7 @@ def run_tests(target, source, env):
     return 1 if n_bad else 0
 
 
-check = env.Command('check-' + variant, [p[1] for p in programs],
+check = env.Command('check-' + variant, [p[1] for p in programs + stop_programs],
                     Action(run_tests, 'Running the unit tests'))
 AlwaysBuild(check)
 env.Alias('check', check)
