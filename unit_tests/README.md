@@ -38,17 +38,17 @@ cases separately).
 | `support/unit_test_utils.f90` | assertions (`check`, `check_err`), summary and exit code |
 | `support/reference_modes.f90` | independent analytic eigenvectors and eigenvalues of the discrete 1D Laplacian for every boundary condition pair and approximation |
 | `support/precision.h` | `-DSINGLE` selects the single-precision solver types |
-| `support/bc_combos.f90` | the 31 combinations of boundary conditions of the 3D tests, shared by the serial and MPI tests |
+| `support/bc_combos.f90` | the 39 combinations of boundary conditions of the 3D tests, shared by the serial and MPI tests |
 | `support/mpi_test_grid.F90` | process grid, local block of the global grid, global error reduction |
 | `tests/test_fft.F90` | `FFT_SP/DP`: all r2r kinds and the complex DFT in 1D/2D/3D against the FFTW definitions, order of the plan types, forward/backward normalization |
 | `tests/test_eigen_1d.F90` | 1D solver: every mode, all 9 boundary-condition pairs, spectral/FD2/FD4, even and odd sizes |
 | `tests/test_eigen_2d.F90` | 2D solver, same method |
-| `tests/test_eigen_3d.F90` | 3D solver: every specialized solver routine (31 boundary-condition combinations) |
+| `tests/test_eigen_3d.F90` | 3D solver: every specialized solver routine (39 boundary-condition combinations) |
 | `tests/test_solver_api.F90` | ghost layers, RHS not modified, repeated calls, `PoisFFT_Estimate` reproducibility, `PoisFFT_Measure`, linearity, zero mean of singular problems, re-creating solvers |
 | `tests/test_nonuniform_z.F90` | `PoisFFT_Solver3D_nonuniform_z` against a manufactured solution on stretched and uniform grids, agreement with `PoisFFT_Solver3D` FD2 |
 | `tests/test_error_reporting.F90` | errors returned in `ierr`/`errmsg` of the non-uniform z constructor: unsupported boundary conditions, too short or non-increasing `z`/`z_u`; finalizing such a solver |
 | `tests/test_unsupported_bcs.F90` | without `ierr`, unsupported boundary conditions are rejected with "Unknown combination of boundary conditions." by all solver types, and an inconsistent z grid by the non-uniform z solver (serial, double precision only; every case runs as a separate process, the runner checks the output) |
-| `tests/test_mpi_eigen_3d.F90` | distributed 3D solver, the same 31 combinations as the serial test |
+| `tests/test_mpi_eigen_3d.F90` | distributed 3D solver, the same 39 combinations as the serial test |
 | `tests/test_mpi_nonuniform_z.F90` | distributed non-uniform z solver |
 
 ## Method

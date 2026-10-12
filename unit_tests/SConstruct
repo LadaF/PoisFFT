@@ -144,7 +144,7 @@ chain(lib_objs + support_objs)
 # every process grid with all cases at once and, if that run does not pass,
 # once for every case to isolate the failing ones (always with split=yes).
 if mpi:
-    test_list = [('mpi_eigen_3d', 'tests/test_mpi_eigen_3d.F90', list(range(1, 32))),
+    test_list = [('mpi_eigen_3d', 'tests/test_mpi_eigen_3d.F90', list(range(1, 40))),
                  ('mpi_nonuniform_z', 'tests/test_mpi_nonuniform_z.F90', list(range(1, 5)))]
 else:
     test_list = [('fft', 'tests/test_fft.F90', None),

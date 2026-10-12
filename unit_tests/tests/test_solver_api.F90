@@ -26,10 +26,11 @@ program test_solver_api
                         Ns = PoisFFT_NeumannStag
   integer, parameter :: ns3(3) = [6, 5, 7]
   real(rp), parameter :: Ls3(3) = [1.3_rp, 2.1_rp, 0.7_rp]
-  integer, parameter :: n_combos = 6
+  integer, parameter :: n_combos = 8
   integer, parameter :: combos(6, n_combos) = reshape([ &
       P, P, P, P, P, P,  Ns,Ns,Ns,Ns,Ns,Ns,  D, D, D, D, D, D, &
-      P, P, P, P, Ns,Ns, P, P, Ns,Ns,Ns,Ns,  Ds,Ds,Ds,Ds,P, P], [6, n_combos])
+      P, P, P, P, Ns,Ns, P, P, Ns,Ns,Ns,Ns,  Ds,Ds,Ds,Ds,P, P, &
+      Ns,Ns,P, P, Ns,Ns, D, D, P, P, N, N], [6, n_combos])
   integer :: ic
 
   call ut_init("test_solver_api " // PREC_NAME)
@@ -46,6 +47,7 @@ program test_solver_api
   call test_zero_mean_3d([(Ns, ic = 1, 6)])
   call test_zero_mean_3d([P, P, P, P, Ns, Ns])
   call test_zero_mean_3d([P, P, Ns, Ns, Ns, Ns])
+  call test_zero_mean_3d([Ns, Ns, P, P, Ns, Ns])
 
   call ut_section("2D")
   call test_ghost_layers_2d([(P, ic = 1, 4)])

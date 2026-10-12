@@ -1,8 +1,8 @@
 !Combinations of boundary conditions of the 3D tests, shared by the serial
 !and the MPI tests. Every specialized solver routine of PoisFFT_Solver3D
 !(named in the comments) is covered with its variants. Under MPI the
-!routines NsPP, PNsP, DDP, 2real1real and 1real2real use the general
-!separable MPI solver.
+!routines NsPP, PNsP, DDP, 2real1real, 1real2real and RealPeriodicReal use
+!the general separable MPI solver.
 module bc_combos
   use PoisFFT_Parameters
   implicit none
@@ -14,7 +14,7 @@ module bc_combos
                         N = PoisFFT_Neumann, Ds = PoisFFT_DirichletStag, &
                         Ns = PoisFFT_NeumannStag
 
-  integer, parameter :: n_combos_3d = 31
+  integer, parameter :: n_combos_3d = 39
   integer, parameter :: combos_3d(6, n_combos_3d) = reshape([ &
       P, P, P, P, P, P,           & ! 1 FullPeriodic
       D, D, D, D, D, D,           & ! 2 FullDirichlet
@@ -46,7 +46,15 @@ module bc_combos
       Ns,Ns,Ds,Ds,Ds,Ds,          & !28
       Ds,Ds,Ns,Ns,Ns,Ns,          & !29
       Ns,Ds,Ds,Ds,Ds,Ds,          & !30
-      D, D, N, N, N, N            & !31
+      D, D, N, N, N, N,           & !31
+      D, D, P, P, D, D,           & !32 RealPeriodicReal
+      Ds,Ds,P, P, Ds,Ds,          & !33
+      N, N, P, P, N, N,           & !34
+      Ns,Ns,P, P, Ns,Ns,          & !35
+      D, D, P, P, N, N,           & !36
+      Ns,Ns,P, P, Ds,Ds,          & !37
+      N, D, P, P, D, N,           & !38
+      Ds,Ns,P, P, Ns,Ds           & !39
     ], [6, n_combos_3d])
 
 end module bc_combos
