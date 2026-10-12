@@ -1514,9 +1514,14 @@
     
     
     
+    !If ierr is present, errors in the arguments are returned in ierr
+    !(PoisFFT_ErrorBCs, PoisFFT_ErrorGrid, PoisFFT_OK otherwise) and in
+    !errmsg, the returned solver can only be passed to Finalize. Without
+    !ierr the program stops with the error message.
     function PoisFFT_Solver3D_nonuniform_z__New(nxyz,Lxy,z,z_u, &
                                   BCs,approximation, &
-                                  gnxyz,offs,mpi_comm,nthreads,ierr,planning) result(D)
+                                  gnxyz,offs,mpi_comm,nthreads,ierr,planning, &
+                                  errmsg) result(D)
       type(PoisFFT_Solver3D_nonuniform_z) :: D
 
       integer, intent(in)   :: nxyz(3)
@@ -1530,8 +1535,10 @@
       integer, intent(in), optional :: nthreads
       integer, intent(in), optional :: planning
       integer, intent(out),optional :: ierr
-      
-      if (present(ierr)) ierr = 0
+      character(*), intent(out), optional :: errmsg
+
+      if (present(ierr)) ierr = PoisFFT_OK
+      if (present(errmsg)) errmsg = ""
 
       D%nxyz = nxyz
 
@@ -1589,7 +1596,7 @@
       if (present(planning)) D%planning = planning
 
       !create fftw plans and allocate working arrays
-      call Init(D)
+      call Init(D, ierr, errmsg)
     end function PoisFFT_Solver3D_nonuniform_z__New
     
     
@@ -1597,19 +1604,43 @@
     
     subroutine PoisFFT_Solver3D_nonuniform_z_Init(D, ierr, errmsg)
       type(PoisFFT_Solver3D_nonuniform_z), intent(inout) :: D
-      integer,   intent(out), optional :: ierr
-      character, intent(out), optional :: errmsg
+      integer,      intent(out), optional :: ierr
+      character(*), intent(out), optional :: errmsg
       integer :: real_forw, real_back
       integer :: real_forw_xy, real_back_xy
       integer :: real_forw_z, real_back_z
-      integer :: i
+      integer :: i, n
       !$omp parallel
       !$omp single
       !$ D%nthreads = omp_get_num_threads()
       !$omp end single
       !$omp end parallel
 
-      call check_BC_pairs(D%BCs)
+      if (present(ierr)) ierr = PoisFFT_OK
+      if (present(errmsg)) errmsg = ""
+
+      !the arguments are checked before anything is allocated, so that
+      !a solver returned with an error can be finalized
+      if (.not.BC_pairs_supported(D%BCs) .or. &
+          .not.(all(D%BCs==PoisFFT_Neumann) .or. &
+                all(D%BCs==PoisFFT_NeumannStag) .or. &
+                (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
+                 (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
+                  all(D%BCs(5:6)==PoisFFT_NeumannStag))))) then
+        call report_error(PoisFFT_ErrorBCs)
+        return
+      end if
+
+      n = D%gnz
+      if (ubound(D%z,1) < n .or. ubound(D%z_u,1) < n) then
+        call report_error(PoisFFT_ErrorGrid, 1)
+        return
+      end if
+
+      if (any(D%z(2:n) <= D%z(1:n-1)) .or. any(D%z_u(1:n) <= D%z_u(0:n-1))) then
+        call report_error(PoisFFT_ErrorGrid, 2)
+        return
+      end if
 
       D%norm_factor = norm_factor(D%gnx,D%BCs(1:2)) * &
                       norm_factor(D%gny,D%BCs(3:4))
@@ -1790,6 +1821,44 @@
       do i = 1, D%gnz-1
         D%mat_c(i) = 1 / (D%z(i+1)-D%z(i)) / (D%z_u(i) - D%z_u(i-1))
       end do
+
+    contains
+
+      !returns the error in ierr and errmsg if ierr is present, stops otherwise
+      subroutine report_error(code, detail)
+        integer, intent(in) :: code
+        integer, intent(in), optional :: detail
+        character(:), allocatable :: msg
+
+        select case (code)
+        case (PoisFFT_ErrorBCs)
+          msg = "Unknown combination of boundary conditions."
+        case default
+          if (detail==1) then
+            msg = "The arrays z(1:) and z_u(0:) must cover the whole grid in z."
+          else
+            msg = "The coordinates z and z_u must be increasing."
+          end if
+        end select
+
+        if (present(ierr)) then
+          ierr = code
+          if (present(errmsg)) errmsg = msg
+        else
+          !literal messages, a variable stop code requires Fortran 2018
+          select case (code)
+          case (PoisFFT_ErrorBCs)
+            stop "Unknown combination of boundary conditions."
+          case default
+            if (detail==1) then
+              stop "The arrays z(1:) and z_u(0:) must cover the whole grid in z."
+            else
+              stop "The coordinates z and z_u must be increasing."
+            end if
+          end select
+        end if
+      end subroutine
+
     end subroutine PoisFFT_Solver3D_nonuniform_z_Init
     
     
@@ -1840,10 +1909,14 @@
       integer :: i
 
       call Finalize(D%PoisFFT_Solver3D)
-      
-      deallocate(D%z, D%z_u)
-      
-      deallocate(D%mat_a, D%mat_b, D%mat_c)
+
+      !not all of them are allocated when the constructor returned an error
+      if (allocated(D%z)) deallocate(D%z)
+      if (allocated(D%z_u)) deallocate(D%z_u)
+
+      if (allocated(D%mat_a)) deallocate(D%mat_a)
+      if (allocated(D%mat_b)) deallocate(D%mat_b)
+      if (allocated(D%mat_c)) deallocate(D%mat_c)
 
     endsubroutine PoisFFT_Solver3D_nonuniform_z__Finalize
     
@@ -2032,13 +2105,20 @@
     !checked by the Init procedures themselves.
     subroutine check_BC_pairs(BCs)
       integer, intent(in) :: BCs(:)
+
+      if (.not.BC_pairs_supported(BCs)) &
+        stop "Unknown combination of boundary conditions."
+    end subroutine
+
+    logical function BC_pairs_supported(BCs) result(res)
+      integer, intent(in) :: BCs(:)
       integer :: i
 
+      res = .true.
       do i = 1, size(BCs), 2
-        if (real_transform_type_forward(BCs(i:i+1))==FFT_Unsupported) &
-          stop "Unknown combination of boundary conditions."
+        if (real_transform_type_forward(BCs(i:i+1))==FFT_Unsupported) res = .false.
       end do
-    end subroutine
+    end function
 
     
 

@@ -15,4 +15,13 @@ module PoisFFT_Parameters
   !the results, the estimated plans (FFTW_ESTIMATE) are reproducible
   integer, parameter :: PoisFFT_Measure = 0
   integer, parameter :: PoisFFT_Estimate = 1
+
+  !error codes returned in the optional argument ierr of the constructors
+  !that support it (so far PoisFFT_Solver3D_nonuniform_z), without ierr
+  !the program stops with the error message
+  integer, parameter :: PoisFFT_OK = 0
+  !unsupported combination of boundary conditions
+  integer, parameter :: PoisFFT_ErrorBCs = 1
+  !inconsistent grid arguments
+  integer, parameter :: PoisFFT_ErrorGrid = 2
 end module PoisFFT_Parameters
