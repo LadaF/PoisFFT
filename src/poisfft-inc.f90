@@ -35,6 +35,10 @@
 
   real(RP), parameter, private :: pi = 3.141592653589793238462_RP
 
+  !result of real_transform_type_forward/backward for an unsupported pair
+  !of boundary conditions, differs from all FFTW kinds and FFT_Complex
+  integer, parameter, private :: FFT_Unsupported = -2
+
 
   interface PoisFFT_Solver1D
     module procedure PoisFFT_Solver1D__New
@@ -162,6 +166,8 @@
       !$ D%nthreads = omp_get_num_threads()
       !$omp end single
       !$omp end parallel
+
+      call check_BC_pairs(D%BCs)
 
       D%norm_factor = norm_factor(D%gnx,D%BCs(1:2)) * &
                       norm_factor(D%gny,D%BCs(3:4)) * &
@@ -1186,6 +1192,8 @@
       type(PoisFFT_Solver2D), intent(inout) :: D
       integer :: i
         
+      call check_BC_pairs(D%BCs)
+
       D%norm_factor = norm_factor(D%gnx,D%BCs(1:2)) * &
                       norm_factor(D%gny,D%BCs(3:4))
       
@@ -1228,6 +1236,9 @@
         D%forward = PoisFFT_Plan2D(D, [(FFT_RealEven10, i=1,2)])
         D%backward = PoisFFT_Plan2D(D, [(FFT_RealEven01, i=1,2)])
 
+      else
+        !the 2D solver supports only the same condition on all boundaries
+        stop "Unknown combination of boundary conditions."
       endif
       
       if (D%approximation==PoisFFT_FiniteDifference2) then
@@ -1395,6 +1406,8 @@
       type(PoisFFT_Solver1D), intent(inout) :: D
       integer :: real_forw, real_back
       
+      call check_BC_pairs(D%BCs)
+
       D%norm_factor = norm_factor(D%gnx,D%BCs(1:2))
       
       allocate(D%denomx(D%gnx))
@@ -1595,6 +1608,8 @@
       !$ D%nthreads = omp_get_num_threads()
       !$omp end single
       !$omp end parallel
+
+      call check_BC_pairs(D%BCs)
 
       D%norm_factor = norm_factor(D%gnx,D%BCs(1:2)) * &
                       norm_factor(D%gny,D%BCs(3:4))
@@ -1978,6 +1993,8 @@
           res = FFT_RealEven01
       else if (all(BCs==[PoisFFT_Dirichlet,PoisFFT_Neumann])) then
           res = FFT_RealOdd01
+      else
+          res = FFT_Unsupported
       end if
     end function
     
@@ -2003,9 +2020,26 @@
           res = FFT_RealEven10
       else if (all(BCs==[PoisFFT_Dirichlet,PoisFFT_Neumann])) then
           res = FFT_RealOdd10
+      else
+          res = FFT_Unsupported
       end if
     end function
-    
+
+
+    !Stops for a pair of boundary conditions in any direction that has no
+    !transform (e.g. periodic with non-periodic, or a regular with a staggered
+    !Dirichlet condition). The supported combinations of the directions are
+    !checked by the Init procedures themselves.
+    subroutine check_BC_pairs(BCs)
+      integer, intent(in) :: BCs(:)
+      integer :: i
+
+      do i = 1, size(BCs), 2
+        if (real_transform_type_forward(BCs(i:i+1))==FFT_Unsupported) &
+          stop "Unknown combination of boundary conditions."
+      end do
+    end subroutine
+
     
 
     
