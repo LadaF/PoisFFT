@@ -152,7 +152,8 @@ else:
                  ('eigen_2d', 'tests/test_eigen_2d.F90', None),
                  ('eigen_3d', 'tests/test_eigen_3d.F90', None),
                  ('solver_api', 'tests/test_solver_api.F90', None),
-                 ('nonuniform_z', 'tests/test_nonuniform_z.F90', None)]
+                 ('nonuniform_z', 'tests/test_nonuniform_z.F90', None),
+                 ('error_reporting', 'tests/test_error_reporting.F90', None)]
 
 precisions = {'dp': [], 'sp': ['SINGLE']}
 if prec in precisions:
@@ -170,7 +171,7 @@ for name, source, cases in test_list:
 
 # programs that must stop with an error message: (name, source, number of
 # cases); case 0 must be accepted, cases 1..n rejected (serial build only)
-stop_tests = [] if mpi else [('unsupported_bcs', 'tests/test_unsupported_bcs.F90', 17)]
+stop_tests = [] if mpi else [('unsupported_bcs', 'tests/test_unsupported_bcs.F90', 19)]
 stop_programs = []
 for name, source, n_cases in stop_tests:
     exe_name = 'test_%s' % name
@@ -218,6 +219,12 @@ def run_commands():
     return runs
 
 
+# the messages of the library when it stops because of invalid arguments
+error_messages = ['Unknown combination of boundary conditions.',
+                  'The arrays z(1:) and z_u(0:) must cover the whole grid in z.',
+                  'The coordinates z and z_u must be increasing.']
+
+
 def run_one(label, cmd, env, expect=None):
     log_name = os.path.join(log_dir, label.replace(' ', '_').replace('=', '-')
                             .replace('(', '').replace(')', '') + '.log')
@@ -228,7 +235,7 @@ def run_one(label, cmd, env, expect=None):
         output = proc.stdout.decode(errors='replace')
         if expect == 'reject':
             # stop with a message gives the exit code 0, check the output
-            rejected = 'Unknown combination of boundary conditions' in output
+            rejected = any(m in output for m in error_messages)
             status = 'PASS' if rejected and 'NOT REJECTED' not in output else 'FAIL'
         elif expect == 'accept':
             status = 'PASS' if proc.returncode == 0 and 'all accepted' in output else 'FAIL'

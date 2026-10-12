@@ -1,9 +1,11 @@
-!Unit test of the rejection of unsupported boundary conditions.
+!Unit test of the rejection of unsupported boundary conditions and of
+!inconsistent grid arguments when no ierr argument is given.
 !
 !  test_unsupported_bcs <case>
 !
 !Case 1..n_cases constructs one solver with an unsupported combination of
-!boundary conditions. The library must stop with the message
+!boundary conditions (cases 18, 19: inconsistent z grid of the non-uniform
+!solver). The library must stop with the error message, e.g.
 !"Unknown combination of boundary conditions."; if the constructor returns,
 !the program prints NOT REJECTED and fails. Case 0 constructs valid solvers
 !of every kind and must finish normally (prints "all accepted").
@@ -22,7 +24,7 @@ program test_unsupported_bcs
                         Ns = PoisFFT_NeumannStag
   integer, parameter :: bad = 9   !not a boundary condition at all
 
-  integer, parameter :: n_cases = 17
+  integer, parameter :: n_cases = 19
   integer :: icase, k
   character(16) :: arg
   real(dp) :: z(4), z_u(0:4)
@@ -65,6 +67,9 @@ program test_unsupported_bcs
   case (15); call try_nuz([(D, k = 1, 6)])
   case (16); call try_nuz([P, P, P, P, D, D])
   case (17); call try_nuz([P, P, P, P, P, D])
+  !non-uniform z: inconsistent grid
+  case (18); call try_nuz_grid(z(1:3), z_u)
+  case (19); call try_nuz_grid(z([1, 3, 2, 4]), z_u)
   case default
     write(output_unit, '(a,i0)') "unknown test case ", icase
     error stop 2
@@ -101,6 +106,14 @@ contains
     integer, intent(in) :: bcs(6)
     type(Solver_nuz) :: s
     s = Solver_nuz([8, 6, 4], [1._dp, 1._dp], z, z_u, bcs, planning=PoisFFT_Estimate)
+    call Finalize(s)
+  end subroutine
+
+  subroutine try_nuz_grid(zz, zz_u)
+    real(dp), intent(in) :: zz(:), zz_u(0:)
+    type(Solver_nuz) :: s
+    s = Solver_nuz([8, 6, 4], [1._dp, 1._dp], zz, zz_u, [P, P, P, P, Ns, Ns], &
+                   planning=PoisFFT_Estimate)
     call Finalize(s)
   end subroutine
 
