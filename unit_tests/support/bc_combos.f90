@@ -9,7 +9,7 @@ module bc_combos
   implicit none
 
   private
-  public :: n_combos_3d, combos_3d
+  public :: n_combos_3d, combos_3d, n_combos_2d, combos_2d
 
   integer, parameter :: P = PoisFFT_Periodic, D = PoisFFT_Dirichlet, &
                         N = PoisFFT_Neumann, Ds = PoisFFT_DirichletStag, &
@@ -70,5 +70,15 @@ module bc_combos
       N, D, N, D, N, D,           & !51
       Ns,Ns,N, N, Ns,Ns           & !52
     ], [6, n_combos_3d])
+
+  !combinations of the 2D tests
+  integer, parameter :: n_combos_2d = 5
+  integer, parameter :: combos_2d(4, n_combos_2d) = reshape([ &
+      P, P, P, P,                 & ! 1 FullPeriodic
+      D, D, D, D,                 & ! 2 FullDirichlet
+      Ds,Ds,Ds,Ds,                & ! 3
+      N, N, N, N,                 & ! 4 FullNeumann
+      Ns,Ns,Ns,Ns                 & ! 5
+    ], [4, n_combos_2d])
 
 end module bc_combos

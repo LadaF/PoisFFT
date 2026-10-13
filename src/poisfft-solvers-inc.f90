@@ -175,7 +175,11 @@
       D%rwork = RHS
 
 
+#ifdef MPI
+      call Execute_MPI(D%forward)
+#else
       call Execute(D%forward, D%rwork)
+#endif
 
 
       do j = 1,D%ny
@@ -184,7 +188,11 @@
         end do
       end do
 
+#ifdef MPI
+      call Execute_MPI(D%backward)
+#else
       call Execute(D%backward, D%rwork)
+#endif
 
       Phi = D%rwork / D%norm_factor
 
@@ -203,18 +211,27 @@
       D%rwork = RHS
 
 
+#ifdef MPI
+      call Execute_MPI(D%forward)
+#else
       call Execute(D%forward, D%rwork)
+#endif
 
 
-      D%rwork(1,1) = 0
+      !the null mode is on the process with the global index (1,1)
+      if (D%offx==0.and.D%offy==0) D%rwork(1,1) = 0
 
       do j = 1,D%ny
-        do i = max(3-j,1),D%nx
+        do i = max(3-j-D%offx-D%offy,1),D%nx
           D%rwork(i,j) = D%rwork(i,j) / (D%denomx(i) + D%denomy(j))
         end do
       end do
 
+#ifdef MPI
+      call Execute_MPI(D%backward)
+#else
       call Execute(D%backward, D%rwork)
+#endif
 
       Phi = D%rwork / D%norm_factor
       
