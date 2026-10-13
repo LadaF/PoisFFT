@@ -123,6 +123,82 @@ solver.
 
 
 
+Using MPI
+---------
+
+With the library compiled for MPI (`scons mpi=yes`, the macro `MPI`, linked with PFFT
+and FFTW-MPI) every solver works on a distributed grid and the argument `mpi_comm`
+is required, also when running on a single process.
+
+All processes of the communicator construct the solver, call `Execute` and
+`Finalize` together. Each process passes
+
+  - its local number of points as the first argument `nxyz`,
+  - the global number of points in `gnxyz`,
+  - the offset of its first point in the global grid in `offs` (0 for the first
+    process in every direction),
+  - the communicator in `mpi_comm`,
+
+and its local parts of `Phi` and `RHS` (with ghost points as in the serial case) to
+`Execute`. The x direction is never distributed (nx = gnx).
+
+Call `MPI_Init` before the first solver is created and `Finalize` all solvers before
+`MPI_Finalize`. With OpenMP threads initialize MPI by `MPI_Init_thread` with
+`MPI_THREAD_SERIALIZED`, the solvers call MPI from inside OpenMP `single` regions.
+PFFT is initialized by the library.
+
+The 3D solvers (`PoisFFT_Solver3D` and `PoisFFT_Solver3D_nonuniform_z`) need a 2D
+Cartesian communicator, y and z are split. The local blocks must be those of PFFT
+(with `PFFT_TRANSPOSED_NONE`), otherwise the solver stops with "Inconsistent size of
+local arrays from pfft_local_size_dft!". The module `PoisFFT` has two helpers for
+that:
+
+    use iso_c_binding, only: c_int, c_intptr_t
+    integer :: comm, ierr
+    integer(c_intptr_t) :: ln(3), lo(3), ln2(3), lo2(3)
+
+    !npz processes in z, npy in y (the C order), npz*npy processes in MPI_COMM_WORLD
+    call PoisFFT_InitMPIGrid(MPI_COMM_WORLD, int([npz, npy], c_int), comm, ierr)
+
+    !the local block of the global grid gnx x gny x gnz, ln2, lo2 are not used
+    call PoisFFT_LocalGridSize(3, int([gnx, gny, gnz], c_intptr_t), comm, &
+                               ln, lo, ln2, lo2)
+
+    Solver = PoisFFT_Solver3D_DP(int(ln), [Lx, Ly, Lz], BCs, &
+                                 gnxyz=[gnx, gny, gnz], offs=int(lo), mpi_comm=comm)
+
+`PoisFFT_InitMPIGrid` returns `ierr /= 0` if the number of processes does not match.
+For the non-uniform z solver `z` and `z_u` contain the whole grid in z on every
+process.
+
+The 2D solver needs a 1D Cartesian communicator, y is split. The local blocks must
+again be those of PFFT. `PoisFFT_LocalGridSize` works only for 3D grids, use the
+PFFT procedures (available through the module `PoisFFT`) directly:
+
+    integer :: comm, ierr, nxy(2), offs(2)
+    integer(c_intptr_t) :: ln(2), lo(2), ln2(2), lo2(2), alloc_local
+
+    ierr = pfft_create_procmesh_1d(MPI_COMM_WORLD, int(np, c_int), comm)
+
+    !PFFT uses the C order of the dimensions
+    alloc_local = pfft_local_size_dft(2_c_int, int([gny, gnx], c_intptr_t), comm, &
+                                      PFFT_TRANSPOSED_NONE, ln, lo, ln2, lo2)
+    nxy = int(ln(2:1:-1))
+    offs = int(lo(2:1:-1))
+
+    Solver = PoisFFT_Solver2D_DP(nxy, [Lx, Ly], BCs, &
+                                 gnxyz=[gnx, gny], offs=offs, mpi_comm=comm)
+
+The 1D solver needs a 1D Cartesian communicator (e.g. from
+`pfft_create_procmesh_1d` or `MPI_Cart_create`). The grid can be split into any
+contiguous blocks, one per process, given by `nxyz` and `offs`. The right-hand side is
+gathered on the first process, solved there and the solution is scattered back, so
+the 1D solver does not save memory or time on more processes.
+
+From C and C++ the communicator is passed as a pointer, see usage_C.txt.
+
+
+
 Solver with a non-uniform grid in z
 -----------------------------------
 
