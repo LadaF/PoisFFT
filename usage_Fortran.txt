@@ -54,17 +54,11 @@ In one direction the pair must be periodic on both ends, or a non-periodic pair:
 both ends the same, or Neumann with Dirichlet in any order (both regular or both
 staggered).
 
-The 1D solver supports any such pair, the 2D solver the same type on all sides.
-The 3D solver supports:
-
-  - the same type on all sides
-  - periodic in x and y, any non-periodic pair in z
-  - periodic in x, Neumann (regular or staggered) in y and z
-  - periodic in x and z, Neumann in y; Neumann in x, periodic in y and z
-  - Dirichlet (regular or staggered) in x and y, periodic in z
-  - non-periodic in all directions with the same pair in x and y, or in y and z,
-    and with a Dirichlet condition on at least one boundary
-  - non-periodic in x and z (any pairs), periodic in y
+The 1D and 3D solvers support any such pair in every direction, the 2D solver
+the same type on all sides. In 3D the pairs in different directions may differ;
+the combinations without a specialized solver use one real-to-real transform in
+all three directions (with MPI a transform in one direction at a time with
+global transpositions, which is slower than the specialized solvers).
 
 You can choose from these types of boundary conditions:
 

@@ -43,6 +43,7 @@ program test_unsupported_bcs
     call try_1d([P, P]);  call try_1d([D, N]);  call try_1d([Ns, Ds])
     call try_2d([(Ds, k = 1, 4)])
     call try_3d([P, P, P, P, Ds, Ns]);  call try_3d([D, D, D, D, N, N])
+    call try_3d([D, D, P, P, P, P]);    call try_3d([N, D, Ns, Ns, P, P])
     call try_nuz([P, P, P, P, Ns, Ns])
     write(output_unit, '(a)') "all accepted"
     stop
@@ -57,11 +58,11 @@ program test_unsupported_bcs
   case (7);  call try_2d([D, D, N, N])
   case (8);  call try_2d([Ds, Ds, Ds, Ns])
   case (9);  call try_2d([P, D, P, P])
-  !3D: no solver for the combination, or an invalid pair in one direction
-  case (10); call try_3d([D, D, P, P, P, P])
+  !3D: an invalid pair in one direction
+  case (10); call try_3d([D, D, N, Ns, P, P])
   case (11); call try_3d([P, P, P, P, D, Ds])
   case (12); call try_3d([P, D, P, P, P, P])
-  case (13); call try_3d([N, N, D, D, P, P])
+  case (13); call try_3d([N, N, D, D, P, N])
   case (14); call try_3d([(bad, k = 1, 6)])
   !non-uniform z: only Neumann in z with all Neumann or periodic x and y
   case (15); call try_nuz([(D, k = 1, 6)])

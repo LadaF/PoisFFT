@@ -1,8 +1,9 @@
 !Combinations of boundary conditions of the 3D tests, shared by the serial
 !and the MPI tests. Every specialized solver routine of PoisFFT_Solver3D
 !(named in the comments) is covered with its variants. Under MPI the
-!routines NsPP, PNsP, DDP, 2real1real, 1real2real and RealPeriodicReal use
-!the general separable MPI solver.
+!routines NsPP, PNsP, DDP, 2real1real, 1real2real and Separable use the
+!general separable MPI solver. Separable takes every combination without a
+!specialized routine, cases 32..52.
 module bc_combos
   use PoisFFT_Parameters
   implicit none
@@ -14,7 +15,7 @@ module bc_combos
                         N = PoisFFT_Neumann, Ds = PoisFFT_DirichletStag, &
                         Ns = PoisFFT_NeumannStag
 
-  integer, parameter :: n_combos_3d = 39
+  integer, parameter :: n_combos_3d = 52
   integer, parameter :: combos_3d(6, n_combos_3d) = reshape([ &
       P, P, P, P, P, P,           & ! 1 FullPeriodic
       D, D, D, D, D, D,           & ! 2 FullDirichlet
@@ -47,14 +48,27 @@ module bc_combos
       Ds,Ds,Ns,Ns,Ns,Ns,          & !29
       Ns,Ds,Ds,Ds,Ds,Ds,          & !30
       D, D, N, N, N, N,           & !31
-      D, D, P, P, D, D,           & !32 RealPeriodicReal
+      D, D, P, P, D, D,           & !32 Separable: real, periodic, real
       Ds,Ds,P, P, Ds,Ds,          & !33
       N, N, P, P, N, N,           & !34
       Ns,Ns,P, P, Ns,Ns,          & !35
       D, D, P, P, N, N,           & !36
       Ns,Ns,P, P, Ds,Ds,          & !37
       N, D, P, P, D, N,           & !38
-      Ds,Ns,P, P, Ns,Ds           & !39
+      Ds,Ns,P, P, Ns,Ds,          & !39
+      D, D, P, P, P, P,           & !40 Separable: real, periodic, periodic
+      N, D, P, P, P, P,           & !41
+      P, P, Ds,Ds,P, P,           & !42 Separable: periodic, real, periodic
+      P, P, D, N, P, P,           & !43
+      P, P, D, D, N, N,           & !44 Separable: periodic, real, real
+      P, P, Ns,Ns,Ds,Ns,          & !45
+      N, N, N, N, P, P,           & !46 Separable: real, real, periodic
+      D, D, Ns,Ds,P, P,           & !47
+      D, D, N, N, D, D,           & !48 Separable: real in all directions
+      D, D, Ns,Ns,N, D,           & !49
+      N, N, N, N, Ns,Ns,          & !50
+      N, D, N, D, N, D,           & !51
+      Ns,Ns,N, N, Ns,Ns           & !52
     ], [6, n_combos_3d])
 
 end module bc_combos

@@ -334,11 +334,11 @@
 
 
 
-    !Non-periodic in x and z (any supported pairs), periodic in y. One 3D
-    !real-to-real transform with the halfcomplex transform in y, whose order
-    !of coefficients matches eigenvalues(). Under MPI the general separable
-    !solver is used.
-    subroutine PoisFFT_Solver3D_RealPeriodicReal(D, Phi, RHS)
+    !Any combination of supported pairs without a specialized solver. One 3D
+    !real-to-real transform, the halfcomplex transform in the periodic
+    !directions, whose order of coefficients matches eigenvalues(). Under MPI
+    !the general separable solver is used.
+    subroutine PoisFFT_Solver3D_Separable(D, Phi, RHS)
       type(PoisFFT_Solver3D), intent(inout) :: D
       real(RP), intent(out) :: Phi(:,:,:)
       real(RP), intent(in)  :: RHS(:,:,:)
@@ -364,7 +364,7 @@
         do j=1,D%ny
           do i=1,D%nx
             denom = D%denomx(i) + D%denomy(j) + D%denomz(k)
-            !zero only for the null mode of the all-Neumann problems
+            !zero only for the null mode of the singular problems
             if (denom /= 0) then
               D%rwork(i,j,k) = D%rwork(i,j,k) / denom
             else
@@ -384,7 +384,7 @@
       !$omp end workshare
       !$omp end parallel
 #endif
-    end subroutine PoisFFT_Solver3D_RealPeriodicReal
+    end subroutine PoisFFT_Solver3D_Separable
 
 
 
