@@ -32,10 +32,16 @@ contains
     character(32) :: arg
     integer(c_intptr_t) :: ln(3), lo(3), ln2(3), lo2(3)
 
-    call MPI_Init_thread(MPI_THREAD_FUNNELED, provided, ie)
+    call MPI_Init_thread(MPI_THREAD_SERIALIZED, provided, ie)
     call MPI_Comm_rank(MPI_COMM_WORLD, rank, ie)
     call MPI_Comm_size(MPI_COMM_WORLD, nprocs, ie)
     is_root = rank == 0
+
+    !the solvers call MPI from inside OpenMP single regions
+    !$ if (provided < MPI_THREAD_SERIALIZED) then
+    !$   if (is_root) write(error_unit, '(a)') "MPI does not provide MPI_THREAD_SERIALIZED."
+    !$   call MPI_Abort(MPI_COMM_WORLD, 5, ie)
+    !$ end if
 
     if (command_argument_count() >= 2) then
       call get_command_argument(1, arg)

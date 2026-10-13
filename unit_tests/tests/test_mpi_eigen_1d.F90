@@ -39,9 +39,15 @@ program test_mpi_eigen_1d
   integer :: ip, ia
   character(32) :: arg, grid_name
 
-  call MPI_Init_thread(MPI_THREAD_FUNNELED, provided, ie)
+  call MPI_Init_thread(MPI_THREAD_SERIALIZED, provided, ie)
   call MPI_Comm_rank(MPI_COMM_WORLD, rank, ie)
   call MPI_Comm_size(MPI_COMM_WORLD, nprocs, ie)
+
+  !the solvers call MPI from inside OpenMP single regions
+  !$ if (provided < MPI_THREAD_SERIALIZED) then
+  !$   if (rank == 0) write(error_unit, '(a)') "MPI does not provide MPI_THREAD_SERIALIZED."
+  !$   call MPI_Abort(MPI_COMM_WORLD, 5, ie)
+  !$ end if
 
   command_case = 0
   if (command_argument_count() >= 3) then

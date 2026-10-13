@@ -269,9 +269,14 @@ int main(int argc, char **argv)
 #ifdef MPI
   int nprocs, npy = 1, npz, provided;
 
-  MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
+  MPI_Init_thread(&argc, &argv, MPI_THREAD_SERIALIZED, &provided);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+  /* the solvers call MPI from inside OpenMP single regions */
+  if (provided < MPI_THREAD_SERIALIZED) {
+    if (rank == 0) fprintf(stderr, "MPI does not provide MPI_THREAD_SERIALIZED\n");
+    MPI_Abort(MPI_COMM_WORLD, 5);
+  }
   npz = nprocs;
   if (argc >= 3) {
     npy = atoi(argv[1]);
