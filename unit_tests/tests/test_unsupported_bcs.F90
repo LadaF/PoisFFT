@@ -5,7 +5,7 @@
 !
 !Case 1..n_cases constructs one solver with an unsupported combination of
 !boundary conditions (cases 18, 19: inconsistent z grid of the non-uniform
-!solver). The library must stop with the error message, e.g.
+!solver, 20, 21: inconsistent grid of the 3D and 1D solvers). The library must stop with the error message, e.g.
 !"Unknown combination of boundary conditions."; if the constructor returns,
 !the program prints NOT REJECTED and fails. Case 0 constructs valid solvers
 !of every kind and must finish normally (prints "all accepted").
@@ -24,7 +24,7 @@ program test_unsupported_bcs
                         Ns = PoisFFT_NeumannStag
   integer, parameter :: bad = 9   !not a boundary condition at all
 
-  integer, parameter :: n_cases = 19
+  integer, parameter :: n_cases = 21
   integer :: icase, k
   character(16) :: arg
   real(dp) :: z(4), z_u(0:4)
@@ -72,6 +72,10 @@ program test_unsupported_bcs
   !non-uniform z: inconsistent grid
   case (18); call try_nuz_grid(z(1:3), z_u)
   case (19); call try_nuz_grid(z([1, 3, 2, 4]), z_u)
+  !3D: the regular Neumann pair on a single point; 1D: a part of the grid
+  !without MPI
+  case (20); call try_3d_n([P, P, N, N, D, D], [8, 1, 4])
+  case (21); call try_1d_part()
   case default
     write(output_unit, '(a,i0)') "unknown test case ", icase
     error stop 2
@@ -101,6 +105,19 @@ contains
     integer, intent(in) :: bcs(6)
     type(Solver3D) :: s
     s = Solver3D([8, 6, 4], [1._dp, 1._dp, 1._dp], bcs, planning=PoisFFT_Estimate)
+    call Finalize(s)
+  end subroutine
+
+  subroutine try_3d_n(bcs, n)
+    integer, intent(in) :: bcs(6), n(3)
+    type(Solver3D) :: s
+    s = Solver3D(n, [1._dp, 1._dp, 1._dp], bcs, planning=PoisFFT_Estimate)
+    call Finalize(s)
+  end subroutine
+
+  subroutine try_1d_part()
+    type(Solver1D) :: s
+    s = Solver1D([4], [1._dp], [D, D], gnxyz=[8], offs=[2], planning=PoisFFT_Estimate)
     call Finalize(s)
   end subroutine
 

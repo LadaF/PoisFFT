@@ -176,7 +176,8 @@ if mpi:
                  ('mpi_eigen_2d', 'tests/test_mpi_eigen_2d.F90', list(range(1, 22)), line_layouts),
                  ('mpi_eigen_1d', 'tests/test_mpi_eigen_1d.F90', list(range(1, 10)), line_layouts),
                  ('mpi_nonuniform_z', 'tests/test_mpi_nonuniform_z.F90', list(range(1, 13)), grid_layouts),
-                 # the C interface, no separate cases
+                 # no separate cases
+                 ('mpi_error_reporting', 'tests/test_mpi_error_reporting.F90', [], grid_layouts),
                  ('mpi_c_api', 'tests/test_c_api.c', [], grid_layouts)]
 else:
     test_list = [('fft', 'tests/test_fft.F90', None, []),
@@ -208,7 +209,7 @@ for name, source, cases, layouts in test_list:
 
 # programs that must stop with an error message: (name, source, number of
 # cases); case 0 must be accepted, cases 1..n rejected (serial build only)
-stop_tests = [] if mpi else [('unsupported_bcs', 'tests/test_unsupported_bcs.F90', 19)]
+stop_tests = [] if mpi else [('unsupported_bcs', 'tests/test_unsupported_bcs.F90', 21)]
 stop_programs = []
 for name, source, n_cases in stop_tests:
     exe_name = 'test_%s' % name
@@ -259,7 +260,10 @@ def run_commands():
 # the messages of the library when it stops because of invalid arguments
 error_messages = ['Unknown combination of boundary conditions.',
                   'The arrays z(1:) and z_u(0:) must cover the whole grid in z.',
-                  'The coordinates z and z_u must be increasing.']
+                  'The coordinates z and z_u must be increasing.',
+                  'The local grid must lie inside the global grid.',
+                  'Without MPI the local grid must be the whole grid.',
+                  'The regular Neumann condition needs at least two points.']
 
 
 def run_one(label, cmd, env, expect=None):

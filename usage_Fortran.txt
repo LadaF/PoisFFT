@@ -84,6 +84,8 @@ There are other (optional) arguments for the initializer:
       integer, intent(in), optional :: mpi_comm
       integer, intent(in), optional :: nthreads
       integer, intent(in), optional :: planning
+      integer, intent(out), optional :: ierr
+      character(*), intent(out), optional :: errmsg
 
 `approximation` can change the spectral approximation of the Poisson equation to the 
 2nd order central finite difference, if it is equal to `PoisFFT_FiniteDifference2` 
@@ -103,6 +105,26 @@ threads.
 (default, `FFTW_MEASURE`) measures the fastest plans, which can differ from run to 
 run and with them the rounding of the results; `PoisFFT_Estimate` (`FFTW_ESTIMATE`) 
 gives the same plans and bitwise reproducible results in every run.
+
+`ierr` and `errmsg` report invalid arguments, which are checked before anything is
+allocated. Without `ierr` the constructor stops the program with a message. With
+`ierr` it returns instead and `ierr` contains
+
+  PoisFFT_OK          success
+  PoisFFT_ErrorBCs    unsupported combination of boundary conditions
+  PoisFFT_ErrorGrid   inconsistent grid: a local grid outside of the global one,
+                      without MPI a local grid different from the global one,
+                      a regular Neumann pair on a single point, with MPI a local
+                      block of the 2D or 3D solvers different from the PFFT
+                      decomposition
+  PoisFFT_ErrorMPI    with MPI a missing or not Cartesian communicator
+
+`errmsg` then contains the message, it is empty on success. With MPI all processes
+of the communicator return the same `ierr` (the processes with valid arguments get
+the message "Invalid arguments on another process of the communicator."). A solver
+returned with an error must not be used in `Execute`, but it can be passed to
+`Finalize`. Errors in FFTW, PFFT or MPI during the construction still stop the
+program.
 
 The call to the initializer can take much longer than the subsequent calls to 
 `Execute()`.
@@ -268,18 +290,8 @@ The optional arguments of the constructor are
       integer, intent(in), optional :: planning
       character(*), intent(out), optional :: errmsg
 
-in this order, it is safer to pass them by keyword. `approximation`, `gnxyz`, `offs`,
-`mpi_comm`, `nthreads` and `planning` are the same as for `PoisFFT_Solver3D`. With MPI
-the solver uses the same communicator and decomposition as `PoisFFT_Solver3D`, z is
-distributed as well.
-
-Without `ierr` the constructor stops the program with a message on invalid
-arguments. With `ierr` it returns instead and `ierr` contains
-
-  PoisFFT_OK          success
-  PoisFFT_ErrorBCs    unsupported combination of boundary conditions
-  PoisFFT_ErrorGrid   z or z_u do not cover the whole grid in z, or are not
-                      increasing
-
-`errmsg` then contains the message, it is empty on success. A solver returned with
-an error must not be used in `Execute`, but it can be passed to `Finalize`.
+in this order (unlike the other solvers `ierr` comes before `planning`), it is safer
+to pass them by keyword. They are the same as for `PoisFFT_Solver3D`. With MPI the
+solver uses the same communicator and decomposition as `PoisFFT_Solver3D`, z is
+distributed as well. The errors are reported as described above, `PoisFFT_ErrorGrid`
+also when z or z_u do not cover the whole grid in z or are not increasing.

@@ -1,6 +1,6 @@
 #include "precision.h"
 !Unit test of the error reporting through the optional arguments ierr and
-!errmsg of the PoisFFT_Solver3D_nonuniform_z constructor:
+!errmsg of the constructors. PoisFFT_Solver3D_nonuniform_z:
 !  - valid arguments give PoisFFT_OK, an empty errmsg and the same solution
 !    as a solver constructed without ierr
 !  - unsupported boundary conditions give PoisFFT_ErrorBCs
@@ -8,10 +8,15 @@
 !    PoisFFT_ErrorGrid
 !  - a solver returned with an error can be finalized and a valid solver
 !    can be constructed afterwards
+!PoisFFT_Solver1D, 2D and 3D: valid arguments as above, unsupported
+!boundary conditions, a local grid outside of the global one, a local grid
+!different from the global one without MPI and a regular Neumann pair on
+!a single point.
 !The behaviour without ierr (stop with the message) is tested in
-!test_unsupported_bcs.F90.
+!test_unsupported_bcs.F90, the MPI errors in test_mpi_error_reporting.F90.
 program test_error_reporting
-  use PoisFFT, Solver_nuz => SOLVER3D_NUZ
+  use PoisFFT, Solver_nuz => SOLVER3D_NUZ, Solver1D => SOLVER1D, &
+               Solver2D => SOLVER2D, Solver3D => SOLVER3D
   use reference_modes, only: dp, bc_pair_name
   use unit_test_utils
   implicit none
@@ -55,6 +60,25 @@ program test_error_reporting
 
   call ut_section("ierr without errmsg")
   call test_ierr_only()
+
+  call ut_section("PoisFFT_Solver1D/2D/3D valid arguments")
+  call test_valid_xd()
+
+  call ut_section("PoisFFT_Solver1D/2D/3D invalid arguments")
+  call test_error_1d([P, D], [7], [7], [0], PoisFFT_ErrorBCs, "boundary conditions")
+  call test_error_1d([D, D], [0], [0], [0], PoisFFT_ErrorGrid, "inside")
+  call test_error_1d([D, D], [7], [7], [1], PoisFFT_ErrorGrid, "inside")
+  call test_error_1d([D, D], [7], [8], [0], PoisFFT_ErrorGrid, "whole grid")
+  call test_error_1d([N, N], [1], [1], [0], PoisFFT_ErrorGrid, "two points")
+  call test_error_2d([P, P, D, Ds], [4, 5], [4, 5], [0, 0], PoisFFT_ErrorBCs, "boundary conditions")
+  call test_error_2d([P, P, D, D], [4, 0], [4, 0], [0, 0], PoisFFT_ErrorGrid, "inside")
+  call test_error_2d([P, P, D, D], [4, 5], [4, 6], [0, 0], PoisFFT_ErrorGrid, "whole grid")
+  call test_error_2d([N, N, P, P], [1, 5], [1, 5], [0, 0], PoisFFT_ErrorGrid, "two points")
+  call test_error_3d([D, Ds, P, P, P, P], [4, 5, 3], [4, 5, 3], [0, 0, 0], PoisFFT_ErrorBCs, &
+                     "boundary conditions")
+  call test_error_3d([P, P, P, P, P, P], [4, 5, 3], [4, 5, 3], [-1, 0, 0], PoisFFT_ErrorGrid, "inside")
+  call test_error_3d([P, P, P, P, P, P], [4, 5, 3], [4, 5, 6], [0, 0, 0], PoisFFT_ErrorGrid, "whole grid")
+  call test_error_3d([P, P, N, N, D, D], [4, 1, 3], [4, 1, 3], [0, 0, 0], PoisFFT_ErrorGrid, "two points")
 
   call ut_finish()
 
@@ -130,6 +154,112 @@ contains
 
     s = Solver_nuz(nxyz, Lxy, z, z_u, [(D, k = 1, 6)], ierr=ierr)
     call check(ierr == PoisFFT_ErrorBCs, "unsupported boundary conditions")
+    call Finalize(s)
+  end subroutine
+
+
+
+  !ierr == PoisFFT_OK, errmsg empty and the same solution as without ierr
+  subroutine test_valid_xd()
+    type(Solver1D) :: a1, b1
+    type(Solver2D) :: a2, b2
+    type(Solver3D) :: a3, b3
+    real(rp) :: r1(7), p1(7), q1(7), r2(4,5), p2(4,5), q2(4,5)
+    real(rp) :: r3(4,5,3), p3(4,5,3), q3(4,5,3)
+    real(dp) :: t1(7), t2(4,5), t3(4,5,3)
+    integer :: ierr
+    character(100) :: errmsg
+
+    call random_number(t1); r1 = real(t1, rp)
+    call random_number(t2); r2 = real(t2, rp)
+    call random_number(t3); r3 = real(t3, rp)
+
+    a1 = Solver1D([7], [1.3_rp], [Ns, Ds], planning=PoisFFT_Estimate, ierr=ierr, errmsg=errmsg)
+    call check(ierr == PoisFFT_OK .and. len_trim(errmsg) == 0, "1D Ns,Ds ierr and errmsg")
+    b1 = Solver1D([7], [1.3_rp], [Ns, Ds], planning=PoisFFT_Estimate)
+    call Execute(a1, p1, r1)
+    call Execute(b1, q1, r1)
+    call check(all(p1 == q1), "1D Ns,Ds same solution as without ierr")
+    call Finalize(a1)
+    call Finalize(b1)
+
+    a2 = Solver2D([4, 5], Lxy, [P, P, D, N], planning=PoisFFT_Estimate, ierr=ierr, errmsg=errmsg)
+    call check(ierr == PoisFFT_OK .and. len_trim(errmsg) == 0, "2D P,P D,N ierr and errmsg")
+    b2 = Solver2D([4, 5], Lxy, [P, P, D, N], planning=PoisFFT_Estimate)
+    call Execute(a2, p2, r2)
+    call Execute(b2, q2, r2)
+    call check(all(p2 == q2), "2D P,P D,N same solution as without ierr")
+    call Finalize(a2)
+    call Finalize(b2)
+
+    a3 = Solver3D([4, 5, 3], [Lxy, 0.7_rp], [P, P, N, N, Ds, Ds], &
+                  gnxyz=[4, 5, 3], offs=[0, 0, 0], planning=PoisFFT_Estimate, &
+                  ierr=ierr, errmsg=errmsg)
+    call check(ierr == PoisFFT_OK .and. len_trim(errmsg) == 0, "3D P,P N,N Ds,Ds ierr and errmsg")
+    b3 = Solver3D([4, 5, 3], [Lxy, 0.7_rp], [P, P, N, N, Ds, Ds], planning=PoisFFT_Estimate)
+    call Execute(a3, p3, r3)
+    call Execute(b3, q3, r3)
+    call check(all(p3 == q3), "3D P,P N,N Ds,Ds same solution as without ierr")
+    call Finalize(a3)
+    call Finalize(b3)
+  end subroutine
+
+
+  subroutine check_xd_error(label, ierr, errmsg, expected, msg_part)
+    character(*), intent(in) :: label, errmsg, msg_part
+    integer, intent(in) :: ierr, expected
+
+    call check(ierr == expected, label // " ierr")
+    call check(index(errmsg, msg_part) > 0, label // " errmsg", trim(errmsg))
+  end subroutine
+
+
+  subroutine test_error_1d(bcs, n, gn, off, expected, msg_part)
+    integer, intent(in) :: bcs(2), n(1), gn(1), off(1), expected
+    character(*), intent(in) :: msg_part
+    type(Solver1D) :: s
+    integer :: ierr
+    character(100) :: errmsg
+    character(80) :: label
+
+    write(label, '("1D ",a," n=",i0," gn=",i0," off=",i0)') bc_pair_name(bcs), n, gn, off
+    s = Solver1D(n, [1.3_rp], bcs, gnxyz=gn, offs=off, planning=PoisFFT_Estimate, &
+                 ierr=ierr, errmsg=errmsg)
+    call check_xd_error(trim(label), ierr, errmsg, expected, msg_part)
+    !the solver returned with an error can be finalized
+    call Finalize(s)
+  end subroutine
+
+
+  subroutine test_error_2d(bcs, n, gn, off, expected, msg_part)
+    integer, intent(in) :: bcs(4), n(2), gn(2), off(2), expected
+    character(*), intent(in) :: msg_part
+    type(Solver2D) :: s
+    integer :: ierr
+    character(100) :: errmsg
+    character(80) :: label
+
+    write(label, '("2D ",a," n=",i0,"x",i0," gn=",i0,"x",i0)') bc_pair_name(bcs), n, gn
+    s = Solver2D(n, Lxy, bcs, gnxyz=gn, offs=off, planning=PoisFFT_Estimate, &
+                 ierr=ierr, errmsg=errmsg)
+    call check_xd_error(trim(label), ierr, errmsg, expected, msg_part)
+    call Finalize(s)
+  end subroutine
+
+
+  subroutine test_error_3d(bcs, n, gn, off, expected, msg_part)
+    integer, intent(in) :: bcs(6), n(3), gn(3), off(3), expected
+    character(*), intent(in) :: msg_part
+    type(Solver3D) :: s
+    integer :: ierr
+    character(100) :: errmsg
+    character(80) :: label
+
+    write(label, '("3D ",a," n=",i0,2("x",i0)," gn=",i0,2("x",i0)," off=",i0,2(",",i0))') &
+          bc_pair_name(bcs), n, gn, off
+    s = Solver3D(n, [Lxy, 0.7_rp], bcs, gnxyz=gn, offs=off, planning=PoisFFT_Estimate, &
+                 ierr=ierr, errmsg=errmsg)
+    call check_xd_error(trim(label), ierr, errmsg, expected, msg_part)
     call Finalize(s)
   end subroutine
 

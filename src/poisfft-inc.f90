@@ -25,6 +25,7 @@
   use PoisFFT_Parameters
 #ifdef MPI
   use mpi
+  use pfft, only: pfft_local_size_dft, PFFT_TRANSPOSED_NONE
 #endif
   implicit none
 
@@ -83,7 +84,8 @@
 
 
     function PoisFFT_Solver3D__New(nxyz,Lxyz,BCs,approximation, &
-                                  gnxyz,offs,mpi_comm,nthreads,planning) result(D)
+                                  gnxyz,offs,mpi_comm,nthreads,planning, &
+                                  ierr,errmsg) result(D)
       type(PoisFFT_Solver3D) :: D
 
       integer, intent(in)   :: nxyz(3)
@@ -95,6 +97,9 @@
       integer, intent(in), optional :: mpi_comm
       integer, intent(in), optional :: nthreads
       integer, intent(in), optional :: planning
+      integer, intent(out), optional :: ierr
+      character(*), intent(out), optional :: errmsg
+      integer :: code, detail
 
       D%nxyz = nxyz
 
@@ -130,13 +135,7 @@
       
       if (present(approximation)) D%approximation = approximation
       
-      if (present(mpi_comm)) then
-        D%mpi%comm = mpi_comm
-#ifdef MPI      
-      else
-        stop "No PFFT comm present in PoisFFT_Solver3D__New."
-#endif
-      end if
+      if (present(mpi_comm)) D%mpi%comm = mpi_comm
 
       if (present(nthreads)) then
         D%nthreads = nthreads
@@ -145,6 +144,15 @@
       endif
 
       if (present(planning)) D%planning = planning
+
+      call check_arguments(D%nxyz, [D%gnx, D%gny, D%gnz], [D%offx, D%offy, D%offz], D%BCs, &
+                           present(mpi_comm), D%mpi%comm, code, detail)
+      if (present(ierr)) ierr = code
+      if (present(errmsg)) errmsg = error_message(detail)
+      if (code /= PoisFFT_OK) then
+        if (.not.present(ierr)) call stop_with_message(detail)
+        return
+      end if
 
       !create fftw plans and allocate working arrays
       call Init(D)
@@ -1149,7 +1157,8 @@
 
 
     function PoisFFT_Solver2D__New(nxyz,Lxyz,BCs,approximation, &
-                                  gnxyz,offs,mpi_comm,nthreads,planning) result(D)
+                                  gnxyz,offs,mpi_comm,nthreads,planning, &
+                                  ierr,errmsg) result(D)
       type(PoisFFT_Solver2D) :: D
 
       integer, intent(in)   :: nxyz(2)
@@ -1161,6 +1170,9 @@
       integer, intent(in), optional  :: mpi_comm
       integer, intent(in), optional :: nthreads
       integer, intent(in), optional :: planning
+      integer, intent(out), optional :: ierr
+      character(*), intent(out), optional :: errmsg
+      integer :: code, detail
 
       D%nxyz = nxyz
 
@@ -1191,13 +1203,7 @@
 
       if (present(approximation)) D%approximation = approximation
       
-      if (present(mpi_comm)) then
-        D%mpi%comm = mpi_comm
-#ifdef MPI      
-      else
-        stop "No PFFT comm present in PoisFFT_Solver2D__New."
-#endif
-      end if
+      if (present(mpi_comm)) D%mpi%comm = mpi_comm
 
       if (present(nthreads)) then
         D%nthreads = nthreads
@@ -1206,6 +1212,15 @@
       endif
 
       if (present(planning)) D%planning = planning
+
+      call check_arguments(D%nxyz, [D%gnx, D%gny], [D%offx, D%offy], D%BCs, &
+                           present(mpi_comm), D%mpi%comm, code, detail)
+      if (present(ierr)) ierr = code
+      if (present(errmsg)) errmsg = error_message(detail)
+      if (code /= PoisFFT_OK) then
+        if (.not.present(ierr)) call stop_with_message(detail)
+        return
+      end if
 
       !create fftw plans and allocate working array
       call Init(D)
@@ -1329,7 +1344,8 @@
 
 
     function PoisFFT_Solver1D__New(nxyz,Lxyz,BCs,approximation, &
-                                  gnxyz,offs,mpi_comm,nthreads,planning) result(D)
+                                  gnxyz,offs,mpi_comm,nthreads,planning, &
+                                  ierr,errmsg) result(D)
       type(PoisFFT_Solver1D) :: D
 
       integer, intent(in)   :: nxyz(1)
@@ -1341,6 +1357,9 @@
       integer, intent(in), optional :: mpi_comm
       integer, intent(in), optional :: nthreads
       integer, intent(in), optional :: planning
+      integer, intent(out), optional :: ierr
+      character(*), intent(out), optional :: errmsg
+      integer :: code, detail
 #ifdef MPI
       integer :: ie, dims
 #endif
@@ -1368,16 +1387,7 @@
 
       if (present(approximation)) D%approximation = approximation
 
-      if (present(mpi_comm)) then
-        D%mpi%comm = mpi_comm
-#ifdef MPI
-        call MPI_Cartdim_get(D%mpi%comm, dims, ie)
-        if (ie/=0) stop "Error executing MPI_Cartdim_get."
-        D%mpi_transpose_needed = dims > 0
-      else
-        stop "No PFFT comm present in PoisFFT_Solver1D__New."
-#endif
-      end if
+      if (present(mpi_comm)) D%mpi%comm = mpi_comm
       
       
       
@@ -1388,6 +1398,21 @@
       endif
 
       if (present(planning)) D%planning = planning
+
+      call check_arguments(D%nxyz, [D%gnx], [D%offx], D%BCs, &
+                           present(mpi_comm), D%mpi%comm, code, detail)
+      if (present(ierr)) ierr = code
+      if (present(errmsg)) errmsg = error_message(detail)
+      if (code /= PoisFFT_OK) then
+        if (.not.present(ierr)) call stop_with_message(detail)
+        return
+      end if
+
+#ifdef MPI
+      call MPI_Cartdim_get(D%mpi%comm, dims, ie)
+      if (ie/=0) stop "Error executing MPI_Cartdim_get."
+      D%mpi_transpose_needed = dims > 0
+#endif
 
        !create fftw plans and allocate working array
       call Init(D)
@@ -1579,6 +1604,7 @@
       integer, intent(in), optional :: planning
       integer, intent(out),optional :: ierr
       character(*), intent(out), optional :: errmsg
+      integer :: code, detail
 
       if (present(ierr)) ierr = PoisFFT_OK
       if (present(errmsg)) errmsg = ""
@@ -1622,13 +1648,7 @@
       
       if (present(approximation)) D%approximation = approximation
       
-      if (present(mpi_comm)) then
-        D%mpi%comm = mpi_comm
-#ifdef MPI      
-      else
-        stop "No PFFT comm present in PoisFFT_Solver3D__New."
-#endif
-      end if
+      if (present(mpi_comm)) D%mpi%comm = mpi_comm
 
       if (present(nthreads)) then
         D%nthreads = nthreads
@@ -1637,6 +1657,16 @@
       endif
 
       if (present(planning)) D%planning = planning
+
+      !the boundary conditions in z and the grid in z are checked by Init
+      call check_arguments(D%nxyz, [D%gnx, D%gny, D%gnz], [D%offx, D%offy, D%offz], &
+                           D%BCs, present(mpi_comm), D%mpi%comm, code, detail)
+      if (present(ierr)) ierr = code
+      if (present(errmsg)) errmsg = error_message(detail)
+      if (code /= PoisFFT_OK) then
+        if (.not.present(ierr)) call stop_with_message(detail)
+        return
+      end if
 
       !create fftw plans and allocate working arrays
       call Init(D, ierr, errmsg)
@@ -2154,6 +2184,138 @@
     !transform (e.g. periodic with non-periodic, or a regular with a staggered
     !Dirichlet condition). The supported combinations of the directions are
     !checked by the Init procedures themselves.
+    !The arguments of the constructors checked before anything is allocated.
+    !code is PoisFFT_OK or the error code, detail selects the message (see
+    !error_message). With MPI all processes of a valid communicator get the
+    !largest code, so that they all return or all continue.
+    subroutine check_arguments(nxyz, gnxyz, offs, BCs, comm_present, comm, code, detail)
+      integer, intent(in) :: nxyz(:), gnxyz(:), offs(:), BCs(:)
+      logical, intent(in) :: comm_present
+      integer, intent(in) :: comm
+      integer, intent(out) :: code, detail
+      integer :: d
+#ifdef MPI
+      integer :: ie, topo, glob_code
+      integer(c_intptr_t) :: ln(size(nxyz)), lo(size(nxyz)), ln2(size(nxyz)), lo2(size(nxyz))
+      integer(c_intptr_t) :: alloc_local
+#endif
+
+      code = PoisFFT_OK
+      detail = 0
+
+      if (.not.BC_pairs_supported(BCs)) then
+        code = PoisFFT_ErrorBCs
+        detail = 1
+      else if (any(nxyz < 1) .or. any(offs < 0) .or. any(offs + nxyz > gnxyz)) then
+        code = PoisFFT_ErrorGrid
+        detail = 2
+#ifndef MPI
+      else if (any(gnxyz /= nxyz)) then
+        code = PoisFFT_ErrorGrid
+        detail = 3
+#endif
+      else
+        !the transform of the regular Neumann pair (REDFT00) needs 2 points
+        do d = 1, size(nxyz)
+          if (all(BCs(2*d-1:2*d)==PoisFFT_Neumann) .and. gnxyz(d) < 2) then
+            code = PoisFFT_ErrorGrid
+            detail = 4
+          end if
+        end do
+      end if
+
+#ifdef MPI
+      if (.not.comm_present) then
+        if (code == PoisFFT_OK) then
+          code = PoisFFT_ErrorMPI
+          detail = 6
+        end if
+        return
+      end if
+
+      call MPI_Topo_test(comm, topo, ie)
+      if (ie /= 0 .or. topo /= MPI_CART) then
+        if (code == PoisFFT_OK) then
+          code = PoisFFT_ErrorMPI
+          detail = 7
+        end if
+        return
+      end if
+
+      !the 2D and 3D solvers use the decomposition of PFFT, the global sizes
+      !are the same on all processes, so either all or none call PFFT here
+      if (size(nxyz) > 1 .and. all(gnxyz >= 1)) then
+        alloc_local = pfft_local_size_dft(size(nxyz), int(gnxyz(size(nxyz):1:-1), c_intptr_t), &
+                                          comm, PFFT_TRANSPOSED_NONE, ln, lo, ln2, lo2)
+        if (code == PoisFFT_OK .and. &
+            (any(ln(size(nxyz):1:-1) /= nxyz) .or. any(lo(size(nxyz):1:-1) /= offs))) then
+          code = PoisFFT_ErrorGrid
+          detail = 5
+        end if
+      end if
+
+      call MPI_Allreduce(code, glob_code, 1, MPI_INTEGER, MPI_MAX, comm, ie)
+      if (glob_code /= code .and. code == PoisFFT_OK) then
+        code = glob_code
+        detail = 8
+      end if
+#endif
+    end subroutine
+
+
+    function error_message(detail) result(msg)
+      integer, intent(in) :: detail
+      character(:), allocatable :: msg
+
+      select case (detail)
+      case (1)
+        msg = "Unknown combination of boundary conditions."
+      case (2)
+        msg = "The local grid must lie inside the global grid."
+      case (3)
+        msg = "Without MPI the local grid must be the whole grid."
+      case (4)
+        msg = "The regular Neumann condition needs at least two points."
+      case (5)
+        msg = "The local grid does not match the PFFT decomposition."
+      case (6)
+        msg = "The MPI communicator mpi_comm is required."
+      case (7)
+        msg = "The MPI communicator mpi_comm must be Cartesian."
+      case (8)
+        msg = "Invalid arguments on another process of the communicator."
+      case default
+        msg = ""
+      end select
+    end function
+
+
+    !stops with the message of check_arguments, the literal messages are
+    !needed, a variable stop code requires Fortran 2018
+    subroutine stop_with_message(detail)
+      integer, intent(in) :: detail
+
+      select case (detail)
+      case (1)
+        stop "Unknown combination of boundary conditions."
+      case (2)
+        stop "The local grid must lie inside the global grid."
+      case (3)
+        stop "Without MPI the local grid must be the whole grid."
+      case (4)
+        stop "The regular Neumann condition needs at least two points."
+      case (5)
+        stop "The local grid does not match the PFFT decomposition."
+      case (6)
+        stop "The MPI communicator mpi_comm is required."
+      case (7)
+        stop "The MPI communicator mpi_comm must be Cartesian."
+      case default
+        stop "Invalid arguments on another process of the communicator."
+      end select
+    end subroutine
+
+
     subroutine check_BC_pairs(BCs)
       integer, intent(in) :: BCs(:)
 
