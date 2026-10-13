@@ -1,73 +1,26 @@
 
 
 
+    !The 1D solvers work on the whole grid, Phi and RHS without ghost points.
+    !With MPI they are called on the first process by PoisFFT_Solver1D_MPI.
     subroutine PoisFFT_Solver1D_FullPeriodic(D, Phi, RHS)
       type(PoisFFT_Solver1D), intent(inout) :: D
       real(RP), intent(out) :: Phi(:)
       real(RP), intent(in)  :: RHS(:)
       integer i
-#ifdef MPI
-      integer, allocatable :: displs(:), counts(:)
-      real(RP),allocatable :: tmp(:)
-      integer :: ie
 
-      if (D%mpi_transpose_needed) then
-        call MPI_Comm_rank(D%mpi%comm, D%mpi%rank, ie)
-        call MPI_Comm_size(D%mpi%comm, D%mpi%np, ie)
-        allocate(displs(D%mpi%np))
-        allocate(counts(D%mpi%np))
-        if (D%mpi%rank==0) then
-          allocate(tmp(1:D%gnx))
-        else
-          allocate(tmp(1))
-        end if
-
-        call MPI_Gather(D%offx, 1, MPI_INTEGER, &
-                        displs, 1, MPI_INTEGER, 0, &
-                        D%mpi%comm, ie)
-
-        call MPI_Gather(D%nx, 1, MPI_INTEGER, &
-                         counts, 1, MPI_INTEGER, 0, &
-                         D%mpi%comm, ie)
-
-        call MPI_Gatherv(RHS, D%nx, MPI_RP, &
-                         tmp, counts, displs, MPI_RP, 0, &
-                         D%mpi%comm, ie)
-        if (ie/=0) stop "Error in MPI_Gatherv!"
-        
-        if (D%mpi%rank==0) D%cwork = cmplx(tmp,0._RP,CP)
-      
-        if (D%mpi%rank==0) then
-          call Execute(D%forward, D%cwork)
-        
-          if (D%offx==0) D%cwork(1) = 0
-          
-          forall(i=2:D%gnx) &
-            D%cwork(i) = D%cwork(i) / D%denomx(i)
-
-          call Execute(D%backward, D%cwork)
-        end if
-      
-        tmp = real(D%cwork,RP) / D%norm_factor
-        
-        call MPI_Scatterv(tmp, counts, displs, MPI_RP, &
-                          Phi, D%nx, MPI_RP, 0, &
-                          D%mpi%comm, ie)
-      end if
-#else
       ! Forward FFT of RHS
       D%cwork = cmplx(RHS,0._RP,CP)
 
       call Execute(D%forward, D%cwork)
 
       D%cwork(1) = 0
-      forall(i=2:D%nx) &
+      forall(i=2:size(RHS)) &
         D%cwork(i) = D%cwork(i) / D%denomx(i)
 
       call Execute(D%backward, D%cwork)
 
       Phi = real(D%cwork,RP) / D%norm_factor
-#endif
 
     end subroutine PoisFFT_Solver1D_FullPeriodic
 
@@ -86,7 +39,7 @@
 
       call Execute(D%forward, D%rwork)
 
-      forall(i=1:D%nx) &
+      forall(i=1:size(RHS)) &
         D%rwork(i) = D%rwork(i) / D%denomx(i)
 
       call Execute(D%backward, D%rwork)
@@ -111,7 +64,7 @@
       call Execute(D%forward, D%rwork)
 
       D%rwork(1) = 0
-      forall(i=2:D%nx) &
+      forall(i=2:size(RHS)) &
         D%rwork(i) = D%rwork(i) / D%denomx(i)
 
       call Execute(D%backward, D%rwork)

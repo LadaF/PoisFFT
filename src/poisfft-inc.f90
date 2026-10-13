@@ -1422,12 +1422,13 @@
         
       endif
       
+      !for the whole grid, with MPI it is solved on the first process
       if (D%approximation==PoisFFT_FiniteDifference2) then
-        D%denomx = eigenvalues(eig_fn_FD2, D%BCs(1:2), D%Lx, D%gnx, D%gnx, D%offx)
+        D%denomx = eigenvalues(eig_fn_FD2, D%BCs(1:2), D%Lx, D%gnx, D%gnx, 0)
       else if (D%approximation==PoisFFT_FiniteDifference4) then
-        D%denomx = eigenvalues(eig_fn_FD4, D%BCs(1:2), D%Lx, D%gnx, D%gnx, D%offx)
+        D%denomx = eigenvalues(eig_fn_FD4, D%BCs(1:2), D%Lx, D%gnx, D%gnx, 0)
       else
-        D%denomx = eigenvalues(eig_fn_spectral, D%BCs(1:2), D%Lx, D%gnx, D%gnx, D%offx)
+        D%denomx = eigenvalues(eig_fn_spectral, D%BCs(1:2), D%Lx, D%gnx, D%gnx, 0)
       end if
 
     end subroutine PoisFFT_Solver1D_Init
@@ -1446,41 +1447,89 @@
       ngPhi = (ubound(Phi)-D%nx)/2
       ngRHS = (ubound(RHS)-D%nx)/2
 
+#ifdef MPI
+      if (D%mpi_transpose_needed) then
+        call PoisFFT_Solver1D_MPI(D,&
+                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
+                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
+        return
+      end if
+#endif
+
+      call PoisFFT_Solver1D_Local(D,&
+               Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
+               RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
+
+    end subroutine PoisFFT_Solver1D__Execute
+
+
+    !Solution of the whole grid in Phi and RHS (without ghost points).
+    subroutine PoisFFT_Solver1D_Local(D,Phi,RHS)
+      type(PoisFFT_Solver1D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:)
+      real(RP), intent(in)  :: RHS(:)
 
       if (all(D%BCs==PoisFFT_Periodic)) then
 
-        call PoisFFT_Solver1D_FullPeriodic(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
-
-      else if (all(D%BCs==PoisFFT_Dirichlet) .or. &
-               all(D%BCs==PoisFFT_DirichletStag)) then
-
-        call PoisFFT_Solver1D_FullDirichlet(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
+        call PoisFFT_Solver1D_FullPeriodic(D, Phi, RHS)
 
       else if (all(D%BCs==PoisFFT_Neumann) .or. &
                all(D%BCs==PoisFFT_NeumannStag)) then
 
-        call PoisFFT_Solver1D_FullNeumann(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
-                 
-      else if (all(D%BCs==PoisFFT_Dirichlet .or. &
-                   D%BCs==PoisFFT_Neumann .or. &
-                   D%BCs==PoisFFT_DirichletStag .or. &
-                   D%BCs==PoisFFT_NeumannStag) &
-               .and. &
-               any(D%BCs==PoisFFT_DirichletStag .or. &
-                   D%BCs==PoisFFT_Dirichlet)) then
-   
-        call PoisFFT_Solver1D_FullDirichlet(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx))
+        call PoisFFT_Solver1D_FullNeumann(D, Phi, RHS)
+
+      else
+        !Dirichlet on at least one end, every pair was checked by check_BC_pairs
+
+        call PoisFFT_Solver1D_FullDirichlet(D, Phi, RHS)
+
       endif
 
-    end subroutine PoisFFT_Solver1D__Execute
+    end subroutine PoisFFT_Solver1D_Local
+
+
+#ifdef MPI
+    !The 1D solver with a distributed grid (local parts without ghost
+    !points): the right-hand side is gathered on the first process of the
+    !communicator, solved there and the solution is scattered back.
+    subroutine PoisFFT_Solver1D_MPI(D,Phi,RHS)
+      type(PoisFFT_Solver1D), intent(inout) :: D
+      real(RP), intent(out) :: Phi(:)
+      real(RP), intent(in)  :: RHS(:)
+      integer, allocatable :: displs(:), counts(:)
+      real(RP), allocatable :: grhs(:), gphi(:)
+      integer :: ie
+
+      call MPI_Comm_rank(D%mpi%comm, D%mpi%rank, ie)
+      call MPI_Comm_size(D%mpi%comm, D%mpi%np, ie)
+      allocate(displs(D%mpi%np), counts(D%mpi%np))
+      if (D%mpi%rank==0) then
+        allocate(grhs(D%gnx), gphi(D%gnx))
+      else
+        allocate(grhs(1), gphi(1))
+      end if
+
+      call MPI_Gather(D%offx, 1, MPI_INTEGER, &
+                      displs, 1, MPI_INTEGER, 0, &
+                      D%mpi%comm, ie)
+
+      call MPI_Gather(D%nx, 1, MPI_INTEGER, &
+                      counts, 1, MPI_INTEGER, 0, &
+                      D%mpi%comm, ie)
+
+      call MPI_Gatherv(RHS, D%nx, MPI_RP, &
+                       grhs, counts, displs, MPI_RP, 0, &
+                       D%mpi%comm, ie)
+      if (ie/=0) stop "Error in MPI_Gatherv!"
+
+      if (D%mpi%rank==0) call PoisFFT_Solver1D_Local(D, gphi, grhs)
+
+      call MPI_Scatterv(gphi, counts, displs, MPI_RP, &
+                        Phi, D%nx, MPI_RP, 0, &
+                        D%mpi%comm, ie)
+      if (ie/=0) stop "Error in MPI_Scatterv!"
+    end subroutine PoisFFT_Solver1D_MPI
+#endif
 
 
 

@@ -13,9 +13,9 @@
 
    With MPI it also checks the global sizes, the offsets and the
    communicator. The 3D solvers use the 2D PFFT process grid npy x npz of
-   the command line, the 2D solvers a 1D communicator of all processes; the
-   local blocks come from PFFT. The 1D solver is not tested with MPI. The
-   case argument is not used.
+   the command line, the 1D and 2D solvers a 1D communicator of all
+   processes. The local blocks of the 2D and 3D solvers come from PFFT, the
+   1D grid is split into contiguous blocks. The case argument is not used.
 
    The right-hand side is a product of 1D eigenvectors from the Fortran
    reference (c_test_support.f90), the error is normalized as in the
@@ -57,7 +57,7 @@ static const real ghost_rhs = -777, ghost_phi = 12345;
 static const int ng_phi[3] = {1, 0, 2}, ng_rhs[3] = {0, 2, 1};
 
 #ifdef MPI
-/* the communicators of the 2D and 3D solvers */
+/* the communicators of the 1D and 2D solvers and of the 3D solvers */
 static MPI_Comm comm_2d, comm_3d;
 #endif
 
@@ -123,7 +123,13 @@ static void test_problem(int dims, const int *gns, const int *bcs, int approx,
 
   /* the local block */
 #ifdef MPI
-  {
+  if (dims == 1) {
+    int rank, nprocs;
+    MPI_Comm_rank(comm_2d, &rank);
+    MPI_Comm_size(comm_2d, &nprocs);
+    ns[0] = gns[0] / nprocs + (rank < gns[0] % nprocs);
+    offs[0] = rank * (gns[0] / nprocs) + (rank < gns[0] % nprocs ? rank : gns[0] % nprocs);
+  } else {
     MPI_Comm comm = dims == 3 ? comm_3d : comm_2d;
     ptrdiff_t gn_p[3], ln[3], lo[3], ln2[3], lo2[3];
     for (d = 0; d < dims; d++) gn_p[d] = gns[d];
@@ -294,13 +300,8 @@ int main(int argc, char **argv)
 
   for (ghosts = 0; ghosts <= 1; ghosts++)
     for (ia = 0; ia < 3; ia++) {
-#ifndef MPI
       for (ic = 0; ic < 3; ic++)
         test_problem(1, n1, bcs1[ic], approxs[ia], ghosts);
-#else
-      (void) n1;
-      (void) bcs1;
-#endif
       for (ic = 0; ic < 3; ic++)
         test_problem(2, n2, bcs2[ic], approxs[ia], ghosts);
       for (ic = 0; ic < 4; ic++)
