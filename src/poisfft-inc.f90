@@ -1650,8 +1650,7 @@
       integer,      intent(out), optional :: ierr
       character(*), intent(out), optional :: errmsg
       integer :: real_forw, real_back
-      integer :: real_forw_xy, real_back_xy
-      integer :: real_forw_z, real_back_z
+      integer :: real_forw_xy(2), real_back_xy(2)
       integer :: i, n
       !$omp parallel
       !$omp single
@@ -1664,12 +1663,10 @@
 
       !the arguments are checked before anything is allocated, so that
       !a solver returned with an error can be finalized
+      !any supported pairs in x and y, Neumann in z
       if (.not.BC_pairs_supported(D%BCs) .or. &
-          .not.(all(D%BCs==PoisFFT_Neumann) .or. &
-                all(D%BCs==PoisFFT_NeumannStag) .or. &
-                (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
-                 (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
-                  all(D%BCs(5:6)==PoisFFT_NeumannStag))))) then
+          .not.(all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
+                all(D%BCs(5:6)==PoisFFT_NeumannStag))) then
         call report_error(PoisFFT_ErrorBCs)
         return
       end if
@@ -1698,42 +1695,7 @@
       if (D%nthreads>1) call PoisFFT_InitThreads(1)
 #endif
 
-      if (all(D%BCs==PoisFFT_Neumann) .or. &
-               all(D%BCs==PoisFFT_NeumannStag)) then
-#ifdef MPI               
-        if (D%nthreads>1) call PoisFFT_PFFT_InitThreads(D%nthreads)
-#endif
-        real_forw = real_transform_type_forward(D%BCs(1:2))
-        real_back = real_transform_type_backward(D%BCs(1:2))        
-
-        allocate(D%Solvers2D(D%nthreads))
-
-        D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
-
-        call allocate_fftw_real(D%Solvers2D(1))
-
-        D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), [real_forw, real_forw])
-        D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), [real_back, real_back])
-
-        do i=2,D%nthreads
-          D%Solvers2D(i) = D%Solvers2D(1)
-          D%Solvers2D(i)%forward%planowner = .false.
-          D%Solvers2D(i)%backward%planowner = .false.
-
-          call allocate_fftw_real(D%Solvers2D(i))
-
-        end do
-        
-        allocate(D%Solvers1D(3))
-        D%Solvers1D(3) = PoisFFT_Solver1D_From3D(D,3)
-
-#ifdef MPI
-        call Init_MPI_Buffers(D, 3)
-#endif
-
-      else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
-               (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
-                all(D%BCs(5:6)==PoisFFT_NeumannStag) )) then
+      if (all(D%BCs(1:4)==PoisFFT_Periodic)) then
 
 #ifdef MPI
         call allocate_fftw_complex(D)
@@ -1822,9 +1784,43 @@
 !MPI
 #endif
 
-
       else
-        stop "Unknown combination of boundary conditions."
+        !any other combination in x and y
+
+#ifdef MPI               
+        if (D%nthreads>1) call PoisFFT_PFFT_InitThreads(D%nthreads)
+#endif
+        !the kinds in the C order of dimensions: y, x
+        real_forw_xy = [real_transform_type_forward(D%BCs(3:4)), &
+                        real_transform_type_forward(D%BCs(1:2))]
+        real_back_xy = [real_transform_type_backward(D%BCs(3:4)), &
+                        real_transform_type_backward(D%BCs(1:2))]
+
+        allocate(D%Solvers2D(D%nthreads))
+
+        D%Solvers2D(1) = PoisFFT_Solver2D_From3D(D,3)
+
+        call allocate_fftw_real(D%Solvers2D(1))
+
+        D%Solvers2D(1)%forward = PoisFFT_Plan2D(D%Solvers2D(1), real_forw_xy)
+        D%Solvers2D(1)%backward = PoisFFT_Plan2D(D%Solvers2D(1), real_back_xy)
+
+        do i=2,D%nthreads
+          D%Solvers2D(i) = D%Solvers2D(1)
+          D%Solvers2D(i)%forward%planowner = .false.
+          D%Solvers2D(i)%backward%planowner = .false.
+
+          call allocate_fftw_real(D%Solvers2D(i))
+
+        end do
+        
+        allocate(D%Solvers1D(3))
+        D%Solvers1D(3) = PoisFFT_Solver1D_From3D(D,3)
+
+#ifdef MPI
+        call Init_MPI_Buffers(D, 3)
+#endif
+
       endif
 
 
@@ -1917,10 +1913,9 @@
       ngPhi = (ubound(Phi)-[D%nx,D%ny,D%nz])/2
       ngRHS = (ubound(RHS)-[D%nx,D%ny,D%nz])/2
 
-      if (all(D%BCs==PoisFFT_Neumann) .or. &
-               all(D%BCs==PoisFFT_NeumannStag)) then
+      if (.not.all(D%BCs(1:4)==PoisFFT_Periodic)) then
 
-        call PoisFFT_Solver3D_nonuniform_z_FullNeumann(D,&
+        call PoisFFT_Solver3D_nonuniform_z_RealXY(D,&
                  Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
                      ngPhi(2)+1:ngPhi(2)+D%ny,&
                      ngPhi(3)+1:ngPhi(3)+D%nz),&
@@ -1928,11 +1923,9 @@
                      ngRHS(2)+1:ngRHS(2)+D%ny,&
                      ngRHS(3)+1:ngRHS(3)+D%nz))
 
-      else if (all(D%BCs(1:4)==PoisFFT_Periodic) .and. &
-               (all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
-                all(D%BCs(5:6)==PoisFFT_NeumannStag))) then
-                
-        call PoisFFT_Solver3D_nonuniform_z_PPNs(D,&
+      else
+
+        call PoisFFT_Solver3D_nonuniform_z_PeriodicXY(D,&
                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
                     ngPhi(2)+1:ngPhi(2)+D%ny,&
                     ngPhi(3)+1:ngPhi(3)+D%nz),&

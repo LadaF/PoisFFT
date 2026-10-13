@@ -23,16 +23,25 @@ program test_nonuniform_z
   real(rp), parameter :: tol = 1000 * epsilon(1._rp)
 
   integer, parameter :: P = PoisFFT_Periodic, N = PoisFFT_Neumann, &
-                        Ns = PoisFFT_NeumannStag
+                        Ns = PoisFFT_NeumannStag, D = PoisFFT_Dirichlet, &
+                        Ds = PoisFFT_DirichletStag
   real(dp), parameter :: Lxy(2) = [2.3_dp, 1.7_dp], Lz = 1.1_dp
-  !only the z boundary condition type is irrelevant here, the z operator
-  !is always given by z and z_u
-  integer, parameter :: n_combos = 4
+  !any supported pairs in x and y, Neumann in z (only the z boundary
+  !condition type is irrelevant, the z operator is always given by z and z_u)
+  integer, parameter :: n_combos = 12
   integer, parameter :: combos(6, n_combos) = reshape([ &
       P, P, P, P, Ns,Ns, &
       P, P, P, P, N, N,  &
       Ns,Ns,Ns,Ns,Ns,Ns, &
-      N, N, N, N, N, N], [6, n_combos])
+      N, N, N, N, N, N,  &
+      P, P, D, D, N, N,  &
+      D, D, P, P, Ns,Ns, &
+      D, D, D, D, N, N,  &
+      Ds,Ds,Ns,Ns,Ns,Ns, &
+      N, D, P, P, N, N,  &
+      Ns,Ds,Ds,Ns,Ns,Ns, &
+      P, P, N, N, Ns,Ns, &
+      N, N, Ns,Ns,N, N], [6, n_combos])
   integer, parameter :: approxs(2) = [PoisFFT_Spectral, PoisFFT_FiniteDifference2]
   integer :: ic, ia
 
@@ -51,6 +60,8 @@ program test_nonuniform_z
   call ut_section("uniform z grid against PoisFFT_Solver3D")
   call test_uniform_against_3d([P, P, P, P, Ns, Ns])
   call test_uniform_against_3d([(Ns, ic = 1, 6)])
+  call test_uniform_against_3d([D, D, P, P, Ns, Ns])
+  call test_uniform_against_3d([N, D, Ds, Ds, Ns, Ns])
 
   call ut_finish()
 

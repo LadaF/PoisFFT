@@ -1,4 +1,7 @@
-    subroutine PoisFFT_Solver3D_nonuniform_Z_PPNs(D, Phi, RHS)
+    !Periodic in x and y: complex FFT in x and y, tridiagonal solver in z.
+    !In the tridiagonal solvers the first row is decoupled for the x-y null
+    !mode (lam == 0), for which the problem with Neumann in z is singular.
+    subroutine PoisFFT_Solver3D_nonuniform_Z_PeriodicXY(D, Phi, RHS)
       type(PoisFFT_Solver3D_nonuniform_Z), intent(inout) :: D
       real(RP), intent(out) :: Phi(:,:,:)
       real(RP), intent(in)  :: RHS(:,:,:)
@@ -23,7 +26,7 @@
         do j = 1, D%ny
           do i = 1, D%nx
             lam = D%denomx(i) + D%denomy(j)
-            if (i+D%offx==1.and.j+D%offy==1) then
+            if (lam==0) then
               call solve_tridiag(1._RP, 0._RP, lam, D%cwork(i,j,:))
             else
               call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, D%cwork(i,j,:))
@@ -61,7 +64,7 @@
       do j = 1, D%ny
         do i = 1, D%nx
           lam = D%denomx(i) + D%denomy(j) 
-          if (i==1.and.j==1) then
+          if (lam==0) then
             call solve_tridiag(D%mat_b(1), 0._RP, lam, D%cwork(i,j,:))
           else          
             call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, D%cwork(i,j,:))
@@ -120,10 +123,12 @@
           end do
 
       end subroutine solve_tridiag 
-    end subroutine PoisFFT_Solver3D_nonuniform_Z_PPNs
+    end subroutine PoisFFT_Solver3D_nonuniform_Z_PeriodicXY
 
   
-    subroutine PoisFFT_Solver3D_nonuniform_Z_FullNeumann(D, Phi, RHS)
+    !Any other combination in x and y: real-to-real transforms in x and y
+    !(the halfcomplex one in a periodic direction), tridiagonal solver in z.
+    subroutine PoisFFT_Solver3D_nonuniform_Z_RealXY(D, Phi, RHS)
       type(PoisFFT_Solver3D_nonuniform_Z), intent(inout) :: D
       real(RP), intent(out) :: Phi(:,:,:)
       real(RP), intent(in)  :: RHS(:,:,:)
@@ -148,7 +153,7 @@
         do j = 1, D%ny
           do i = 1, D%nx
             lam = D%denomx(i) + D%denomy(j)
-            if (i+D%offx==1.and.j+D%offy==1) then
+            if (lam==0) then
               call solve_tridiag(D%mat_b(1), 0._RP, lam, Phi(i,j,:))
             else          
               call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, Phi(i,j,:))
@@ -186,7 +191,7 @@
       do j = 1, D%ny
         do i = 1, D%nx
           lam = D%denomx(i) + D%denomy(j)
-          if (i==1.and.j==1) then
+          if (lam==0) then
             call solve_tridiag(D%mat_b(1), 0._RP, lam, Phi(i,j,:))
           else          
             call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, Phi(i,j,:))
@@ -245,7 +250,7 @@
           end do
 
       end subroutine solve_tridiag 
-    end subroutine PoisFFT_Solver3D_nonuniform_Z_FullNeumann
+    end subroutine PoisFFT_Solver3D_nonuniform_Z_RealXY
 
 
     
@@ -309,7 +314,7 @@
         do j=1,size(m%rwork,2)
           glob_i = k + D1D%mpi%rank * (D%nx / D1D%mpi%np)
           lam = D%denomx(glob_i) + D%denomy(j)
-          if (glob_i==1.and.j+D%offy==1) then
+          if (lam==0) then
               call solve_tridiag(D%mat_b(1), 0._RP, lam, m%rwork(:,j,k))
           else
               call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, m%rwork(:,j,k))
@@ -451,7 +456,7 @@
         do j=1,size(m%cwork,2)
           glob_i = k + D1D%mpi%rank * (D%nx / D1D%mpi%np)
           lam = D%denomx(glob_i) + D%denomy(j)
-          if (glob_i==1.and.j+D%offy==1) then
+          if (lam==0) then
               call solve_tridiag(D%mat_b(1), 0._RP, lam, m%cwork(:,j,k))
           else
               call solve_tridiag(D%mat_b(1), D%mat_c(1), lam, m%cwork(:,j,k))

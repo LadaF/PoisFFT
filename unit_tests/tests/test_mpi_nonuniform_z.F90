@@ -20,13 +20,23 @@ program test_mpi_nonuniform_z
   integer, parameter :: gn(3) = [5, 6, 7]
 
   integer, parameter :: P = PoisFFT_Periodic, N = PoisFFT_Neumann, &
-                        Ns = PoisFFT_NeumannStag
-  integer, parameter :: n_combos = 4
+                        Ns = PoisFFT_NeumannStag, D = PoisFFT_Dirichlet, &
+                        Ds = PoisFFT_DirichletStag
+  !the combinations of test_nonuniform_z.F90
+  integer, parameter :: n_combos = 12
   integer, parameter :: combos(6, n_combos) = reshape([ &
       P, P, P, P, Ns,Ns, &
       P, P, P, P, N, N,  &
       Ns,Ns,Ns,Ns,Ns,Ns, &
-      N, N, N, N, N, N], [6, n_combos])
+      N, N, N, N, N, N,  &
+      P, P, D, D, N, N,  &
+      D, D, P, P, Ns,Ns, &
+      D, D, D, D, N, N,  &
+      Ds,Ds,Ns,Ns,Ns,Ns, &
+      N, D, P, P, N, N,  &
+      Ns,Ds,Ds,Ns,Ns,Ns, &
+      P, P, N, N, Ns,Ns, &
+      N, N, Ns,Ns,N, N], [6, n_combos])
   integer, parameter :: approxs(2) = [PoisFFT_Spectral, PoisFFT_FiniteDifference2]
   integer :: ic, ia
   character(32) :: grid_name

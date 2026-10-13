@@ -18,7 +18,8 @@ program test_error_reporting
 
   integer, parameter :: rp = RP_KIND
   integer, parameter :: P = PoisFFT_Periodic, D = PoisFFT_Dirichlet, &
-                        N = PoisFFT_Neumann, Ns = PoisFFT_NeumannStag
+                        N = PoisFFT_Neumann, Ns = PoisFFT_NeumannStag, &
+                        Ds = PoisFFT_DirichletStag
   integer, parameter :: nxyz(3) = [6, 5, 4]
   real(rp), parameter :: Lxy(2) = [1.3_rp, 0.9_rp]
   real(rp) :: z(nxyz(3)), z_u(0:nxyz(3))
@@ -31,13 +32,14 @@ program test_error_reporting
 
   call ut_section("valid arguments")
   call test_valid([P, P, P, P, Ns, Ns])
+  call test_valid([P, P, N, N, Ns, Ns])
   call test_valid([(N, k = 1, 6)])
 
   call ut_section("unsupported boundary conditions")
   call test_error([(D, k = 1, 6)], z, z_u, PoisFFT_ErrorBCs, "boundary conditions")
   call test_error([P, P, P, P, D, D], z, z_u, PoisFFT_ErrorBCs, "boundary conditions")
   call test_error([P, P, P, P, P, D], z, z_u, PoisFFT_ErrorBCs, "boundary conditions")
-  call test_error([P, P, N, N, Ns, Ns], z, z_u, PoisFFT_ErrorBCs, "boundary conditions")
+  call test_error([D, D, P, P, Ds, Ds], z, z_u, PoisFFT_ErrorBCs, "boundary conditions")
   call test_error([(9, k = 1, 6)], z, z_u, PoisFFT_ErrorBCs, "boundary conditions")
 
   call ut_section("inconsistent grid")
