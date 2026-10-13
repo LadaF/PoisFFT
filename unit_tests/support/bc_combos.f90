@@ -71,14 +71,31 @@ module bc_combos
       Ns,Ns,N, N, Ns,Ns           & !52
     ], [6, n_combos_3d])
 
-  !combinations of the 2D tests
-  integer, parameter :: n_combos_2d = 5
+  !combinations of the 2D tests, shared by the serial and the MPI tests.
+  !1 uses FullPeriodic, all others Separable.
+  integer, parameter :: n_combos_2d = 21
   integer, parameter :: combos_2d(4, n_combos_2d) = reshape([ &
       P, P, P, P,                 & ! 1 FullPeriodic
-      D, D, D, D,                 & ! 2 FullDirichlet
+      D, D, D, D,                 & ! 2 same type on all sides
       Ds,Ds,Ds,Ds,                & ! 3
-      N, N, N, N,                 & ! 4 FullNeumann
-      Ns,Ns,Ns,Ns                 & ! 5
+      N, N, N, N,                 & ! 4
+      Ns,Ns,Ns,Ns,                & ! 5
+      P, P, D, D,                 & ! 6 periodic and non-periodic
+      P, P, Ds,Ds,                & ! 7
+      P, P, N, N,                 & ! 8
+      P, P, Ns,Ns,                & ! 9
+      P, P, D, N,                 & !10
+      Ns,Ds,P, P,                 & !11
+      N, N, P, P,                 & !12
+      D, D, N, N,                 & !13 different non-periodic pairs
+      Ds,Ds,Ns,Ns,                & !14
+      Ns,Ns,N, N,                 & !15
+      D, D, Ns,Ds,                & !16
+      N, D, D, N,                 & !17
+      Ds,Ns,Ns,Ds,                & !18
+      N, D, N, D,                 & !19
+      Ns,Ds,D, D,                 & !20
+      N, N, Ds,Ns                 & !21
     ], [4, n_combos_2d])
 
 end module bc_combos

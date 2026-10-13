@@ -165,11 +165,15 @@
 
 
 
-    subroutine PoisFFT_Solver2D_FullDirichlet(D, Phi, RHS)
+    !Any combination of supported pairs except all periodic. One 2D
+    !real-to-real transform, the halfcomplex transform in a periodic
+    !direction, whose order of coefficients matches eigenvalues().
+    subroutine PoisFFT_Solver2D_Separable(D, Phi, RHS)
       type(PoisFFT_Solver2D), intent(inout) :: D
       real(RP), intent(out) :: Phi(:,:)
       real(RP), intent(in)  :: RHS(:,:)
       integer i,j
+      real(RP) :: denom
 
       ! Forward FFT of RHS
       D%rwork = RHS
@@ -184,7 +188,13 @@
 
       do j = 1,D%ny
         do i = 1,D%nx
-          D%rwork(i,j) = D%rwork(i,j) / (D%denomx(i) + D%denomy(j))
+          denom = D%denomx(i) + D%denomy(j)
+          !zero only for the null mode of the singular problems
+          if (denom /= 0) then
+            D%rwork(i,j) = D%rwork(i,j) / denom
+          else
+            D%rwork(i,j) = 0
+          end if
         end do
       end do
 
@@ -196,46 +206,7 @@
 
       Phi = D%rwork / D%norm_factor
 
-    end subroutine PoisFFT_Solver2D_FullDirichlet
-
-
-
-
-    subroutine PoisFFT_Solver2D_FullNeumann(D, Phi, RHS)
-      type(PoisFFT_Solver2D), intent(inout) :: D
-      real(RP), intent(out) :: Phi(:,:)
-      real(RP), intent(in)  :: RHS(:,:)
-      integer i,j
-
-      ! Forward FFT of RHS
-      D%rwork = RHS
-
-
-#ifdef MPI
-      call Execute_MPI(D%forward)
-#else
-      call Execute(D%forward, D%rwork)
-#endif
-
-
-      !the null mode is on the process with the global index (1,1)
-      if (D%offx==0.and.D%offy==0) D%rwork(1,1) = 0
-
-      do j = 1,D%ny
-        do i = max(3-j-D%offx-D%offy,1),D%nx
-          D%rwork(i,j) = D%rwork(i,j) / (D%denomx(i) + D%denomy(j))
-        end do
-      end do
-
-#ifdef MPI
-      call Execute_MPI(D%backward)
-#else
-      call Execute(D%backward, D%rwork)
-#endif
-
-      Phi = D%rwork / D%norm_factor
-      
-    end subroutine PoisFFT_Solver2D_FullNeumann
+    end subroutine PoisFFT_Solver2D_Separable
 
 
 

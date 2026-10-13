@@ -41,7 +41,8 @@ program test_unsupported_bcs
   select case (icase)
   case (0)
     call try_1d([P, P]);  call try_1d([D, N]);  call try_1d([Ns, Ds])
-    call try_2d([(Ds, k = 1, 4)])
+    call try_2d([(Ds, k = 1, 4)]);      call try_2d([P, P, D, N])
+    call try_2d([D, D, Ns, Ns])
     call try_3d([P, P, P, P, Ds, Ns]);  call try_3d([D, D, D, D, N, N])
     call try_3d([D, D, P, P, P, P]);    call try_3d([N, D, Ns, Ns, P, P])
     call try_nuz([P, P, P, P, Ns, Ns])
@@ -53,10 +54,10 @@ program test_unsupported_bcs
   case (3);  call try_1d([D, Ds])
   case (4);  call try_1d([N, Ns])
   case (5);  call try_1d([bad, bad])
-  !2D: only the same condition on all sides is supported
-  case (6);  call try_2d([P, P, D, D])
-  case (7);  call try_2d([D, D, N, N])
-  case (8);  call try_2d([Ds, Ds, Ds, Ns])
+  !2D: an invalid pair in one direction
+  case (6);  call try_2d([P, P, D, Ds])
+  case (7);  call try_2d([D, P, N, N])
+  case (8);  call try_2d([Ds, Ds, Ns, N])
   case (9);  call try_2d([P, D, P, P])
   !3D: an invalid pair in one direction
   case (10); call try_3d([D, D, N, Ns, P, P])

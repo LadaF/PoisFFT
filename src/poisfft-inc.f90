@@ -1216,7 +1216,6 @@
 
     subroutine Poisfft_Solver2D_Init(D)
       type(PoisFFT_Solver2D), intent(inout) :: D
-      integer :: i
         
       call check_BC_pairs(D%BCs)
 
@@ -1233,38 +1232,17 @@
         D%forward = PoisFFT_Plan2D(D, [FFT_Complex, FFTW_FORWARD])
         D%backward = PoisFFT_Plan2D(D, [FFT_Complex, FFTW_BACKWARD])
 
-      else if (all(D%BCs==PoisFFT_Dirichlet)) then
-
-        call allocate_fftw_real(D)
-
-        D%forward = PoisFFT_Plan2D(D, [(FFT_RealOdd00, i=1,2)])
-        D%backward = PoisFFT_Plan2D(D, [(FFT_RealOdd00, i=1,2)])
-
-       else if (all(D%BCs==PoisFFT_DirichletStag)) then
-
-        call allocate_fftw_real(D)
-
-        D%forward = PoisFFT_Plan2D(D, [(FFT_RealOdd10, i=1,2)])
-        D%backward = PoisFFT_Plan2D(D, [(FFT_RealOdd01, i=1,2)])
-
-      else if (all(D%BCs==PoisFFT_Neumann)) then
-
-        call allocate_fftw_real(D)
-
-        D%forward = PoisFFT_Plan2D(D, [(FFT_RealEven00, i=1,2)])
-
-        D%backward = PoisFFT_Plan2D(D, [(FFT_RealEven00, i=1,2)])
-
-      else if (all(D%BCs==PoisFFT_NeumannStag)) then
-
-        call allocate_fftw_real(D)
-
-        D%forward = PoisFFT_Plan2D(D, [(FFT_RealEven10, i=1,2)])
-        D%backward = PoisFFT_Plan2D(D, [(FFT_RealEven01, i=1,2)])
-
       else
-        !the 2D solver supports only the same condition on all boundaries
-        stop "Unknown combination of boundary conditions."
+        !any other combination, every pair was checked by check_BC_pairs
+
+        call allocate_fftw_real(D)
+
+        !the kinds in the C order of dimensions: y, x
+        D%forward = PoisFFT_Plan2D(D, [real_transform_type_forward(D%BCs(3:4)), &
+                                       real_transform_type_forward(D%BCs(1:2))])
+        D%backward = PoisFFT_Plan2D(D, [real_transform_type_backward(D%BCs(3:4)), &
+                                        real_transform_type_backward(D%BCs(1:2))])
+
       endif
       
       if (D%approximation==PoisFFT_FiniteDifference2) then
@@ -1302,19 +1280,9 @@
                  RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
                      ngRHS(2)+1:ngRHS(2)+D%ny))
 
-      else if (all(D%BCs==PoisFFT_Dirichlet) .or. &
-               all(D%BCs==PoisFFT_DirichletStag)) then
+      else
 
-        call PoisFFT_Solver2D_FullDirichlet(D,&
-                 Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
-                     ngPhi(2)+1:ngPhi(2)+D%ny),&
-                 RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&
-                     ngRHS(2)+1:ngRHS(2)+D%ny))
-
-      else if (all(D%BCs==PoisFFT_Neumann) .or. &
-               all(D%BCs==PoisFFT_NeumannStag)) then
-
-        call PoisFFT_Solver2D_FullNeumann(D,&
+        call PoisFFT_Solver2D_Separable(D,&
                  Phi(ngPhi(1)+1:ngPhi(1)+D%nx,&
                      ngPhi(2)+1:ngPhi(2)+D%ny),&
                  RHS(ngRHS(1)+1:ngRHS(1)+D%nx,&

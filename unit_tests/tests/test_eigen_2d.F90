@@ -1,36 +1,34 @@
 #include "precision.h"
 !Unit test of the 2D solver, see test_eigen_1d.F90 for the method.
 !The right-hand side is the tensor product of 1D eigenvectors in x and y,
-!its eigenvalue is the sum of the 1D eigenvalues. All modes are checked.
-!The 2D solver supports only the same boundary condition on all sides.
+!its eigenvalue is the sum of the 1D eigenvalues. All modes are checked
+!for the combinations of boundary conditions in bc_combos.f90.
 program test_eigen_2d
   use PoisFFT, Solver2D => SOLVER2D
   use reference_modes
   use unit_test_utils
+  use bc_combos
   implicit none
 
   integer, parameter :: rp = RP_KIND
   real(rp), parameter :: tol = 100 * epsilon(1._rp)
   real(dp), parameter :: Ls(2) = [2.3_dp, 1.7_dp]
 
-  integer, parameter :: bc_kinds(5) = [PoisFFT_Periodic, PoisFFT_Dirichlet, &
-                                       PoisFFT_Neumann, PoisFFT_DirichletStag, &
-                                       PoisFFT_NeumannStag]
   integer, parameter :: approxs(3) = [PoisFFT_Spectral, &
                                       PoisFFT_FiniteDifference2, &
                                       PoisFFT_FiniteDifference4]
   integer, parameter :: sizes(2,3) = reshape([6,7, 8,5, 3,4], [2,3])
 
-  integer :: ib, ia, is
+  integer :: ic, ia, is
 
   call ut_init("test_eigen_2d " // PREC_NAME)
 
-  do ib = 1, size(bc_kinds)
+  do ic = 1, n_combos_2d
     do ia = 1, size(approxs)
-      call ut_section("2D " // bc_pair_name(spread(bc_kinds(ib), 1, 4)) // &
+      call ut_section("2D " // bc_pair_name(combos_2d(:,ic)) // &
                       " " // approx_name(approxs(ia)))
       do is = 1, size(sizes, 2)
-        call test_all_modes(spread(bc_kinds(ib), 1, 4), approxs(ia), sizes(:,is))
+        call test_all_modes(combos_2d(:,ic), approxs(ia), sizes(:,is))
       end do
     end do
   end do
