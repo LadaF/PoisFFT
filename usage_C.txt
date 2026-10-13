@@ -62,7 +62,10 @@ use `0` or `POISFFT_SPECTRAL`.
 
 `offs` contains offsets from the first point in the MPI distributed grid
 
-`mpi_comm` contains the MPI communicator
+`mpi_comm` is a pointer to the MPI communicator (`MPI_Comm *`), a 2D Cartesian
+communicator for the 3D solver (e.g. from `pfft_create_procmesh_2d()`), a 1D one for
+the 2D solver. The local block of every process is the one from PFFT with
+`PFFT_TRANSPOSED_NONE`, the last (fastest varying) direction is not distributed.
 
 `nthreads` contains the number of threads requested. By default OpenMP uses full 
 number of threads available. It can be used to disable threading too, or when using 

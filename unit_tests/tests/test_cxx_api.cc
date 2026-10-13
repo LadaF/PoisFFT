@@ -128,7 +128,7 @@ int main()
   const int n3[3] = {5, 3, 4};
   const int bcs3[6] = {PERIODIC, PERIODIC, NEUMANN, NEUMANN, DIRICHLET_STAG, DIRICHLET_STAG};
 
-  ut_c_init("test_cxx_api " PREC_NAME);
+  ut_c_init("test_cxx_api " PREC_NAME, 0);
 
   for (int ghosts = 0; ghosts <= 1; ghosts++) {
     test_problem<1>(n1, bcs1, SPECTRAL, ghosts, ghosts ? "C++ 1D Ns,Ds spectral ghosts" : "C++ 1D Ns,Ds spectral");

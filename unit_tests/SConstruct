@@ -71,7 +71,9 @@ if 'LD_LIBRARY_PATH' in os.environ:
     env.AppendENVPath('LIBRARY_PATH', os.environ['LD_LIBRARY_PATH'])
 lib_path = [p for p in os.environ.get('LIBRARY_PATH', '').split(':') +
             os.environ.get('LD_LIBRARY_PATH', '').split(':') if p]
-inc_path = [p for p in os.environ.get('CPATH', '').split(':') if p]
+# CPATH, and INCLUDE set by environment modules (e.g. for fftw3-mpi.h)
+inc_path = [p for p in os.environ.get('CPATH', '').split(':') +
+            os.environ.get('INCLUDE', '').split(':') if p]
 for key in ['fftw_lib', 'pfft_lib']:
     if key in args:
         lib_path.insert(0, args[key])
@@ -172,7 +174,9 @@ line_layouts = [('np=%d' % n, n, 1) for n in nps]
 if mpi:
     test_list = [('mpi_eigen_3d', 'tests/test_mpi_eigen_3d.F90', list(range(1, 53)), grid_layouts),
                  ('mpi_eigen_2d', 'tests/test_mpi_eigen_2d.F90', list(range(1, 22)), line_layouts),
-                 ('mpi_nonuniform_z', 'tests/test_mpi_nonuniform_z.F90', list(range(1, 5)), grid_layouts)]
+                 ('mpi_nonuniform_z', 'tests/test_mpi_nonuniform_z.F90', list(range(1, 5)), grid_layouts),
+                 # the C interface, no separate cases
+                 ('mpi_c_api', 'tests/test_c_api.c', [], grid_layouts)]
 else:
     test_list = [('fft', 'tests/test_fft.F90', None, []),
                  ('eigen_1d', 'tests/test_eigen_1d.F90', None, []),

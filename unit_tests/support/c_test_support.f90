@@ -39,9 +39,11 @@ contains
   end function
 
 
-  subroutine ut_c_init(name) bind(C, name="ut_c_init")
+  !silent /= 0 suppresses all output (the non-root MPI processes)
+  subroutine ut_c_init(name, silent) bind(C, name="ut_c_init")
     character(kind=c_char), intent(in) :: name(*)
-    call ut_init(f_string(name))
+    integer(c_int), value :: silent
+    call ut_init(f_string(name), silent=silent /= 0)
   end subroutine
 
 

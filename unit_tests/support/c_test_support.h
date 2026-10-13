@@ -13,7 +13,8 @@ int ut_c_mode_1d(const int *bcs, int n, double L, int m, int approx,
 double ut_c_min_eigenvalue(int dims, const int *bcs, const int *nxyz,
                            const double *Ls, int approx);
 
-void ut_c_init(const char *name);
+/* silent != 0 suppresses all output (the non-root MPI processes) */
+void ut_c_init(const char *name, int silent);
 void ut_c_section(const char *name);
 void ut_c_check(int condition, const char *label);
 void ut_c_check_err(const char *label, double err, double tol);
