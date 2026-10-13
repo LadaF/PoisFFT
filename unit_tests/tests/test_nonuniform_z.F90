@@ -5,8 +5,8 @@
 !The exact solution is phi(i,j,k) = vx(i) vy(j) f(k), where vx, vy are
 !1D eigenvectors (reference_modes) and f is an arbitrary profile.
 !The right-hand side is vx vy (A f + (lx + ly) f) with A the 2nd order
-!finite difference operator on the non-uniform grid with zero flux at the
-!boundaries:
+!finite difference operator on the non-uniform staggered grid, with zero
+!flux (NeumannStag) or zero value (DirichletStag) at the faces z_u(0), z_u(nz):
 !  (A f)_k = [ (f_k+1 - f_k) / (z_k+1 - z_k)
 !            - (f_k - f_k-1) / (z_k - z_k-1) ] / (z_u_k - z_u_k-1)
 !For the x-y null mode the solution is unique only up to a constant,
@@ -26,22 +26,23 @@ program test_nonuniform_z
                         Ns = PoisFFT_NeumannStag, D = PoisFFT_Dirichlet, &
                         Ds = PoisFFT_DirichletStag
   real(dp), parameter :: Lxy(2) = [2.3_dp, 1.7_dp], Lz = 1.1_dp
-  !any supported pairs in x and y, Neumann in z (only the z boundary
-  !condition type is irrelevant, the z operator is always given by z and z_u)
-  integer, parameter :: n_combos = 12
+  !any supported pairs in x and y, staggered conditions in z
+  integer, parameter :: n_combos = 14
   integer, parameter :: combos(6, n_combos) = reshape([ &
       P, P, P, P, Ns,Ns, &
-      P, P, P, P, N, N,  &
+      P, P, P, P, Ds,Ds, &
+      P, P, P, P, Ns,Ds, &
       Ns,Ns,Ns,Ns,Ns,Ns, &
-      N, N, N, N, N, N,  &
-      P, P, D, D, N, N,  &
-      D, D, P, P, Ns,Ns, &
-      D, D, D, D, N, N,  &
-      Ds,Ds,Ns,Ns,Ns,Ns, &
-      N, D, P, P, N, N,  &
+      Ns,Ns,Ns,Ns,Ds,Ds, &
+      N, N, N, N, Ns,Ns, &
+      P, P, D, D, Ns,Ns, &
+      D, D, P, P, Ds,Ds, &
+      D, D, D, D, Ns,Ds, &
+      Ds,Ds,Ns,Ns,Ds,Ns, &
+      N, D, P, P, Ds,Ds, &
       Ns,Ds,Ds,Ns,Ns,Ns, &
       P, P, N, N, Ns,Ns, &
-      N, N, Ns,Ns,N, N], [6, n_combos])
+      N, N, Ns,Ns,Ns,Ds], [6, n_combos])
   integer, parameter :: approxs(2) = [PoisFFT_Spectral, PoisFFT_FiniteDifference2]
   integer :: ic, ia
 
@@ -62,6 +63,9 @@ program test_nonuniform_z
   call test_uniform_against_3d([(Ns, ic = 1, 6)])
   call test_uniform_against_3d([D, D, P, P, Ns, Ns])
   call test_uniform_against_3d([N, D, Ds, Ds, Ns, Ns])
+  call test_uniform_against_3d([P, P, P, P, Ds, Ds])
+  call test_uniform_against_3d([N, D, Ds, Ds, Ns, Ds])
+  call test_uniform_against_3d([Ns, Ns, Ns, Ns, Ds, Ns])
 
   call ut_finish()
 
@@ -84,8 +88,11 @@ contains
   end subroutine
 
 
-  function apply_z(f, z, z_u) result(res)
+  !zero flux (NeumannStag) or zero value (DirichletStag) at the faces
+  !z_u(0) and z_u(nz)
+  function apply_z(f, z, z_u, bcs) result(res)
     real(dp), intent(in) :: f(:), z(:), z_u(0:)
+    integer, intent(in) :: bcs(2)
     real(dp) :: res(size(f))
     integer :: k, nz
 
@@ -94,6 +101,10 @@ contains
     do k = 1, nz
       if (k < nz) res(k) = res(k) + (f(k+1) - f(k)) / (z(k+1) - z(k))
       if (k > 1)  res(k) = res(k) - (f(k) - f(k-1)) / (z(k) - z(k-1))
+      if (k == 1 .and. bcs(1) == PoisFFT_DirichletStag) &
+        res(k) = res(k) - f(k) / (z(k) - z_u(0))
+      if (k == nz .and. bcs(2) == PoisFFT_DirichletStag) &
+        res(k) = res(k) - f(k) / (z_u(nz) - z(k))
       res(k) = res(k) / (z_u(k) - z_u(k-1))
     end do
   end function
@@ -107,7 +118,7 @@ contains
     real(dp) :: vx(nxyz(1)), vy(nxyz(2)), lx, ly
     real(rp) :: scale
     real(rp), allocatable :: rhs(:,:,:), phi(:,:,:), exact(:,:,:)
-    logical :: ok
+    logical :: ok, singular
     integer :: mx, my, j, k
     character(80) :: label
 
@@ -119,7 +130,7 @@ contains
                         planning=PoisFFT_Estimate)
 
     call random_number(f)
-    af = apply_z(f, z, z_u)
+    af = apply_z(f, z, z_u, bcs(5:6))
 
     do my = 1, nxyz(2)
       call mode_1d(bcs(3:4), nxyz(2), Lxy(2), my, approx, vy, ly, ok)
@@ -138,7 +149,9 @@ contains
         !the scale is taken before subtracting the mean, the exact solution
         !can be a constant (nz==1), which is zero up to rounding afterwards
         scale = maxval(abs(exact))
-        if (lx + ly == 0) then
+        !only the x-y null mode with Neumann at both ends in z is singular
+        singular = lx + ly == 0 .and. all(bcs(5:6) == PoisFFT_NeumannStag)
+        if (singular) then
           exact = exact - sum(exact) / size(exact)
           phi = phi - sum(phi) / size(phi)
         end if
@@ -148,7 +161,7 @@ contains
         !the x-y null mode is a singular tridiagonal system in z made regular
         !by modifying its first row, it is worse conditioned on stretched grids
         call check_err(trim(label), maxval(abs(phi - exact)) / scale, &
-                       merge(10*tol, tol, lx + ly == 0))
+                       merge(10*tol, tol, singular))
       end do
     end do
 

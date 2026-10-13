@@ -23,20 +23,22 @@ program test_mpi_nonuniform_z
                         Ns = PoisFFT_NeumannStag, D = PoisFFT_Dirichlet, &
                         Ds = PoisFFT_DirichletStag
   !the combinations of test_nonuniform_z.F90
-  integer, parameter :: n_combos = 12
+  integer, parameter :: n_combos = 14
   integer, parameter :: combos(6, n_combos) = reshape([ &
       P, P, P, P, Ns,Ns, &
-      P, P, P, P, N, N,  &
+      P, P, P, P, Ds,Ds, &
+      P, P, P, P, Ns,Ds, &
       Ns,Ns,Ns,Ns,Ns,Ns, &
-      N, N, N, N, N, N,  &
-      P, P, D, D, N, N,  &
-      D, D, P, P, Ns,Ns, &
-      D, D, D, D, N, N,  &
-      Ds,Ds,Ns,Ns,Ns,Ns, &
-      N, D, P, P, N, N,  &
+      Ns,Ns,Ns,Ns,Ds,Ds, &
+      N, N, N, N, Ns,Ns, &
+      P, P, D, D, Ns,Ns, &
+      D, D, P, P, Ds,Ds, &
+      D, D, D, D, Ns,Ds, &
+      Ds,Ds,Ns,Ns,Ds,Ns, &
+      N, D, P, P, Ds,Ds, &
       Ns,Ds,Ds,Ns,Ns,Ns, &
       P, P, N, N, Ns,Ns, &
-      N, N, Ns,Ns,N, N], [6, n_combos])
+      N, N, Ns,Ns,Ns,Ds], [6, n_combos])
   integer, parameter :: approxs(2) = [PoisFFT_Spectral, PoisFFT_FiniteDifference2]
   integer :: ic, ia
   character(32) :: grid_name
@@ -72,8 +74,11 @@ contains
   end subroutine
 
 
-  function apply_z(f, z, z_u) result(res)
+  !zero flux (NeumannStag) or zero value (DirichletStag) at the faces
+  !z_u(0) and z_u(nz)
+  function apply_z(f, z, z_u, bcs) result(res)
     real(dp), intent(in) :: f(:), z(:), z_u(0:)
+    integer, intent(in) :: bcs(2)
     real(dp) :: res(size(f))
     integer :: k, nz
 
@@ -82,6 +87,10 @@ contains
     do k = 1, nz
       if (k < nz) res(k) = res(k) + (f(k+1) - f(k)) / (z(k+1) - z(k))
       if (k > 1)  res(k) = res(k) - (f(k) - f(k-1)) / (z(k) - z(k-1))
+      if (k == 1 .and. bcs(1) == PoisFFT_DirichletStag) &
+        res(k) = res(k) - f(k) / (z(k) - z_u(0))
+      if (k == nz .and. bcs(2) == PoisFFT_DirichletStag) &
+        res(k) = res(k) - f(k) / (z_u(nz) - z(k))
       res(k) = res(k) / (z_u(k) - z_u(k-1))
     end do
   end function
@@ -103,7 +112,7 @@ contains
     real(dp) :: vx(gn(1)), vy(gn(2)), lx, ly, err
     real(rp) :: scale
     real(rp), allocatable :: rhs(:,:,:), phi(:,:,:), exact(:,:,:)
-    logical :: ok
+    logical :: ok, singular
     integer :: mx, my, i, j, k, kg
     character(80) :: label
 
@@ -112,7 +121,7 @@ contains
 
     call make_grid(gn(3), z, z_u)
     f = [(cos(1.3_dp * k) + 0.1_dp * k, k = 1, gn(3))]
-    af = apply_z(f, z, z_u)
+    af = apply_z(f, z, z_u, bcs(5:6))
 
     !the solver gets the global z and z_u arrays
     solver = Solver_nuz(nxyz, real(Lxy, rp), real(z, rp), real(z_u, rp), bcs, approx, &
@@ -138,7 +147,9 @@ contains
 
         !see test_nonuniform_z.F90 for the scale
         scale = maxval(abs(exact))
-        if (lx + ly == 0) then
+        !only the x-y null mode with Neumann at both ends in z is singular
+        singular = lx + ly == 0 .and. all(bcs(5:6) == PoisFFT_NeumannStag)
+        if (singular) then
           exact = exact - real(global_mean(exact), rp)
           phi = phi - real(global_mean(phi), rp)
         end if
@@ -146,7 +157,7 @@ contains
         err = global_rel_err(real(maxval(abs(phi - exact)), dp), real(scale, dp))
         write(label, '("n=",i0,"x",i0,"x",i0," mode ",i0,",",i0)') gn, mx, my
         !see test_nonuniform_z.F90 for the tolerance of the x-y null mode
-        call check_err(trim(label), err, real(merge(10*tol, tol, lx + ly == 0), dp))
+        call check_err(trim(label), err, real(merge(10*tol, tol, singular), dp))
       end do
     end do
 

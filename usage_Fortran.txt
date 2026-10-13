@@ -218,27 +218,37 @@ Instead of Lz the grid in z is given by two arrays
 
 `z(k)`, k = 1..nz, are the positions of the points with the solution and `z_u(k)`,
 k = 0..nz, are the faces of the cells around them; the cell k lies between `z_u(k-1)`
-and `z_u(k)`. Both arrays must be increasing. With MPI they contain the whole grid
-in z (`gnz` points), not just the local part.
+and `z_u(k)`. It is a staggered grid, the boundaries are at the faces `z_u(0)` and
+`z_u(nz)`. Both arrays must be increasing. With MPI they contain the whole grid in z
+(`gnz` points), not just the local part.
 
 In z the equation is discretized by finite volumes of the 2nd order:
 
   (A f)_k = [ (f_k+1 - f_k) / (z_k+1 - z_k)
             - (f_k - f_k-1) / (z_k - z_k-1) ] / (z_u_k - z_u_k-1)
 
-On a uniform grid with `z(k) = (k-1/2) dz` and `z_u(k) = k dz` it is the same as
-`PoisFFT_Solver3D` with `PoisFFT_FiniteDifference2` and staggered conditions in z.
-
 The boundary conditions in x and y can be any pairs supported by `PoisFFT_Solver3D`,
-the pairs in x and y may differ. In z only Neumann conditions are supported:
-`PoisFFT_Neumann` or `PoisFFT_NeumannStag` on both ends. Both mean the same here,
-zero flux through the faces `z_u(0)` and `z_u(nz)`. Other combinations are rejected
-as described below.
+the pairs in x and y may differ. In z only the staggered conditions are supported,
+in any combination on the two ends:
+
+  PoisFFT_NeumannStag     zero flux through the face, the term with f_0 or f_nz+1
+                          is left out of (A f)_1 or (A f)_nz
+  PoisFFT_DirichletStag   zero value at the face, the flux through the face z_u(0)
+                          is (f_1 - 0) / (z_1 - z_u_0), through z_u(nz) it is
+                          (0 - f_nz) / (z_u_nz - z_nz)
+
+At a face with the Dirichlet condition the nearest point must lie inside the domain,
+`z_u(0) < z(1)` or `z(nz) < z_u(nz)`. Regular conditions in z (`PoisFFT_Neumann`,
+`PoisFFT_Dirichlet`) and periodic z are rejected as described below.
+
+On a uniform grid with `z(k) = (k-1/2) dz` and `z_u(k) = k dz` the solver is the same
+as `PoisFFT_Solver3D` with `PoisFFT_FiniteDifference2` and the same conditions.
 
 `approximation` applies only to x and y, the scheme in z is always the one above.
 
-Without a Dirichlet condition (x and y periodic or Neumann) the problem is
-singular, the solution is unique only up to a constant. The right-hand side must
+Without a Dirichlet condition (x and y periodic or Neumann, `PoisFFT_NeumannStag` on
+both ends in z) the problem is singular, the solution is unique only up to a
+constant. The right-hand side must
 then satisfy the compatibility condition: the sum over k of
 `(z_u(k) - z_u(k-1))` times the mean of the right-hand side over x and y in the
 layer k must be zero (for regular Neumann conditions in x or y the boundary points

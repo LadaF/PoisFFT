@@ -33,13 +33,16 @@ program test_error_reporting
   call ut_section("valid arguments")
   call test_valid([P, P, P, P, Ns, Ns])
   call test_valid([P, P, N, N, Ns, Ns])
-  call test_valid([(N, k = 1, 6)])
+  call test_valid([N, N, N, N, Ns, Ns])
+  call test_valid([D, D, P, P, Ds, Ds])
 
   call ut_section("unsupported boundary conditions")
   call test_error([(D, k = 1, 6)], z, z_u, PoisFFT_ErrorBCs, "boundary conditions")
   call test_error([P, P, P, P, D, D], z, z_u, PoisFFT_ErrorBCs, "boundary conditions")
   call test_error([P, P, P, P, P, D], z, z_u, PoisFFT_ErrorBCs, "boundary conditions")
-  call test_error([D, D, P, P, Ds, Ds], z, z_u, PoisFFT_ErrorBCs, "boundary conditions")
+  !only staggered conditions in z
+  call test_error([P, P, P, P, N, N], z, z_u, PoisFFT_ErrorBCs, "boundary conditions")
+  call test_error([(N, k = 1, 6)], z, z_u, PoisFFT_ErrorBCs, "boundary conditions")
   call test_error([(9, k = 1, 6)], z, z_u, PoisFFT_ErrorBCs, "boundary conditions")
 
   call ut_section("inconsistent grid")
@@ -47,6 +50,8 @@ program test_error_reporting
   call test_error([P, P, P, P, Ns, Ns], z, z_u(0:nxyz(3)-1), PoisFFT_ErrorGrid, "whole grid")
   call test_error([P, P, P, P, Ns, Ns], z([1, 3, 2, 4]), z_u, PoisFFT_ErrorGrid, "increasing")
   call test_error([P, P, P, P, Ns, Ns], z, z_u([0, 1, 1, 3, 4]), PoisFFT_ErrorGrid, "increasing")
+  !Dirichlet at the face z_u(0) with the first point at the same position
+  call test_error([P, P, P, P, Ds, Ns], [z_u(0), z(2:)], z_u, PoisFFT_ErrorGrid, "increasing")
 
   call ut_section("ierr without errmsg")
   call test_ierr_only()

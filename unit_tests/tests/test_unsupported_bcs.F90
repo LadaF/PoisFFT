@@ -45,7 +45,7 @@ program test_unsupported_bcs
     call try_2d([D, D, Ns, Ns])
     call try_3d([P, P, P, P, Ds, Ns]);  call try_3d([D, D, D, D, N, N])
     call try_3d([D, D, P, P, P, P]);    call try_3d([N, D, Ns, Ns, P, P])
-    call try_nuz([P, P, P, P, Ns, Ns]); call try_nuz([D, D, P, P, N, N])
+    call try_nuz([P, P, P, P, Ns, Ns]); call try_nuz([D, D, P, P, Ds, Ns])
     write(output_unit, '(a)') "all accepted"
     stop
   !1D: periodic with non-periodic, mixed regular and staggered, invalid code
@@ -65,8 +65,8 @@ program test_unsupported_bcs
   case (12); call try_3d([P, D, P, P, P, P])
   case (13); call try_3d([N, N, D, D, P, N])
   case (14); call try_3d([(bad, k = 1, 6)])
-  !non-uniform z: only Neumann in z, any supported pairs in x and y
-  case (15); call try_nuz([(D, k = 1, 6)])
+  !non-uniform z: only staggered conditions in z, any supported pairs in x and y
+  case (15); call try_nuz([P, P, P, P, N, N])
   case (16); call try_nuz([P, P, P, P, D, D])
   case (17); call try_nuz([P, P, P, P, P, D])
   !non-uniform z: inconsistent grid

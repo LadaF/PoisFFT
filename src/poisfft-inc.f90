@@ -1663,10 +1663,11 @@
 
       !the arguments are checked before anything is allocated, so that
       !a solver returned with an error can be finalized
-      !any supported pairs in x and y, Neumann in z
+      !any supported pairs in x and y; z is a staggered grid, the boundaries
+      !are at the faces z_u(0) and z_u(n), only staggered conditions in z
       if (.not.BC_pairs_supported(D%BCs) .or. &
-          .not.(all(D%BCs(5:6)==PoisFFT_Neumann) .or. &
-                all(D%BCs(5:6)==PoisFFT_NeumannStag))) then
+          .not.all(D%BCs(5:6)==PoisFFT_NeumannStag .or. &
+                   D%BCs(5:6)==PoisFFT_DirichletStag)) then
         call report_error(PoisFFT_ErrorBCs)
         return
       end if
@@ -1678,6 +1679,13 @@
       end if
 
       if (any(D%z(2:n) <= D%z(1:n-1)) .or. any(D%z_u(1:n) <= D%z_u(0:n-1))) then
+        call report_error(PoisFFT_ErrorGrid, 2)
+        return
+      end if
+
+      !the distance from the point to the face with the Dirichlet condition
+      if ((D%BCs(5)==PoisFFT_DirichletStag .and. D%z(1) <= D%z_u(0)) .or. &
+          (D%BCs(6)==PoisFFT_DirichletStag .and. D%z(n) >= D%z_u(n))) then
         call report_error(PoisFFT_ErrorGrid, 2)
         return
       end if
@@ -1856,6 +1864,13 @@
         i = D%gnz
         D%mat_b(D%gnz) = -1 / (D%z(i)-D%z(i-1)) / (D%z_u(i) - D%z_u(i-1))
       end if
+
+      !Dirichlet: the flux to the zero value at the face z_u(0) or z_u(n)
+      n = D%gnz
+      if (D%BCs(5)==PoisFFT_DirichletStag) &
+        D%mat_b(1) = D%mat_b(1) - 1 / (D%z(1)-D%z_u(0)) / (D%z_u(1) - D%z_u(0))
+      if (D%BCs(6)==PoisFFT_DirichletStag) &
+        D%mat_b(n) = D%mat_b(n) - 1 / (D%z_u(n)-D%z(n)) / (D%z_u(n) - D%z_u(n-1))
       
       do i = 1, D%gnz-1
         D%mat_c(i) = 1 / (D%z(i+1)-D%z(i)) / (D%z_u(i) - D%z_u(i-1))
