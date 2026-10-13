@@ -23,7 +23,8 @@
 #                      the build directory is then build/<variant>-<name of DIR>
 #   fftw_inc=, fftw_lib=, pfft_inc=, pfft_lib=   additional search paths
 #
-# The environment variables FC and MPIFC select the compilers, MPIRUN the MPI
+# The environment variables FC and MPIFC select the Fortran compilers, CC,
+# CXX, MPICC and MPICXX the C and C++ compilers, MPIRUN the MPI
 # launcher (default mpirun). Each test program prints only its failed checks
 # and a summary, set UT_VERBOSE=1 to print all checks. The logs are kept in
 # build/<variant>/logs. The command fails if any test fails.
@@ -60,6 +61,10 @@ if mpi:
 else:
     fc = os.environ.get('FC', '') or 'gfortran'
 env.Replace(FORTRAN=fc, F90=fc, F03=fc, F08=fc, LINK=fc, SHLINK=fc)
+if mpi:
+    env.Replace(CC=os.environ.get('MPICC', 'mpicc'), CXX=os.environ.get('MPICXX', 'mpicxx'))
+else:
+    env.Replace(CC=os.environ.get('CC', '') or 'gcc', CXX=os.environ.get('CXX', '') or 'g++')
 
 # some systems set only LD_LIBRARY_PATH for the libraries
 if 'LD_LIBRARY_PATH' in os.environ:
@@ -90,6 +95,9 @@ for v in ['FORTRANFLAGS', 'F90FLAGS', 'F03FLAGS', 'F08FLAGS']:
     env.Replace(**{v: flags})
 env.Replace(FORTRANPATH=[mod_dir, src_dir, os.path.abspath('support')] + inc_path,
             F90PATH=[mod_dir, src_dir, os.path.abspath('support')] + inc_path)
+# C and C++ (the C interface and its tests)
+c_flags = ['-g', '-O2', '-Wall', '-Wextra'] + (['-DMPI'] if mpi else [])
+env.Replace(CPPPATH=[src_dir, os.path.abspath('support')] + inc_path)
 env.Replace(LINKFLAGS=['-fopenmp'] if openmp else [])
 env.Replace(LIBPATH=lib_path)
 
@@ -108,9 +116,14 @@ def obj(source, name=None, defines=()):
     base = name or os.path.splitext(os.path.basename(source))[0]
     target = os.path.join(build_dir, base + '.o')
     extra = ['-D' + d for d in defines]
-    o = env.Object(target=target, source=source,
-                   FORTRANFLAGS=flags + extra, F90FLAGS=flags + extra,
-                   F03FLAGS=flags + extra, F08FLAGS=flags + extra)
+    if source.endswith('.c'):
+        o = env.Object(target=target, source=source, CFLAGS=c_flags + extra)
+    elif source.endswith('.cc'):
+        o = env.Object(target=target, source=source, CXXFLAGS=c_flags + extra)
+    else:
+        o = env.Object(target=target, source=source,
+                       FORTRANFLAGS=flags + extra, F90FLAGS=flags + extra,
+                       F03FLAGS=flags + extra, F08FLAGS=flags + extra)
     return [x for x in o if not str(x).endswith('.mod')]
 
 
@@ -123,7 +136,8 @@ def chain(objects):
 
 # ---------------------------------------------------------------- library
 lib_sources = ['precisions.f90', 'parameters.f90', 'customfftw3.f90',
-               'custompfft.f90', 'fft.f90', 'poisfft.f90', 'main.f90']
+               'custompfft.f90', 'fft.f90', 'poisfft.f90', 'main.f90',
+               'c_binding.f90']
 lib_objs = []
 for s in lib_sources:
     lib_objs += obj(os.path.join(src_dir, s))
@@ -133,11 +147,17 @@ Depends(lib_objs[4], [os.path.join(src_dir, f) for f in
 Depends(lib_objs[5], [os.path.join(src_dir, f) for f in
                       ['poisfft-inc.f90', 'poisfft-solvers-inc.f90',
                        'poisfft-solvers-nonuniform_z-inc.f90', 'loop_nest_3d.f90']])
+Depends(lib_objs[7], [os.path.join(src_dir, f) for f in
+                      ['c_new-inc.f90', 'c_execute-inc.f90', 'c_finalize-inc.f90']])
+# the C part of the C interface
+lib_objs += obj(os.path.join(src_dir, 'c_binding.c'), name='c_binding_c')
+lib_objs += obj(os.path.join(src_dir, 'f_mpi_comm_c2f.c'))
 
 # ---------------------------------------------------------------- support
 support_objs = obj('support/unit_test_utils.f90')
 support_objs += obj('support/reference_modes.f90')
 support_objs += obj('support/bc_combos.f90')
+support_objs += obj('support/c_test_support.f90')
 if mpi:
     support_objs += obj('support/mpi_test_grid.F90')
 chain(lib_objs + support_objs)
@@ -160,7 +180,9 @@ else:
                  ('eigen_3d', 'tests/test_eigen_3d.F90', None, []),
                  ('solver_api', 'tests/test_solver_api.F90', None, []),
                  ('nonuniform_z', 'tests/test_nonuniform_z.F90', None, []),
-                 ('error_reporting', 'tests/test_error_reporting.F90', None, [])]
+                 ('error_reporting', 'tests/test_error_reporting.F90', None, []),
+                 ('c_api', 'tests/test_c_api.c', None, []),
+                 ('cxx_api', 'tests/test_cxx_api.cc', None, [])]
 
 precisions = {'dp': [], 'sp': ['SINGLE']}
 if prec in precisions:
@@ -172,8 +194,11 @@ for name, source, cases, layouts in test_list:
         exe_name = 'test_%s_%s' % (name, p)
         o = obj(source, name=exe_name, defines=defines)
         Depends(o, lib_objs + support_objs + ['support/precision.h'])
+        # linked by the Fortran compiler, C++ needs its library
+        extra_libs = ['stdc++'] if source.endswith('.cc') else []
         exe = env.Program(target=os.path.join(build_dir, exe_name),
-                          source=o + support_objs + lib_objs)
+                          source=o + support_objs + lib_objs,
+                          LIBS=env['LIBS'] + extra_libs)
         programs.append((exe_name, exe, cases, layouts))
 
 # programs that must stop with an error message: (name, source, number of

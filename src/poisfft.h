@@ -1,13 +1,15 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-const int POISFFT_PERIODIC = 0;
-const int POISFFT_DIRICHLET = 1;
-const int POISFFT_NEUMANN = 2;
-const int POISFFT_DIRICHLET_STAG = 3;
-const int POISFFT_NEUMANN_STAG = 4;
-const int POISFFT_SPECTRAL = 0;
-const int POISFFT_FINITE_DIFFERENCE_2 = 2;
+/* static: the header can be included in several C files of one program */
+static const int POISFFT_PERIODIC = 0;
+static const int POISFFT_DIRICHLET = 1;
+static const int POISFFT_NEUMANN = 2;
+static const int POISFFT_DIRICHLET_STAG = 3;
+static const int POISFFT_NEUMANN_STAG = 4;
+static const int POISFFT_SPECTRAL = 0;
+static const int POISFFT_FINITE_DIFFERENCE_2 = 2;
+static const int POISFFT_FINITE_DIFFERENCE_4 = 4;
  
 typedef struct{int dims; void *D;} poisfft_solver;
 
@@ -42,6 +44,7 @@ namespace PoisFFT{
   const int NEUMANN_STAG = POISFFT_NEUMANN_STAG;
   const int SPECTRAL = POISFFT_SPECTRAL;
   const int FINITE_DIFFERENCE_2 = POISFFT_FINITE_DIFFERENCE_2;
+  const int FINITE_DIFFERENCE_4 = POISFFT_FINITE_DIFFERENCE_4;
 
   template <unsigned int dims, typename real>  class Solver{
     private:

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "poisfft.h"
 
 
 #define SOLVER(dims, suff) \
@@ -36,10 +37,6 @@
 POIS(, double)
 
 POIS(_f, float)
-
-typedef struct{int dims; void *D;} poisfft_solver;
-
-typedef struct{int dims; void *D;} poisfft_solver_f;
 
 poisfft_solver poisfft_solver_new(const int dims,
                          const int *nxyz, const double *Lxyz, 
@@ -99,10 +96,10 @@ void poisfft_solver_finalize( poisfft_solver *S){
         poisfft_solver1d_finalize((poisfft_solver1d *) &(S->D));
         break;
       case 2:
-        poisfft_solver2d_finalize((poisfft_solver1d *) &(S->D));
+        poisfft_solver2d_finalize((poisfft_solver2d *) &(S->D));
         break;
       case 3:
-        poisfft_solver3d_finalize((poisfft_solver1d *) &(S->D));
+        poisfft_solver3d_finalize((poisfft_solver3d *) &(S->D));
         break;
       default:
         printf("Error, PoisFFT solver dimension must be 1, 2 or 3!\n");
@@ -111,9 +108,9 @@ void poisfft_solver_finalize( poisfft_solver *S){
 }
 
 
-void poisfft_solver_f_new(const int dims,
+poisfft_solver_f poisfft_solver_f_new(const int dims,
                          const int *nxyz, const float *Lxyz,
-                         const int *BCs, const int *approximation,
+                         const int *BCs, const int approximation,
                          const int *gnxyz, const int *offs,
                          const void *mpi_comm, int nthreads){
     poisfft_solver_f S;
@@ -125,23 +122,25 @@ void poisfft_solver_f_new(const int dims,
     switch (S.dims) {
       case 1:
         poisfft_solver1d_f_new((poisfft_solver1d_f *) &(S.D),
-                               nxyz, Lxyz, BCs, approximation,
+                               nxyz, Lxyz, BCs, &approximation,
                                gnxyz, offs, mpi_comm, nthreads);
         break;
       case 2:
         poisfft_solver2d_f_new((poisfft_solver2d_f *) &(S.D), 
-                               nxyz, Lxyz, BCs, approximation,
+                               nxyz, Lxyz, BCs, &approximation,
                                gnxyz, offs, mpi_comm, nthreads);
         break;
       case 3:
         poisfft_solver3d_f_new((poisfft_solver3d_f *) &(S.D),
-                               nxyz, Lxyz, BCs, approximation,
+                               nxyz, Lxyz, BCs, &approximation,
                                gnxyz, offs, mpi_comm, nthreads);
         break;
       default:
         printf("Error, PoisFFT solver dimension must be 1, 2 or 3!\n");
         break;
     }
+
+    return S;
 }
 
 void poisfft_solver_f_execute( poisfft_solver_f S, float *Phi, const float *RHS,
@@ -163,16 +162,16 @@ void poisfft_solver_f_execute( poisfft_solver_f S, float *Phi, const float *RHS,
     }
 }
 
-void poisfft_solver_f_finalize( poisfft_solver *S){
+void poisfft_solver_f_finalize( poisfft_solver_f *S){
     switch (S->dims) {
       case 1:
         poisfft_solver1d_f_finalize((poisfft_solver1d_f *) &(S->D));
         break;
       case 2:
-        poisfft_solver2d_f_finalize((poisfft_solver1d_f *) &(S->D));
+        poisfft_solver2d_f_finalize((poisfft_solver2d_f *) &(S->D));
         break;
       case 3:
-        poisfft_solver3d_f_finalize((poisfft_solver1d_f *) &(S->D));
+        poisfft_solver3d_f_finalize((poisfft_solver3d_f *) &(S->D));
         break;
       default:
         printf("Error, PoisFFT solver dimension must be 1, 2 or 3!\n");

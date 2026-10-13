@@ -31,16 +31,19 @@ The simplest usage is like this
 The first statement initializes the solver. The first argument is the array with 
 number of points in each directions. Then an array with the physical dimensions of 
 the grid. The third array argument specifies the boundary conditions on each outside 
-boundary. Only limited number of combinations is supported, namely when all types are 
-equal.
+boundary, in the C order of the directions (the first pair belongs to the first, slowest
+varying, array index). In one direction the pair must be periodic on both ends, or a
+non-periodic pair: both ends the same, or Neumann with Dirichlet in any order (both
+regular or both staggered). The pairs in different directions may differ. See
+usage_Fortran.txt for details.
 
 You can choose from these types of boundary conditions:
 
-  PoisFFT::PERIODIC
-  PoisFFT::DIRICHLET
-  PoisFFT::NEUMANN
-  PoisFFT::DIRICHLET_STAG
-  PoisFFT::NEUMANN_STAG
+  POISFFT_PERIODIC
+  POISFFT_DIRICHLET
+  POISFFT_NEUMANN
+  POISFFT_DIRICHLET_STAG
+  POISFFT_NEUMANN_STAG
 
 They use different types of grid. In regular grid the boundary lies on one of the 
 points (point `-1` for Dirichlet and point `0` for periodic and Neumann). With 
@@ -51,8 +54,9 @@ solution start from point `0` and end at point `n-1`. There may be ghost points 
 There are other (optional) arguments for the initializer:
 
 `approximation` can change the spectral approximation of the Poisson equation to the 
-2nd order central finite difference, if it is equal to `PoisFFT_FINITE_DIFFERENCE_2` 
-or `2`. For default use `0` or `POISFFT_SPECTRAL`.
+2nd order central finite difference, if it is equal to `POISFFT_FINITE_DIFFERENCE_2` 
+or `2`, or to the 4th order one, `POISFFT_FINITE_DIFFERENCE_4` or `4`. For default
+use `0` or `POISFFT_SPECTRAL`.
 
 `gnxyz` contains the full number of all points when using MPI distributed grid
 
