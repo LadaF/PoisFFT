@@ -37,7 +37,8 @@ void poisfft_solver_f_finalize( poisfft_solver_f *S);
 }
 
 /* The solver classes own the Fortran solver, which the destructor
-   finalizes, so they cannot be copied. */
+   finalizes, so they cannot be copied. From C++11 they can be moved, the
+   moved-from solver is empty and its destructor does nothing. */
 #if __cplusplus >= 201103L
 #define POISFFT_NO_COPY(cls) \
     public: \
@@ -84,8 +85,21 @@ namespace PoisFFT{
                                       gnxyz, offs, mpi_comm, nthreads);
       };
       ~Solver(){
-        poisfft_solver_finalize(&c_solver);
+        if (c_solver.D) poisfft_solver_finalize(&c_solver);
       };
+#if __cplusplus >= 201103L
+      Solver(Solver &&other) noexcept : c_solver(other.c_solver){
+        other.c_solver.D = nullptr;
+      };
+      Solver &operator=(Solver &&other) noexcept{
+        if (this != &other){
+          if (c_solver.D) poisfft_solver_finalize(&c_solver);
+          c_solver = other.c_solver;
+          other.c_solver.D = nullptr;
+        }
+        return *this;
+      };
+#endif
       void execute(double *Phi, const double *RHS,
                    const int *ngPhi=0, const int *ngRHS=0){
         poisfft_solver_execute(c_solver, Phi, RHS, ngPhi, ngRHS);
@@ -105,8 +119,21 @@ namespace PoisFFT{
                                         gnxyz, offs, mpi_comm, nthreads);
       };
       ~Solver(){
-        poisfft_solver_f_finalize(&c_solver);
+        if (c_solver.D) poisfft_solver_f_finalize(&c_solver);
       };
+#if __cplusplus >= 201103L
+      Solver(Solver &&other) noexcept : c_solver(other.c_solver){
+        other.c_solver.D = nullptr;
+      };
+      Solver &operator=(Solver &&other) noexcept{
+        if (this != &other){
+          if (c_solver.D) poisfft_solver_f_finalize(&c_solver);
+          c_solver = other.c_solver;
+          other.c_solver.D = nullptr;
+        }
+        return *this;
+      };
+#endif
       void execute(float *Phi, const float *RHS,
                    const int *ngPhi=0, const int *ngRHS=0){
         poisfft_solver_f_execute(c_solver, Phi, RHS, ngPhi, ngRHS);

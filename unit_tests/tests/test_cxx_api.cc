@@ -2,14 +2,15 @@
    poisfft.h. The C functions under it are tested by test_c_api.c, this
    test checks the class for 1D, 2D and 3D: the constructor with the
    default arguments and with an approximation, execute() with and
-   without ghost points, the destructor at the end of the scope and that
-   the class cannot be copied.
+   without ghost points, the destructor at the end of the scope, that the
+   class cannot be copied, and that it can be moved.
    Compiled with -DSINGLE for float. See test_c_api.c for the method. */
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <limits>
 #include <type_traits>
+#include <utility>
 #include <vector>
 #include "poisfft.h"
 #include "c_test_support.h"
@@ -24,22 +25,24 @@ typedef double real;
 
 namespace {
 
-// the solvers own the Fortran object and must not be copied
+// the solvers own the Fortran object and must not be copied, only moved
 static_assert(!std::is_copy_constructible<PoisFFT::Solver<3, real> >::value &&
               !std::is_copy_assignable<PoisFFT::Solver<3, real> >::value,
               "PoisFFT::Solver must not be copyable");
+static_assert(std::is_nothrow_move_constructible<PoisFFT::Solver<3, real> >::value &&
+              std::is_nothrow_move_assignable<PoisFFT::Solver<3, real> >::value,
+              "PoisFFT::Solver must be movable");
 
 const double Ls[3] = {2.3, 1.7, 1.1};
 const int ng_phi[3] = {2, 1, 0}, ng_rhs[3] = {1, 0, 2};
 const real ghost_rhs = -777, ghost_phi = 12345;
 
-/* All modes of one problem, see test_problem in test_c_api.c. */
+/* All modes of one problem solved by S, see test_problem in test_c_api.c. */
 template <unsigned int dims>
-void test_problem(const int *ns, const int *bcs, int approx, bool ghosts,
-                  const char *section)
+void check_modes(PoisFFT::Solver<dims, real> &S, const int *ns, const int *bcs,
+                 int approx, bool ghosts)
 {
   int n[3] = {1, 1, 1}, gp[3] = {0, 0, 0}, gr[3] = {0, 0, 0}, sp[3], sr[3];
-  real Lr[dims];
   for (unsigned d = 0; d < dims; d++) {
     int pd = 3 - dims + d;
     n[pd] = ns[d];
@@ -47,7 +50,6 @@ void test_problem(const int *ns, const int *bcs, int approx, bool ghosts,
       gp[pd] = ng_phi[d];
       gr[pd] = ng_rhs[d];
     }
-    Lr[d] = real(Ls[d]);
   }
   for (int d = 0; d < 3; d++) {
     sp[d] = n[d] + 2 * gp[d];
@@ -62,10 +64,8 @@ void test_problem(const int *ns, const int *bcs, int approx, bool ghosts,
   double l[3] = {0, 0, 0};
   for (int d = 0; d < 3; d++) v[d].assign(n[d], 1.0);
 
-  ut_c_section(section);
   double lam_min = ut_c_min_eigenvalue(dims, bcs, ns, Ls, approx);
 
-  auto run = [&](PoisFFT::Solver<dims, real> &S) {
     int m[3], i[3];
     for (m[0] = 1; m[0] <= n[0]; m[0]++)
     for (m[1] = 1; m[1] <= n[1]; m[1]++)
@@ -103,23 +103,96 @@ void test_problem(const int *ns, const int *bcs, int approx, bool ghosts,
       for (real x : phi)
         if (x != ghost_phi) ghost_ok = false;
 
-      char label[80];
+      char label[120];
       std::snprintf(label, sizeof label, "n=%dx%dx%d mode %d,%d,%d", n[0], n[1], n[2], m[0], m[1], m[2]);
       ut_c_check_err(label, err * lam_min / rhs_max, 100 * std::numeric_limits<real>::epsilon());
       std::snprintf(label, sizeof label, "n=%dx%dx%d mode %d,%d,%d ghost points of Phi unchanged",
                     n[0], n[1], n[2], m[0], m[1], m[2]);
       ut_c_check(ghost_ok, label);
     }
-  };
+}
+
+template <unsigned int dims>
+void lengths(real *Lr)
+{
+  for (unsigned d = 0; d < dims; d++) Lr[d] = real(Ls[d]);
+}
+
+/* All modes of one problem with a new solver. */
+template <unsigned int dims>
+void test_problem(const int *ns, const int *bcs, int approx, bool ghosts,
+                  const char *section)
+{
+  real Lr[dims];
+  lengths<dims>(Lr);
+  ut_c_section(section);
 
   // the destructors at the end of the blocks finalize the solvers
   if (approx == PoisFFT::SPECTRAL) {
     // the default arguments
     PoisFFT::Solver<dims, real> S(ns, Lr, bcs);
-    run(S);
+    check_modes(S, ns, bcs, approx, ghosts);
   } else {
     PoisFFT::Solver<dims, real> S(ns, Lr, bcs, approx);
-    run(S);
+    check_modes(S, ns, bcs, approx, ghosts);
+  }
+}
+
+/* A solver returned from a function. */
+PoisFFT::Solver<3, real> make_solver(const int *ns, const int *bcs)
+{
+  real Lr[3];
+  lengths<3>(Lr);
+  PoisFFT::Solver<3, real> S(ns, Lr, bcs, PoisFFT::FINITE_DIFFERENCE_2);
+  return S;
+}
+
+/* Moved solvers must work and every Fortran solver must be finalized
+   exactly once (a double finalization would crash). */
+void test_move(const int *n3, const int *bcs3, const int *n2, const int *bcs2,
+               const int *n1, const int *bcs1)
+{
+  real L3[3], L2[2], L1[1];
+  lengths<3>(L3);
+  lengths<2>(L2);
+  lengths<1>(L1);
+
+  ut_c_section("C++ move construction");
+  {
+    PoisFFT::Solver<3, real> a(n3, L3, bcs3, PoisFFT::FINITE_DIFFERENCE_2);
+    PoisFFT::Solver<3, real> b(std::move(a));
+    check_modes(b, n3, bcs3, PoisFFT::FINITE_DIFFERENCE_2, false);
+  } // a is empty, b finalizes the solver
+
+  ut_c_section("C++ move assignment");
+  {
+    PoisFFT::Solver<3, real> a(n3, L3, bcs3, PoisFFT::FINITE_DIFFERENCE_2);
+    // its own solver must be finalized by the assignment
+    PoisFFT::Solver<3, real> b(n3, L3, bcs3);
+    b = std::move(a);
+    check_modes(b, n3, bcs3, PoisFFT::FINITE_DIFFERENCE_2, true);
+    // the move to itself must not finalize the solver
+    PoisFFT::Solver<3, real> &c = b;
+    b = std::move(c);
+    check_modes(b, n3, bcs3, PoisFFT::FINITE_DIFFERENCE_2, false);
+  }
+
+  ut_c_section("C++ solver returned from a function");
+  {
+    PoisFFT::Solver<3, real> s = make_solver(n3, bcs3);
+    check_modes(s, n3, bcs3, PoisFFT::FINITE_DIFFERENCE_2, false);
+  }
+
+  ut_c_section("C++ solvers in a growing std::vector");
+  {
+    std::vector<PoisFFT::Solver<2, real> > v;
+    for (int k = 0; k < 5; k++)
+      v.emplace_back(n2, L2, bcs2, PoisFFT::FINITE_DIFFERENCE_2);
+    for (auto &s : v)
+      check_modes(s, n2, bcs2, PoisFFT::FINITE_DIFFERENCE_2, false);
+    std::vector<PoisFFT::Solver<1, real> > w;
+    w.push_back(PoisFFT::Solver<1, real>(n1, L1, bcs1));
+    check_modes(w[0], n1, bcs1, PoisFFT::SPECTRAL, true);
   }
 }
 
@@ -143,6 +216,8 @@ int main()
     test_problem<3>(n3, bcs3, FINITE_DIFFERENCE_4, ghosts, ghosts ? "C++ 3D P,P N,N Ds,Ds FD4 ghosts" : "C++ 3D P,P N,N Ds,Ds FD4");
     test_problem<3>(n3, bcs3, SPECTRAL, ghosts, ghosts ? "C++ 3D P,P N,N Ds,Ds spectral ghosts" : "C++ 3D P,P N,N Ds,Ds spectral");
   }
+
+  test_move(n3, bcs3, n2, bcs2, n1, bcs1);
 
   ut_c_finish();
   return 0;
