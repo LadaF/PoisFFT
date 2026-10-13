@@ -2163,14 +2163,6 @@
     
 #ifdef MPI     
     subroutine Init_MPI_Buffers(D, dir, complex)
-      interface
-        subroutine MPI_ALLTOALL(SENDBUF, SENDCOUNT, SENDTYPE, RECVBUF, RECVCOUNT,&
-                                RECVTYPE, COMM, IERROR)
-            INTEGER   SENDBUF(*), RECVBUF(*)
-            INTEGER   SENDCOUNT, SENDTYPE, RECVCOUNT, RECVTYPE
-            INTEGER   COMM, IERROR
-        end subroutine
-      end interface
       
       class(PoisFFT_Solver3D), intent(inout), target :: D
       integer, intent(in) :: dir

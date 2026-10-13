@@ -7,28 +7,6 @@
       real(RP), intent(in)  :: RHS(:)
       integer i
 #ifdef MPI
-      interface
-        subroutine MPI_GATHER(SENDBUF, SENDCOUNT, SENDTYPE, RECVBUF, RECVCOUNT, &
-                              RECVTYPE, ROOT, COMM, IERROR)
-           INTEGER    SENDBUF, RECVBUF(*)
-           INTEGER    SENDCOUNT, SENDTYPE, RECVCOUNT, RECVTYPE, ROOT
-           INTEGER    COMM, IERROR
-        end subroutine
-        subroutine MPI_GATHERV(SENDBUF, SENDCOUNT, SENDTYPE, RECVBUF, RECVCOUNTS, &
-                               DISPLS, RECVTYPE, ROOT, COMM, IERROR)
-          import
-          real(RP)    SENDBUF(*), RECVBUF(*)
-          INTEGER    SENDCOUNT, SENDTYPE, RECVCOUNTS(*), DISPLS(*)
-          INTEGER    RECVTYPE, ROOT, COMM, IERROR
-        end subroutine
-        subroutine MPI_SCATTERV(SENDBUF, SENDCOUNTS, DISPLS, SENDTYPE, RECVBUF, &
-                                RECVCOUNT, RECVTYPE, ROOT, COMM, IERROR)
-          import
-          real(RP)    SENDBUF(*), RECVBUF(*)
-          INTEGER    SENDCOUNTS(*), DISPLS(*), SENDTYPE
-          INTEGER    RECVCOUNT, RECVTYPE, ROOT, COMM, IERROR
-        end subroutine
-      end interface
       integer, allocatable :: displs(:), counts(:)
       real(RP),allocatable :: tmp(:)
       integer :: ie
@@ -1679,16 +1657,6 @@
       integer :: nx, ny, nz
       integer :: i,j,k,l, ie
       integer :: tid
-      interface
-        subroutine MPI_ALLTOALLV(SENDBUF, SENDCOUNTS, SDISPLS, SENDTYPE, &
-                                 RECVBUF, RECVCOUNTS, RDISPLS, RECVTYPE, COMM, IERROR)
-          import
-          REAL(RP)    SENDBUF(*), RECVBUF(*)
-          INTEGER    SENDCOUNTS(*), SDISPLS(*), SENDTYPE
-          INTEGER    RECVCOUNTS(*), RDISPLS(*), RECVTYPE
-          INTEGER    COMM, IERROR
-        end subroutine
-      end interface
 
       nx = size(Phi, 1)
       ny = size(Phi, 2)
@@ -1803,16 +1771,6 @@
       integer :: nx, ny, nz
       integer :: i,j,k,l, ie
       integer :: tid
-      interface
-        subroutine MPI_ALLTOALLV(SENDBUF, SENDCOUNTS, SDISPLS, SENDTYPE, &
-                                 RECVBUF, RECVCOUNTS, RDISPLS, RECVTYPE, COMM, IERROR)
-          import
-          REAL(RP)    SENDBUF(*), RECVBUF(*)
-          INTEGER    SENDCOUNTS(*), SDISPLS(*), SENDTYPE
-          INTEGER    RECVCOUNTS(*), RDISPLS(*), RECVTYPE
-          INTEGER    COMM, IERROR
-        end subroutine
-      end interface
 
       nx = size(Phi, 1)
       ny = size(Phi, 2)

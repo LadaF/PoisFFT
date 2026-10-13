@@ -262,16 +262,6 @@
       integer :: glob_i
       integer :: tid
       real(RP) :: lam
-      interface
-        subroutine MPI_ALLTOALLV(SENDBUF, SENDCOUNTS, SDISPLS, SENDTYPE, &
-                                 RECVBUF, RECVCOUNTS, RDISPLS, RECVTYPE, COMM, IERROR)
-          import
-          REAL(RP)    SENDBUF(*), RECVBUF(*)
-          INTEGER    SENDCOUNTS(*), SDISPLS(*), SENDTYPE
-          INTEGER    RECVCOUNTS(*), RDISPLS(*), RECVTYPE
-          INTEGER    COMM, IERROR
-        end subroutine
-      end interface
 
       nx = size(Phi, 1)
       ny = size(Phi, 2)
@@ -413,16 +403,6 @@
       integer :: glob_i
       integer :: tid
       real(RP) :: lam
-      interface
-        subroutine MPI_ALLTOALLV(SENDBUF, SENDCOUNTS, SDISPLS, SENDTYPE, &
-                                 RECVBUF, RECVCOUNTS, RDISPLS, RECVTYPE, COMM, IERROR)
-          import
-          COMPLEX(CP)    SENDBUF(*), RECVBUF(*)
-          INTEGER    SENDCOUNTS(*), SDISPLS(*), SENDTYPE
-          INTEGER    RECVCOUNTS(*), RDISPLS(*), RECVTYPE
-          INTEGER    COMM, IERROR
-        end subroutine
-      end interface
 
       nx = size(D%cwork, 1)
       ny = size(D%cwork, 2)
