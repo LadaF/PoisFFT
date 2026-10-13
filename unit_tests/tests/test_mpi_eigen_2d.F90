@@ -1,11 +1,12 @@
 #include "precision.h"
 !Distributed version of test_eigen_2d.F90 (compiled only with mpi=yes).
 !
-!  mpirun -n <np> test_mpi_eigen_2d_dp <npy> <npz> [case]
+!  mpirun -n <np> test_mpi_eigen_2d_dp <np> 1 [case]
 !
 !The 2D solver uses a 1D Cartesian communicator of all processes: x is
-!never distributed, y is split into np parts. The process grid arguments
-!of the runner are only used for their product. The local block is
+!never distributed, y is split into np parts. The first two arguments
+!keep the command line of the 3D tests and are not used (the runner
+!passes np and 1, see the nps option of the SConstruct). The local block is
 !obtained from PFFT for the 2D grid, every process builds its part of the
 !global eigenvector and the error is reduced over all processes. `case`
 !selects one combination of boundary conditions (1..n_combos_2d), 0 or no

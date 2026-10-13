@@ -14,7 +14,9 @@
 #   fpe=yes|no         trap floating point exceptions invalid,zero,overflow (default no)
 #   openmp=yes|no      OpenMP (default yes without MPI, no with MPI)
 #   threads=N          OMP_NUM_THREADS for the test runs (default 2)
-#   grids=1x1,2x1,...  MPI process grids npy x npz (default 1x1,2x1,1x2,2x2)
+#   grids=1x1,2x1,...  MPI process grids npy x npz of the 3D tests (default 1x1,2x1,1x2,2x2)
+#   nps=1,2,...        MPI numbers of processes of the 2D test, which uses a 1D
+#                      communicator (default 1,2,3,4)
 #   timeout=S          time limit of a single test run in seconds (default 300)
 #   split=yes          MPI tests: always run every case in a separate mpirun
 #   src=DIR            library sources to test (default ../src), e.g. a patched copy;
@@ -39,6 +41,7 @@ openmp = args.get('openmp', 'no' if mpi else 'yes') == 'yes'
 threads = args.get('threads', '2')
 grids = [tuple(int(x) for x in g.split('x'))
          for g in args.get('grids', '1x1,2x1,1x2,2x2').split(',')]
+nps = [int(x) for x in args.get('nps', '1,2,3,4').split(',')]
 timeout = float(args.get('timeout', '300'))
 selected = [s for s in args.get('tests', '').split(',') if s]
 split = args.get('split', 'no') == 'yes'
@@ -140,35 +143,38 @@ if mpi:
 chain(lib_objs + support_objs)
 
 # ---------------------------------------------------------------- tests
-# name: (source, MPI cases or None). A program with MPI cases is run for
-# every process grid with all cases at once and, if that run does not pass,
-# once for every case to isolate the failing ones (always with split=yes).
+# (name, source, MPI cases or None, process layouts). A program with MPI
+# cases is run for every layout (label, npy, npz) with all cases at once
+# and, if that run does not pass, once for every case to isolate the
+# failing ones (always with split=yes).
+grid_layouts = [('grid=%dx%d' % g, g[0], g[1]) for g in grids]
+line_layouts = [('np=%d' % n, n, 1) for n in nps]
 if mpi:
-    test_list = [('mpi_eigen_3d', 'tests/test_mpi_eigen_3d.F90', list(range(1, 53))),
-                 ('mpi_eigen_2d', 'tests/test_mpi_eigen_2d.F90', list(range(1, 22))),
-                 ('mpi_nonuniform_z', 'tests/test_mpi_nonuniform_z.F90', list(range(1, 5)))]
+    test_list = [('mpi_eigen_3d', 'tests/test_mpi_eigen_3d.F90', list(range(1, 53)), grid_layouts),
+                 ('mpi_eigen_2d', 'tests/test_mpi_eigen_2d.F90', list(range(1, 22)), line_layouts),
+                 ('mpi_nonuniform_z', 'tests/test_mpi_nonuniform_z.F90', list(range(1, 5)), grid_layouts)]
 else:
-    test_list = [('fft', 'tests/test_fft.F90', None),
-                 ('eigen_1d', 'tests/test_eigen_1d.F90', None),
-                 ('eigen_2d', 'tests/test_eigen_2d.F90', None),
-                 ('eigen_3d', 'tests/test_eigen_3d.F90', None),
-                 ('solver_api', 'tests/test_solver_api.F90', None),
-                 ('nonuniform_z', 'tests/test_nonuniform_z.F90', None),
-                 ('error_reporting', 'tests/test_error_reporting.F90', None)]
+    test_list = [('fft', 'tests/test_fft.F90', None, []),
+                 ('eigen_1d', 'tests/test_eigen_1d.F90', None, []),
+                 ('eigen_2d', 'tests/test_eigen_2d.F90', None, []),
+                 ('eigen_3d', 'tests/test_eigen_3d.F90', None, []),
+                 ('solver_api', 'tests/test_solver_api.F90', None, []),
+                 ('nonuniform_z', 'tests/test_nonuniform_z.F90', None, []),
+                 ('error_reporting', 'tests/test_error_reporting.F90', None, [])]
 
 precisions = {'dp': [], 'sp': ['SINGLE']}
 if prec in precisions:
     precisions = {prec: precisions[prec]}
 
-programs = []   # (name, executable node, cases)
-for name, source, cases in test_list:
+programs = []   # (name, executable node, cases, layouts)
+for name, source, cases, layouts in test_list:
     for p, defines in sorted(precisions.items()):
         exe_name = 'test_%s_%s' % (name, p)
         o = obj(source, name=exe_name, defines=defines)
         Depends(o, lib_objs + support_objs + ['support/precision.h'])
         exe = env.Program(target=os.path.join(build_dir, exe_name),
                           source=o + support_objs + lib_objs)
-        programs.append((exe_name, exe, cases))
+        programs.append((exe_name, exe, cases, layouts))
 
 # programs that must stop with an error message: (name, source, number of
 # cases); case 0 must be accepted, cases 1..n rejected (serial build only)
@@ -193,18 +199,18 @@ def run_commands():
     'reject' (the program must stop with the unsupported BC message)."""
     runs = []
     launcher = os.environ.get('MPIRUN', 'mpirun').split()
-    for exe_name, exe, cases in programs:
+    for exe_name, exe, cases, layouts in programs:
         if selected and not any(s in exe_name for s in selected):
             continue
         path = os.path.abspath(str(exe[0]))
         if cases is None:
             runs.append((exe_name, [path], [], None))
         else:
-            for npy, npz in grids:
+            for layout, npy, npz in layouts:
                 def mpi_cmd(c):
                     return launcher + ['--oversubscribe', '-n', str(npy * npz),
                                        path, str(npy), str(npz), str(c)]
-                label = '%s grid=%dx%d' % (exe_name, npy, npz)
+                label = '%s %s' % (exe_name, layout)
                 single = [('%s case=%d' % (label, c), mpi_cmd(c)) for c in cases]
                 if split:
                     runs += [(l, c, [], None) for l, c in single]
