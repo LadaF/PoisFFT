@@ -58,8 +58,9 @@ The 1D, 2D and 3D solvers support any such pair in every direction, the pairs
 in different directions may differ. In 3D the combinations without a specialized
 solver use one real-to-real transform in all three directions (with MPI a
 transform in one direction at a time with global transpositions, which is slower
-than the specialized solvers). With MPI the 2D solver needs a 1D Cartesian
-communicator, x is not distributed.
+than the specialized solvers). With MPI the 1D and 2D solvers need a 1D Cartesian
+communicator, in 2D x is not distributed. The 1D solver gathers the right-hand side
+on the first process and solves the whole problem there.
 
 You can choose from these types of boundary conditions:
 
@@ -86,7 +87,7 @@ There are other (optional) arguments for the initializer:
 
 `approximation` can change the spectral approximation of the Poisson equation to the 
 2nd order central finite difference, if it is equal to `PoisFFT_FiniteDifference2` 
-or `2`.
+or `2`, or to the 4th order one, `PoisFFT_FiniteDifference4` or `4`.
 
 `gnxyz` contains the full number of all points when using MPI distributed grid
 
@@ -121,3 +122,80 @@ This procedure releases all the memory occupied by the internal structures of th
 solver.
 
 
+
+Solver with a non-uniform grid in z
+-----------------------------------
+
+The solver `PoisFFT_Solver3D_nonuniform_z_SP` (`_DP`) solves the same equation on a
+grid that is uniform in x and y, but arbitrary in z. It uses the FFT in x and y and
+a tridiagonal solver in z.
+
+    type(PoisFFT_Solver3D_nonuniform_z_DP) :: Solver
+
+    Solver = PoisFFT_Solver3D_nonuniform_z_DP([nx,ny,nz], [Lx,Ly], z, z_u, BCs)
+
+    call Execute(Solver, Phi, RHS)
+
+    call Finalize(Solver)
+
+Instead of Lz the grid in z is given by two arrays
+
+      real(RP), intent(in) :: z(:), z_u(0:)
+
+`z(k)`, k = 1..nz, are the positions of the points with the solution and `z_u(k)`,
+k = 0..nz, are the faces of the cells around them; the cell k lies between `z_u(k-1)`
+and `z_u(k)`. Both arrays must be increasing. With MPI they contain the whole grid
+in z (`gnz` points), not just the local part.
+
+In z the equation is discretized by finite volumes of the 2nd order:
+
+  (A f)_k = [ (f_k+1 - f_k) / (z_k+1 - z_k)
+            - (f_k - f_k-1) / (z_k - z_k-1) ] / (z_u_k - z_u_k-1)
+
+On a uniform grid with `z(k) = (k-1/2) dz` and `z_u(k) = k dz` it is the same as
+`PoisFFT_Solver3D` with `PoisFFT_FiniteDifference2` and staggered conditions in z.
+
+The boundary conditions in x and y can be any pairs supported by `PoisFFT_Solver3D`,
+the pairs in x and y may differ. In z only Neumann conditions are supported:
+`PoisFFT_Neumann` or `PoisFFT_NeumannStag` on both ends. Both mean the same here,
+zero flux through the faces `z_u(0)` and `z_u(nz)`. Other combinations are rejected
+as described below.
+
+`approximation` applies only to x and y, the scheme in z is always the one above.
+
+Without a Dirichlet condition (x and y periodic or Neumann) the problem is
+singular, the solution is unique only up to a constant. The right-hand side must
+then satisfy the compatibility condition: the sum over k of
+`(z_u(k) - z_u(k-1))` times the mean of the right-hand side over x and y in the
+layer k must be zero (for regular Neumann conditions in x or y the boundary points
+count with the weight 1/2 in the mean). The solver returns one of the solutions,
+subtract its mean if you need a particular one. If the condition does not hold,
+there is no solution and the result does not satisfy the equation in the layer
+k = 1.
+
+The optional arguments of the constructor are
+
+      integer, intent(in), optional :: approximation
+      integer, intent(in), optional :: gnxyz(3)
+      integer, intent(in), optional :: offs(3)
+      integer, intent(in), optional :: mpi_comm
+      integer, intent(in), optional :: nthreads
+      integer, intent(out), optional :: ierr
+      integer, intent(in), optional :: planning
+      character(*), intent(out), optional :: errmsg
+
+in this order, it is safer to pass them by keyword. `approximation`, `gnxyz`, `offs`,
+`mpi_comm`, `nthreads` and `planning` are the same as for `PoisFFT_Solver3D`. With MPI
+the solver uses the same communicator and decomposition as `PoisFFT_Solver3D`, z is
+distributed as well.
+
+Without `ierr` the constructor stops the program with a message on invalid
+arguments. With `ierr` it returns instead and `ierr` contains
+
+  PoisFFT_OK          success
+  PoisFFT_ErrorBCs    unsupported combination of boundary conditions
+  PoisFFT_ErrorGrid   z or z_u do not cover the whole grid in z, or are not
+                      increasing
+
+`errmsg` then contains the message, it is empty on success. A solver returned with
+an error must not be used in `Execute`, but it can be passed to `Finalize`.
