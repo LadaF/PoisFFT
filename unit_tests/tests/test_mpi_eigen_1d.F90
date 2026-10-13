@@ -15,7 +15,6 @@ program test_mpi_eigen_1d
   use iso_c_binding, only: c_int
   use iso_fortran_env, only: error_unit
   use ieee_arithmetic, only: ieee_is_nan, ieee_value, ieee_quiet_nan
-  use pfft, only: pfft_create_procmesh_1d
   use PoisFFT, Solver1D => SOLVER1D
   use reference_modes
   use unit_test_utils
@@ -55,9 +54,9 @@ program test_mpi_eigen_1d
     read(arg, *) command_case
   end if
 
-  ie = pfft_create_procmesh_1d(MPI_COMM_WORLD, int(nprocs, c_int), comm)
+  call PoisFFT_InitMPIGrid(MPI_COMM_WORLD, [int(nprocs, c_int)], comm, ie)
   if (ie /= 0) then
-    if (rank == 0) write(error_unit, '(a)') "pfft_create_procmesh_1d failed."
+    if (rank == 0) write(error_unit, '(a)') "PoisFFT_InitMPIGrid failed."
     call MPI_Abort(MPI_COMM_WORLD, 3, ie)
   end if
 

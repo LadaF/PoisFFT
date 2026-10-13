@@ -151,7 +151,7 @@ The 3D solvers (`PoisFFT_Solver3D` and `PoisFFT_Solver3D_nonuniform_z`) need a 2
 Cartesian communicator, y and z are split. The local blocks must be those of PFFT
 (with `PFFT_TRANSPOSED_NONE`), otherwise the solver stops with "Inconsistent size of
 local arrays from pfft_local_size_dft!". The module `PoisFFT` has two helpers for
-that:
+that (for 3D and 2D grids):
 
     use iso_c_binding, only: c_int, c_intptr_t
     integer :: comm, ierr
@@ -172,25 +172,23 @@ For the non-uniform z solver `z` and `z_u` contain the whole grid in z on every
 process.
 
 The 2D solver needs a 1D Cartesian communicator, y is split. The local blocks must
-again be those of PFFT. `PoisFFT_LocalGridSize` works only for 3D grids, use the
-PFFT procedures (available through the module `PoisFFT`) directly:
+again be those of PFFT. `PoisFFT_InitMPIGrid` creates a 1D communicator when it gets
+one number of processes:
 
-    integer :: comm, ierr, nxy(2), offs(2)
-    integer(c_intptr_t) :: ln(2), lo(2), ln2(2), lo2(2), alloc_local
+    integer :: comm, ierr
+    integer(c_intptr_t) :: ln(2), lo(2), ln2(2), lo2(2)
 
-    ierr = pfft_create_procmesh_1d(MPI_COMM_WORLD, int(np, c_int), comm)
+    !all np processes of MPI_COMM_WORLD in y
+    call PoisFFT_InitMPIGrid(MPI_COMM_WORLD, [int(np, c_int)], comm, ierr)
 
-    !PFFT uses the C order of the dimensions
-    alloc_local = pfft_local_size_dft(2_c_int, int([gny, gnx], c_intptr_t), comm, &
-                                      PFFT_TRANSPOSED_NONE, ln, lo, ln2, lo2)
-    nxy = int(ln(2:1:-1))
-    offs = int(lo(2:1:-1))
+    call PoisFFT_LocalGridSize(2, int([gnx, gny], c_intptr_t), comm, &
+                               ln, lo, ln2, lo2)
 
-    Solver = PoisFFT_Solver2D_DP(nxy, [Lx, Ly], BCs, &
-                                 gnxyz=[gnx, gny], offs=offs, mpi_comm=comm)
+    Solver = PoisFFT_Solver2D_DP(int(ln), [Lx, Ly], BCs, &
+                                 gnxyz=[gnx, gny], offs=int(lo), mpi_comm=comm)
 
-The 1D solver needs a 1D Cartesian communicator (e.g. from
-`pfft_create_procmesh_1d` or `MPI_Cart_create`). The grid can be split into any
+The 1D solver needs a 1D Cartesian communicator (e.g. from `PoisFFT_InitMPIGrid`
+with one number of processes, or `MPI_Cart_create`). The grid can be split into any
 contiguous blocks, one per process, given by `nxyz` and `offs`. The right-hand side is
 gathered on the first process, solved there and the solution is scattered back, so
 the 1D solver does not save memory or time on more processes.

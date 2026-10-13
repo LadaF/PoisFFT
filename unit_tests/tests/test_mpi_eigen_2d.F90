@@ -6,8 +6,9 @@
 !The 2D solver uses a 1D Cartesian communicator of all processes: x is
 !never distributed, y is split into np parts. The first two arguments
 !keep the command line of the 3D tests and are not used (the runner
-!passes np and 1, see the nps option of the SConstruct). The local block is
-!obtained from PFFT for the 2D grid, every process builds its part of the
+!passes np and 1, see the nps option of the SConstruct). The communicator and
+!the local block come from PoisFFT_InitMPIGrid and PoisFFT_LocalGridSize for
+!the 2D grid, every process builds its part of the
 !global eigenvector and the error is reduced over all processes. `case`
 !selects one combination of boundary conditions (1..n_combos_2d), 0 or no
 !argument runs all.
@@ -16,7 +17,6 @@ program test_mpi_eigen_2d
   use iso_c_binding, only: c_int, c_intptr_t
   use iso_fortran_env, only: error_unit
   use ieee_arithmetic, only: ieee_is_nan, ieee_value, ieee_quiet_nan
-  use pfft, only: pfft_create_procmesh_1d, pfft_local_size_dft, PFFT_TRANSPOSED_NONE
   use PoisFFT, Solver2D => SOLVER2D
   use reference_modes
   use unit_test_utils
@@ -33,7 +33,7 @@ program test_mpi_eigen_2d
                                       PoisFFT_FiniteDifference4]
   integer :: comm, rank, nprocs, ie, provided, command_case
   integer :: nxy(2), offs(2)
-  integer(c_intptr_t) :: ln(2), lo(2), ln2(2), lo2(2), alloc_local
+  integer(c_intptr_t) :: ln(2), lo(2), ln2(2), lo2(2)
   integer :: ic, ia
   character(32) :: arg, grid_name
 
@@ -53,17 +53,15 @@ program test_mpi_eigen_2d
     read(arg, *) command_case
   end if
 
-  ie = pfft_create_procmesh_1d(MPI_COMM_WORLD, int(nprocs, c_int), comm)
+  call PoisFFT_InitMPIGrid(MPI_COMM_WORLD, [int(nprocs, c_int)], comm, ie)
   if (ie /= 0) then
-    if (rank == 0) write(error_unit, '(a)') "pfft_create_procmesh_1d failed."
+    if (rank == 0) write(error_unit, '(a)') "PoisFFT_InitMPIGrid failed."
     call MPI_Abort(MPI_COMM_WORLD, 3, ie)
   end if
 
-  !PFFT uses the C order of dimensions
-  alloc_local = pfft_local_size_dft(2_c_int, int(gn(2:1:-1), c_intptr_t), comm, &
-                                    PFFT_TRANSPOSED_NONE, ln, lo, ln2, lo2)
-  nxy = int(ln(2:1:-1))
-  offs = int(lo(2:1:-1))
+  call PoisFFT_LocalGridSize(2, int(gn, c_intptr_t), comm, ln, lo, ln2, lo2)
+  nxy = int(ln)
+  offs = int(lo)
   if (any(nxy < 1)) then
     write(error_unit, '(a,i0,a,2(1x,i0))') "Rank ", rank, " has an empty local grid", nxy
     call MPI_Abort(MPI_COMM_WORLD, 4, ie)
