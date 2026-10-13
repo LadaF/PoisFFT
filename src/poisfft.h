@@ -36,6 +36,20 @@ void poisfft_solver_f_finalize( poisfft_solver_f *S);
 #ifdef __cplusplus
 }
 
+/* The solver classes own the Fortran solver, which the destructor
+   finalizes, so they cannot be copied. */
+#if __cplusplus >= 201103L
+#define POISFFT_NO_COPY(cls) \
+    public: \
+      cls(const cls &) = delete; \
+      cls &operator=(const cls &) = delete;
+#else
+#define POISFFT_NO_COPY(cls) \
+    private: \
+      cls(const cls &); \
+      cls &operator=(const cls &);
+#endif
+
 namespace PoisFFT{
   const int PERIODIC = POISFFT_PERIODIC;
   const int DIRICHLET = POISFFT_DIRICHLET;
@@ -60,6 +74,7 @@ namespace PoisFFT{
   template <unsigned int dims>  class Solver<dims, double>{
     private:
       poisfft_solver c_solver;
+    POISFFT_NO_COPY(Solver)
     public:
       Solver(const int *nxyz, const double *Lxyz,
                      const int *BCs, const int approximation=0,
@@ -80,6 +95,7 @@ namespace PoisFFT{
   template <unsigned int dims>  class Solver<dims, float>{
     private:
       poisfft_solver_f c_solver;
+    POISFFT_NO_COPY(Solver)
     public:
       Solver(const int *nxyz, const float *Lxyz,
                      const int *BCs, const int approximation=0,
@@ -98,4 +114,6 @@ namespace PoisFFT{
   };
 
 }
+
+#undef POISFFT_NO_COPY
 #endif

@@ -2,12 +2,14 @@
    poisfft.h. The C functions under it are tested by test_c_api.c, this
    test checks the class for 1D, 2D and 3D: the constructor with the
    default arguments and with an approximation, execute() with and
-   without ghost points, and the destructor at the end of the scope.
+   without ghost points, the destructor at the end of the scope and that
+   the class cannot be copied.
    Compiled with -DSINGLE for float. See test_c_api.c for the method. */
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <limits>
+#include <type_traits>
 #include <vector>
 #include "poisfft.h"
 #include "c_test_support.h"
@@ -21,6 +23,11 @@ typedef double real;
 #endif
 
 namespace {
+
+// the solvers own the Fortran object and must not be copied
+static_assert(!std::is_copy_constructible<PoisFFT::Solver<3, real> >::value &&
+              !std::is_copy_assignable<PoisFFT::Solver<3, real> >::value,
+              "PoisFFT::Solver must not be copyable");
 
 const double Ls[3] = {2.3, 1.7, 1.1};
 const int ng_phi[3] = {2, 1, 0}, ng_rhs[3] = {1, 0, 2};

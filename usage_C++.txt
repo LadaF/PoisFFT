@@ -95,6 +95,7 @@ the number of the ghost points in each direction (e.g. {ngx, ngy, ngz}).
 
 
 The finalizer is called automatically when the solver goes out of scope according to 
-the rules of C++.
+the rules of C++. The solver cannot be copied, pass it by reference or keep it in a
+(smart) pointer.
 
 
