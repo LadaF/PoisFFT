@@ -188,6 +188,11 @@
       
 #ifdef MPI
       call PoisFFT_PFFT_init()
+      !pfft_init plans FFTW with all threads; the plans executed by each
+      !thread separately are created serial, the distributed ones set the
+      !threads themselves (not PoisFFT_PFFT_InitThreads(1), it also sets
+      !the number of OpenMP threads)
+      if (D%nthreads>1) call PoisFFT_InitThreads(1)
 #else
       if (D%nthreads>1) call PoisFFT_InitThreads(1)
 #endif
@@ -1729,6 +1734,11 @@
       
 #ifdef MPI
       call PoisFFT_PFFT_init()
+      !pfft_init plans FFTW with all threads; the plans executed by each
+      !thread separately are created serial, the distributed ones set the
+      !threads themselves (not PoisFFT_PFFT_InitThreads(1), it also sets
+      !the number of OpenMP threads)
+      if (D%nthreads>1) call PoisFFT_InitThreads(1)
 #else
       if (D%nthreads>1) call PoisFFT_InitThreads(1)
 #endif
